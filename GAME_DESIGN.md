@@ -1,6 +1,10 @@
-# GAME_DESIGN.md — "Garden" (working title)
+# GAME_DESIGN.md — "Клумба: цветочная головоломка"
 
-A browser logic puzzle game for Yandex Games. Final name TBD.
+Short name: **"Клумба"**. Working title "Garden" in code/repo. A browser logic puzzle game for Yandex Games.
+
+## Theme
+
+A cozy garden. Each colored region of the grid is a flower bed; the player plants exactly one flower per bed. Mascot: a small ladybug who gives hints (placeholder, drawn with SVG for now).
 
 ## Rules
 
@@ -32,14 +36,28 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 
 ## Lives
 
-- 3 lives per level.
-- A life is lost when a flower is placed in a cell that violates the rules (wrong row/column/region conflict or touching another flower).
+- 3 lives per level, shown as water drops (💧-style, drawn in SVG) instead of hearts.
+- A life (water drop) is lost when a flower is placed in a cell that violates the rules (wrong row/column/region conflict or touching another flower).
+
+## Soft currency: seeds
+
+- Earned through play, spent on hints (see Roadmap step 4).
+
+## Flower collection
+
+- Different flower types unlock as the player progresses through levels.
+- The game starts with one flower type; more are added and become plantable as levels advance.
+
+## Accessibility
+
+- Every flower bed region must be distinguishable not only by color but also by a subtle pattern (dots, stripes, etc.) drawn in SVG/CSS.
+- A settings toggle lets the player turn region patterns on/off.
 
 ## Visual style
 
-- Soft pastel colors, rounded cells, smooth animations.
+- Soft pastel colors, rounded cells, smooth animations, one consistent style across all graphics.
 - Calm, cozy tone — not stressful despite the lives mechanic.
-- CSS/SVG graphics only for now; no image/bitmap assets.
+- CSS/SVG graphics only; no image/bitmap assets.
 
 ## Roadmap
 
@@ -53,6 +71,7 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 
 ## Status
 
+- [x] Naming, theme, and accessibility decisions locked in (title "Клумба: цветочная головоломка", ladybug mascot, water-drop lives, seed currency, flower collection, pattern accessibility toggle).
 - [ ] Step 1: Core gameplay loop
 - [ ] Step 2: Tutorial
 - [ ] Step 3: Main menu and loading screen
@@ -61,4 +80,4 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 - [ ] Step 6: Daily challenge
 - [ ] Step 7: Yandex Games SDK integration
 
-Nothing implemented yet — documentation only.
+No game code implemented yet — documentation only.
