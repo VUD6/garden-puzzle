@@ -72,7 +72,7 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 ## Status
 
 - [x] Naming, theme, and accessibility decisions locked in (title "Клумба: цветочная головоломка", ladybug mascot, water-drop lives, seed currency, flower collection, pattern accessibility toggle).
-- [ ] Step 1: Core gameplay loop
+- [x] Step 1: Core gameplay loop — grid/rules/solver/generator (unique-solution guaranteed), 3 water-drop lives, win screen, next level, level number saved via `platform.js`/localStorage, responsive square board (phone portrait through desktop), region color + pattern accessibility toggle. One flower type for now (collection system deferred to a later step). Verified by `tests/generator.test.js` (1000 checks, 0 failures) and by driving `index.html` in a real browser (tap cycle, conflict/life loss, fail+retry, win+next-level, resize/orientation).
 - [ ] Step 2: Tutorial
 - [ ] Step 3: Main menu and loading screen
 - [ ] Step 4: Hints and soft currency
@@ -80,4 +80,4 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 - [ ] Step 6: Daily challenge
 - [ ] Step 7: Yandex Games SDK integration
 
-No game code implemented yet — documentation only.
+Playable at `index.html` (open directly in a browser, no server/build step needed).

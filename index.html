@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Клумба: цветочная головоломка</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <h1 class="app-title" id="appTitle"></h1>
+    <div class="level-indicator" id="levelIndicator"></div>
+    <div class="lives" id="livesContainer"></div>
+    <button class="patterns-toggle" id="patternsToggle" type="button"></button>
+  </header>
+  <main class="board-wrap">
+    <div class="board" id="board"></div>
+  </main>
+  <div class="overlay" id="winOverlay" hidden>
+    <div class="overlay-card">
+      <h2 id="winTitle"></h2>
+      <p id="winMessage"></p>
+      <button id="nextLevelButton" type="button"></button>
+    </div>
+  </div>
+  <div class="overlay" id="failOverlay" hidden>
+    <div class="overlay-card">
+      <h2 id="failTitle"></h2>
+      <p id="failMessage"></p>
+      <button id="retryButton" type="button"></button>
+    </div>
+  </div>
+</div>
+<script src="js/i18n.js"></script>
+<script src="js/platform.js"></script>
+<script src="js/grid.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/solver.js"></script>
+<script src="js/generator.js"></script>
+<script src="js/state.js"></script>
+<script src="js/render.js"></script>
+<script src="js/input.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

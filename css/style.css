@@ -1,0 +1,240 @@
+:root {
+  --bg: #fbf6ef;
+  --ink: #4a4440;
+  --ink-soft: #8a8178;
+  --panel: #ffffff;
+  --accent: #6fae7d;
+  --accent-ink: #2f5f3c;
+
+  --region-0: #f6c9c9;
+  --region-1: #c9e4f6;
+  --region-2: #f6ecb9;
+  --region-3: #cdeccb;
+  --region-4: #e3cdf0;
+  --region-5: #f6d9b9;
+  --region-6: #c9f0e8;
+  --region-7: #f0c9e0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+  overscroll-behavior: contain;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  align-items: stretch;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.app-title {
+  font-size: 1.3rem;
+  margin: 0;
+  color: var(--accent-ink);
+}
+
+.level-indicator {
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+
+.lives {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.lives svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.lives .drop-filled {
+  fill: #5fb4e0;
+  stroke: #3a87b0;
+  stroke-width: 4;
+}
+
+.lives .drop-empty {
+  fill: none;
+  stroke: #cfd8dc;
+  stroke-width: 4;
+}
+
+.patterns-toggle {
+  border: 1px solid #d8cfc2;
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.patterns-toggle[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-ink);
+}
+
+.board-wrap {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.board {
+  display: grid;
+  width: min(92vmin, 560px);
+  aspect-ratio: 1 / 1;
+  gap: 2px;
+  background: var(--accent-ink);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.cell {
+  position: relative;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  transition: transform 0.08s ease;
+  overflow: hidden;
+}
+
+.cell:active {
+  transform: scale(0.94);
+}
+
+.cell.region-0 { background-color: var(--region-0); }
+.cell.region-1 { background-color: var(--region-1); }
+.cell.region-2 { background-color: var(--region-2); }
+.cell.region-3 { background-color: var(--region-3); }
+.cell.region-4 { background-color: var(--region-4); }
+.cell.region-5 { background-color: var(--region-5); }
+.cell.region-6 { background-color: var(--region-6); }
+.cell.region-7 { background-color: var(--region-7); }
+
+.cell-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  transition: opacity 0.15s ease;
+}
+
+.board.patterns-off .cell-pattern {
+  opacity: 0;
+}
+
+.pattern-0 { background-image: radial-gradient(circle, rgba(0,0,0,0.5) 10%, transparent 11%); background-size: 10px 10px; }
+.pattern-1 { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.45) 0 2px, transparent 2px 9px); }
+.pattern-2 { background-image: repeating-linear-gradient(-45deg, rgba(0,0,0,0.45) 0 2px, transparent 2px 9px); }
+.pattern-3 { background-image: repeating-linear-gradient(0deg, rgba(0,0,0,0.4) 0 2px, transparent 2px 9px); }
+.pattern-4 { background-image: repeating-linear-gradient(90deg, rgba(0,0,0,0.4) 0 2px, transparent 2px 9px); }
+.pattern-5 {
+  background-image:
+    repeating-linear-gradient(45deg, rgba(0,0,0,0.35) 0 1.5px, transparent 1.5px 9px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,0.35) 0 1.5px, transparent 1.5px 9px);
+}
+.pattern-6 { background-image: radial-gradient(circle, rgba(0,0,0,0.45) 18%, transparent 19%); background-size: 16px 16px; }
+.pattern-7 {
+  background-image: repeating-conic-gradient(rgba(0,0,0,0.4) 0deg 90deg, transparent 90deg 180deg);
+  background-size: 12px 12px;
+}
+
+.cell-mark {
+  position: relative;
+  width: 62%;
+  height: 62%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cell-mark svg {
+  width: 100%;
+  height: 100%;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 36, 32, 0.45);
+  padding: 1rem;
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.overlay-card {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 1.75rem 2rem;
+  text-align: center;
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.overlay-card h2 {
+  margin: 0 0 0.5rem;
+  color: var(--accent-ink);
+}
+
+.overlay-card p {
+  margin: 0 0 1.25rem;
+  color: var(--ink-soft);
+}
+
+.overlay-card button {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+@media (max-width: 420px) {
+  .topbar {
+    justify-content: center;
+    text-align: center;
+  }
+}
