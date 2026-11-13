@@ -5,6 +5,7 @@
   const SIZES_BY_STAGE = [4, 5, 6, 7, 8];
   const LEVELS_PER_STAGE = 3;
   const DOUBLE_TAP_WINDOW_MS = 300;
+  const POINTS_PER_FLOWER = 10;
 
   function gridSizeForLevel(level) {
     const stageIndex = Math.min(Math.floor((level - 1) / LEVELS_PER_STAGE), SIZES_BY_STAGE.length - 1);
@@ -38,13 +39,25 @@
     let status = 'playing'; // 'playing' | 'won' | 'lost'
     let solutionKeys = null; // Set of 'row,col' for the puzzle's one true solution
     let lastTap = null; // { row, col, time } - tracks the double-tap gesture
+    let levelScore = 0;
+    let totalScore = platform.loadTotalScore();
+    let autoXEnabled = false;
 
     function cellKey(row, col) {
       return row + ',' + col;
     }
 
     function getSnapshot() {
-      return { level, lives, maxLives: MAX_LIVES, grid, status };
+      return {
+        level,
+        lives,
+        maxLives: MAX_LIVES,
+        grid,
+        status,
+        levelScore,
+        totalScore,
+        perfect: lives === MAX_LIVES,
+      };
     }
 
     function emit(extra) {
@@ -61,7 +74,7 @@
         }
         cells.push(rowCells);
       }
-      return { lives, cells };
+      return { lives, levelScore, cells };
     }
 
     function commit(extra) {
@@ -86,6 +99,7 @@
       const saved = platform.loadBoard(levelNumber);
       if (saved && Array.isArray(saved.cells) && saved.cells.length === built.size) {
         lives = saved.lives;
+        levelScore = saved.levelScore || 0;
         for (let row = 0; row < built.size; row++) {
           for (let col = 0; col < built.size; col++) {
             const savedCell = saved.cells[row][col];
@@ -97,6 +111,7 @@
         if (lives <= 0) status = 'lost';
       } else {
         lives = MAX_LIVES;
+        levelScore = 0;
       }
 
       platform.saveProgress(level);
@@ -112,6 +127,43 @@
       startLevel(level + 1);
     }
 
+    function setAutoXEnabled(enabled) {
+      autoXEnabled = enabled;
+    }
+
+    // Every cell that can never hold a flower now that (row, col) has one:
+    // its row, its column, its whole bed, and its 8 neighbors.
+    function autoMarkAround(row, col) {
+      const regionIdx = grid.cells[row][col].region;
+      const affected = new Set();
+
+      for (let c = 0; c < grid.size; c++) affected.add(cellKey(row, c));
+      for (let r = 0; r < grid.size; r++) affected.add(cellKey(r, col));
+      for (let r = 0; r < grid.size; r++) {
+        for (let c = 0; c < grid.size; c++) {
+          if (grid.cells[r][c].region === regionIdx) affected.add(cellKey(r, c));
+        }
+      }
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = row + dr;
+          const nc = col + dc;
+          if (nr >= 0 && nr < grid.size && nc >= 0 && nc < grid.size) affected.add(cellKey(nr, nc));
+        }
+      }
+      affected.delete(cellKey(row, col));
+
+      const changed = [];
+      for (const key of affected) {
+        const [r, c] = key.split(',').map(Number);
+        const cell = grid.cells[r][c];
+        if (cell.locked || cell.state !== CellState.EMPTY) continue;
+        cell.state = CellState.X;
+        changed.push({ row: r, col: c });
+      }
+      return changed;
+    }
+
     function attemptFlower(row, col, cell) {
       if (!solutionKeys.has(cellKey(row, col))) {
         cell.state = CellState.WRONG;
@@ -123,15 +175,21 @@
       }
 
       cell.state = CellState.FLOWER;
+      levelScore += POINTS_PER_FLOWER;
+      totalScore += POINTS_PER_FLOWER;
+      platform.saveTotalScore(totalScore);
+
+      const autoX = autoXEnabled ? autoMarkAround(row, col) : [];
+      const scoreGain = { row, col, amount: POINTS_PER_FLOWER };
 
       if (rules.isSolved(grid)) {
         status = 'won';
         platform.clearBoard(level);
-        emit();
+        emit({ scoreGain, autoX });
         return;
       }
 
-      commit();
+      commit({ scoreGain, autoX });
     }
 
     function tapCell(row, col) {
@@ -174,12 +232,37 @@
       }
     }
 
+    // Drag-to-mark: immediate, no double-tap ambiguity, never touches flowers,
+    // the pre-placed flower, or red X marks.
+    function markCellX(row, col) {
+      if (status !== 'playing') return;
+      const cell = grid.cells[row][col];
+      if (cell.locked || cell.state !== CellState.EMPTY) return;
+      cell.state = CellState.X;
+      commit();
+    }
+
+    function clearCellX(row, col) {
+      if (status !== 'playing') return;
+      const cell = grid.cells[row][col];
+      if (cell.locked || cell.state !== CellState.X) return;
+      cell.state = CellState.EMPTY;
+      commit();
+    }
+
     startLevel(level);
 
-    return { tapCell, nextLevel, retryLevel, getSnapshot };
+    return { tapCell, markCellX, clearCellX, nextLevel, retryLevel, setAutoXEnabled, getSnapshot };
   }
 
-  const State = { createGame, gridSizeForLevel, buildLevel, MAX_LIVES, DOUBLE_TAP_WINDOW_MS };
+  const State = {
+    createGame,
+    gridSizeForLevel,
+    buildLevel,
+    MAX_LIVES,
+    DOUBLE_TAP_WINDOW_MS,
+    POINTS_PER_FLOWER,
+  };
 
   root.Garden = root.Garden || {};
   root.Garden.state = State;

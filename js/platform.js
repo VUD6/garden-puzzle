@@ -4,6 +4,8 @@
 (function (root) {
   const LEVEL_KEY = 'garden.currentLevel';
   const PATTERNS_KEY = 'garden.patternsEnabled';
+  const AUTO_X_KEY = 'garden.autoXEnabled';
+  const TOTAL_SCORE_KEY = 'garden.totalScore';
   const BOARD_KEY_PREFIX = 'garden.board.';
 
   function hasStorage() {
@@ -31,6 +33,28 @@
     if (!hasStorage()) return true;
     const raw = localStorage.getItem(PATTERNS_KEY);
     return raw === null ? true : raw === '1';
+  }
+
+  function saveAutoXEnabled(enabled) {
+    if (!hasStorage()) return;
+    localStorage.setItem(AUTO_X_KEY, enabled ? '1' : '0');
+  }
+
+  function loadAutoXEnabled() {
+    if (!hasStorage()) return false;
+    return localStorage.getItem(AUTO_X_KEY) === '1';
+  }
+
+  function saveTotalScore(score) {
+    if (!hasStorage()) return;
+    localStorage.setItem(TOTAL_SCORE_KEY, String(score));
+  }
+
+  function loadTotalScore() {
+    if (!hasStorage()) return 0;
+    const raw = localStorage.getItem(TOTAL_SCORE_KEY);
+    const score = parseInt(raw, 10);
+    return Number.isInteger(score) && score >= 0 ? score : 0;
   }
 
   function saveBoard(level, boardState) {
@@ -69,6 +93,10 @@
     loadProgress,
     savePatternsEnabled,
     loadPatternsEnabled,
+    saveAutoXEnabled,
+    loadAutoXEnabled,
+    saveTotalScore,
+    loadTotalScore,
     saveBoard,
     loadBoard,
     clearBoard,

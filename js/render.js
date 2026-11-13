@@ -1,6 +1,7 @@
 // DOM rendering. Browser-only (uses document); never contains game-rule logic.
-// Cell/life DOM nodes are built once per level and updated in place afterwards,
-// so one-shot CSS animations (mistake shake, life-drop pop) fire exactly once.
+// Cell/life/bed DOM nodes are built once per level and updated in place
+// afterwards, so one-shot CSS animations (shake, life-drop pop, auto-X
+// appear) fire exactly once.
 (function (root) {
   const Grid = root.Garden.grid;
   const I18n = root.Garden.i18n;
@@ -33,6 +34,7 @@
 
   function createRenderer(dom) {
     let cellEls = null; // [row][col] -> .cell element, rebuilt only when the grid changes
+    let bedEls = null; // [region] -> .bed-icon element
     let renderedGrid = null;
     let dropEls = null; // built once; lives persist as a fixed set of 3 icons
 
@@ -49,13 +51,15 @@
     function renderStaticText() {
       dom.appTitle.textContent = I18n.t('appTitle');
       document.title = I18n.t('appFullTitle');
-      dom.winTitle.textContent = I18n.t('winTitle');
-      dom.winMessage.textContent = I18n.t('winMessage');
       dom.nextLevelButton.textContent = I18n.t('nextLevelButton');
       dom.failTitle.textContent = I18n.t('failTitle');
       dom.failMessage.textContent = I18n.t('failMessage');
       dom.retryButton.textContent = I18n.t('retryButton');
       dom.patternsToggle.textContent = I18n.t('patternsToggleLabel');
+      dom.autoXToggle.textContent = I18n.t('autoXToggleLabel');
+      dom.ruleTextBed.textContent = I18n.t('ruleBedText');
+      dom.ruleTextRowCol.textContent = I18n.t('ruleRowColText');
+      dom.ruleTextTouch.textContent = I18n.t('ruleTouchText');
     }
 
     function buildBoard(grid) {
@@ -121,6 +125,68 @@
       );
     }
 
+    function triggerAutoXAppear(cells) {
+      cells.forEach(function (pos, index) {
+        const markEl = cellEls[pos.row][pos.col].markEl;
+        markEl.style.animationDelay = index * 30 + 'ms';
+        markEl.classList.add('auto-x-appear');
+        markEl.addEventListener(
+          'animationend',
+          function handler() {
+            markEl.classList.remove('auto-x-appear');
+            markEl.style.animationDelay = '';
+            markEl.removeEventListener('animationend', handler);
+          },
+          { once: true }
+        );
+      });
+    }
+
+    function spawnScorePopup(row, col, amount) {
+      const cellRect = cellEls[row][col].el.getBoundingClientRect();
+      const wrapRect = dom.boardWrap.getBoundingClientRect();
+
+      const popup = document.createElement('div');
+      popup.className = 'score-popup';
+      popup.textContent = '+' + amount;
+      popup.style.left = cellRect.left - wrapRect.left + cellRect.width / 2 + 'px';
+      popup.style.top = cellRect.top - wrapRect.top + 'px';
+
+      dom.boardWrap.appendChild(popup);
+      popup.addEventListener('animationend', function () { popup.remove(); }, { once: true });
+    }
+
+    function buildBedTracker(grid) {
+      dom.bedTracker.innerHTML = '';
+      bedEls = [];
+      for (let region = 0; region < grid.size; region++) {
+        const el = document.createElement('div');
+        el.className = 'bed-icon region-' + region;
+
+        const mark = document.createElement('div');
+        mark.className = 'bed-icon-mark';
+        mark.innerHTML = FLOWER_SVG;
+
+        el.appendChild(mark);
+        dom.bedTracker.appendChild(el);
+        bedEls.push(el);
+      }
+      syncBedTracker(grid);
+    }
+
+    function syncBedTracker(grid) {
+      const complete = new Array(grid.size).fill(false);
+      for (let row = 0; row < grid.size; row++) {
+        for (let col = 0; col < grid.size; col++) {
+          const cell = grid.cells[row][col];
+          if (cell.state === Grid.CellState.FLOWER) complete[cell.region] = true;
+        }
+      }
+      for (let region = 0; region < grid.size; region++) {
+        bedEls[region].classList.toggle('complete', complete[region]);
+      }
+    }
+
     function buildLives(maxLives) {
       dom.lives.innerHTML = '';
       dropEls = [];
@@ -169,27 +235,49 @@
       dom.levelIndicator.textContent = I18n.t('levelLabel', { level });
     }
 
-    function renderOverlays(status) {
-      dom.winOverlay.hidden = status !== 'won';
-      dom.failOverlay.hidden = status !== 'lost';
+    function renderScore(totalScore) {
+      dom.scoreDisplay.textContent = I18n.t('scoreLabel', { score: totalScore });
+    }
+
+    function renderResult(perfect, levelScore) {
+      dom.winTitle.textContent = I18n.t(perfect ? 'resultPerfect' : 'resultDone');
+      dom.winTitle.className = 'result-text ' + (perfect ? 'result-perfect' : 'result-done');
+      dom.winMessage.textContent = I18n.t('scoreEarnedLabel', { amount: levelScore });
+
+      // Force a reflow so the pop animation restarts even if winTitle already
+      // had the 'result-pop' class from a previous level's win.
+      dom.winTitle.classList.remove('result-pop');
+      void dom.winTitle.offsetWidth;
+      dom.winTitle.classList.add('result-pop');
+    }
+
+    function renderOverlays(snapshot) {
+      dom.winOverlay.hidden = snapshot.status !== 'won';
+      dom.failOverlay.hidden = snapshot.status !== 'lost';
+      if (snapshot.status === 'won') renderResult(snapshot.perfect, snapshot.levelScore);
     }
 
     function render(snapshot) {
       renderLevel(snapshot.level);
+      renderScore(snapshot.totalScore);
 
       if (!dropEls) buildLives(snapshot.maxLives);
       syncLives(snapshot.lives, snapshot.maxLives, snapshot.mistake ? snapshot.mistake.lostLifeIndex : null);
 
       if (snapshot.grid !== renderedGrid) {
         buildBoard(snapshot.grid);
+        buildBedTracker(snapshot.grid);
         renderedGrid = snapshot.grid;
       } else {
         syncCells(snapshot.grid);
+        syncBedTracker(snapshot.grid);
       }
 
       if (snapshot.mistake) triggerMistakeShake(snapshot.mistake.row, snapshot.mistake.col);
+      if (snapshot.scoreGain) spawnScorePopup(snapshot.scoreGain.row, snapshot.scoreGain.col, snapshot.scoreGain.amount);
+      if (snapshot.autoX && snapshot.autoX.length) triggerAutoXAppear(snapshot.autoX);
 
-      renderOverlays(snapshot.status);
+      renderOverlays(snapshot);
       fitBoard();
     }
 
@@ -198,9 +286,13 @@
       dom.patternsToggle.setAttribute('aria-pressed', String(enabled));
     }
 
+    function setAutoXEnabled(enabled) {
+      dom.autoXToggle.setAttribute('aria-pressed', String(enabled));
+    }
+
     renderStaticText();
 
-    return { render, setPatternsEnabled };
+    return { render, setPatternsEnabled, setAutoXEnabled };
   }
 
   root.Garden = root.Garden || {};

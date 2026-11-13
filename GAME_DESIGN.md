@@ -23,7 +23,9 @@ An N×N grid is divided into N colored regions ("flower beds"). The player place
 - Single tap on a flower → clears back to empty, immediately.
 - The pre-placed flower and any red X marks are locked and can't be changed.
 
-A flower always needs a deliberate double tap; a single tap never plants one directly. Works the same with mouse and touch, and `touch-action: manipulation` plus a non-zoomable viewport keep a fast double-tap from triggering the browser's zoom gesture on phones.
+A flower always needs a deliberate double tap; a single tap never plants one directly. Works the same with mouse and touch, and `touch-action: none` on the board plus a non-zoomable viewport keep a fast double-tap from triggering the browser's zoom gesture, and keep the page from scrolling while dragging on the board.
+
+**Drag to mark.** Press and drag across cells to mark or clear several at once: if the drag starts on an empty cell, every empty cell it passes gets a white X; if it starts on a white X, every white X it passes is cleared. Flowers, the pre-placed flower, and red X marks are never touched by a drag — the drag just passes over them. A drag never triggers the double-tap flower placement, regardless of how it moves.
 
 ## Starting flower
 
@@ -46,7 +48,25 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 
 ## Saving in-progress play
 
-The current board (every cell's X/flower/red-X mark and lock state) and remaining water drops are saved to localStorage after every move, keyed by level number. Reloading mid-level restores exactly where the player left off. The saved board is cleared when the level is completed (solved) or explicitly restarted (Retry); a level never resumes stale progress after either of those.
+The current board (every cell's X/flower/red-X mark and lock state), remaining water drops, and the level's running score are saved to localStorage after every move, keyed by level number. Reloading mid-level restores exactly where the player left off. The saved board is cleared when the level is completed (solved) or explicitly restarted (Retry); a level never resumes stale progress after either of those.
+
+## Rules bar
+
+Above the board, three small cards each show a tiny 3×3 diagram (CSS/SVG) next to a short rule reminder: "1 flower per bed", "1 flower per row and column", "Flowers can't touch". All three texts go through the i18n module.
+
+## Bed tracker
+
+A row above the board shows one small icon per flower bed, colored to match that bed, in a fixed left-to-right order (by bed index). Once a bed has its correct flower, its icon shows a small flower; otherwise it stays a plain colored swatch.
+
+## Feedback and scoring
+
+- Planting a flower correctly earns 10 points: a floating "+10" pops up near that cell and fades out, and the score display updates immediately.
+- Score is tracked two ways, both saved to localStorage: the running total across the whole game, and the current level's score (restored together with the board on reload, reset at the start of each level).
+- Finishing a level with no mistakes shows a big animated "Perfect!"; finishing after at least one mistake shows "Done!" instead — either way the level's score earned is shown alongside it.
+
+## Auto-X setting
+
+A settings toggle, off by default. When on, planting a correct flower automatically places a white X on every cell that can no longer hold one because of it — its row, its column, its whole bed, and its 8 neighbors — each appearing with a quick staggered animation.
 
 ## Lives
 
@@ -89,6 +109,7 @@ The current board (every cell's X/flower/red-X mark and lock state) and remainin
 - [x] Step 1: Core gameplay loop — grid/rules/solver/generator (unique-solution guaranteed), 3 water-drop lives, win screen, next level, level number saved via `platform.js`/localStorage, responsive square board (phone portrait through desktop), region color + pattern accessibility toggle. One flower type for now (collection system deferred to a later step). Verified by `tests/generator.test.js` (1000 checks, 0 failures) and by driving `index.html` in a real browser (tap cycle, conflict/life loss, fail+retry, win+next-level, resize/orientation).
 - [x] Playtest fixes on the core loop: one solution flower is pre-placed and locked at the start of every level; wrong flower placements (rule-breaking or simply not part of the unique solution) now get a permanent red X — visually distinct from the plain "no flower" X — with a one-shot shake, and a matching water-drop pop/fade; confirmed the tap cycle never places a flower on a single tap; confirmed the patterns toggle is instant and its on/off state persists via localStorage. Re-verified with the Node test suite and a real-browser playthrough.
 - [x] Second round of playtest fixes: levels are now fully deterministic by level number via a seeded PRNG (`js/rng.js`), verified identical across repeated builds by `tests/determinism.test.js`; in-progress board + lives now save to localStorage after every move and restore on reload, clearing on level completion or Retry; controls switched to single-tap-places-X / double-tap-(<300ms)-promotes-to-flower / single-tap-clears, with locked cells (pre-placed flower, red X) unaffected. Along the way, fixed a bug where a life-loss animation still in flight when Retry was clicked could later fire and incorrectly re-empty a drop that had already been reset to full. Verified by `tests/state.test.js`, `tests/determinism.test.js`, and a real-browser playthrough (double-tap timing, locked cells, save/restore across reload, fail→retry).
+- [x] Third round of playtest fixes: press-and-drag now marks/clears a run of cells at once (bypassing the double-tap logic entirely, with `touch-action: none` on the board so it never scrolls or zooms); added the rules-bar (3 static rule cards with a 3×3 diagram each) and a per-bed tracker row above the board; added scoring (+10 floating popup per correct flower, running total + per-level score both saved to localStorage) and a "Perfect!"/"Done!" animated result depending on whether any mistakes were made; added an off-by-default Auto-X setting that marks a just-placed flower's row/column/bed/neighbors with a staggered appear animation. Verified by `tests/drag-score-autox.test.js` plus the full existing Node suite, and a real-browser playthrough of all five changes (including responsive sizing with the two new bars).
 - [ ] Step 2: Tutorial
 - [ ] Step 3: Main menu and loading screen
 - [ ] Step 4: Hints and soft currency
