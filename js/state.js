@@ -23,13 +23,18 @@
     let lives = MAX_LIVES;
     let grid = null;
     let status = 'playing'; // 'playing' | 'won' | 'lost'
+    let solutionKeys = null; // Set of 'row,col' for the puzzle's one true solution
+
+    function cellKey(row, col) {
+      return row + ',' + col;
+    }
 
     function getSnapshot() {
       return { level, lives, maxLives: MAX_LIVES, grid, status };
     }
 
-    function emit() {
-      onChange(getSnapshot());
+    function emit(extra) {
+      onChange(Object.assign(getSnapshot(), extra || {}));
     }
 
     function startLevel(levelNumber) {
@@ -39,6 +44,15 @@
       const size = gridSizeForLevel(level);
       const generated = generator.generateLevel(size);
       grid = gridModule.createGrid(size, generated.regionOf);
+
+      solutionKeys = new Set(generated.solution.map((pos) => cellKey(pos.row, pos.col)));
+
+      // Give the player a starting point: one solution flower is pre-placed and locked.
+      const given = generated.solution[Math.floor(Math.random() * generated.solution.length)];
+      const givenCell = grid.cells[given.row][given.col];
+      givenCell.state = gridModule.CellState.FLOWER;
+      givenCell.locked = true;
+
       platform.saveProgress(level);
       emit();
     }
@@ -55,13 +69,16 @@
       if (status !== 'playing') return;
 
       const cell = grid.cells[row][col];
+      if (cell.locked) return;
+
       const newState = gridModule.nextState(cell.state);
 
-      if (newState === gridModule.CellState.FLOWER && rules.wouldConflict(grid, row, col)) {
-        cell.state = gridModule.CellState.EMPTY;
+      if (newState === gridModule.CellState.FLOWER && !solutionKeys.has(cellKey(row, col))) {
+        cell.state = gridModule.CellState.WRONG;
+        cell.locked = true;
         lives--;
         if (lives <= 0) status = 'lost';
-        emit();
+        emit({ mistake: { row, col, lostLifeIndex: lives } });
         return;
       }
 

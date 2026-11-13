@@ -23,7 +23,17 @@ Tap/click cycles a cell through three states:
 2. Second tap → flower.
 3. Third tap → clear (empty).
 
+A flower always needs a deliberate second tap; a single tap never plants one directly.
+
 Works with mouse and touch.
+
+## Starting flower
+
+At the start of every level, one flower from the solution is already planted and locked — the player always has a confirmed starting point and can't change or remove it.
+
+## Mistake feedback
+
+If the player plants a flower in a cell that breaks a rule or isn't part of the level's one true solution, that cell gets a red X (visually distinct from the plain white "no flower" X) with a short shake, one water drop pops/fades away, and the cell locks — the red X stays as a permanent marker that no flower belongs there.
 
 ## Level generator
 
@@ -37,7 +47,7 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 ## Lives
 
 - 3 lives per level, shown as water drops (💧-style, drawn in SVG) instead of hearts.
-- A life (water drop) is lost when a flower is placed in a cell that violates the rules (wrong row/column/region conflict or touching another flower).
+- A life (water drop) is lost when a flower is placed in a cell that breaks a rule or isn't part of the unique solution (see Mistake feedback above).
 
 ## Soft currency: seeds
 
@@ -73,6 +83,7 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 
 - [x] Naming, theme, and accessibility decisions locked in (title "Клумба: цветочная головоломка", ladybug mascot, water-drop lives, seed currency, flower collection, pattern accessibility toggle).
 - [x] Step 1: Core gameplay loop — grid/rules/solver/generator (unique-solution guaranteed), 3 water-drop lives, win screen, next level, level number saved via `platform.js`/localStorage, responsive square board (phone portrait through desktop), region color + pattern accessibility toggle. One flower type for now (collection system deferred to a later step). Verified by `tests/generator.test.js` (1000 checks, 0 failures) and by driving `index.html` in a real browser (tap cycle, conflict/life loss, fail+retry, win+next-level, resize/orientation).
+- [x] Playtest fixes on the core loop: one solution flower is pre-placed and locked at the start of every level; wrong flower placements (rule-breaking or simply not part of the unique solution) now get a permanent red X — visually distinct from the plain "no flower" X — with a one-shot shake, and a matching water-drop pop/fade; confirmed the tap cycle never places a flower on a single tap; confirmed the patterns toggle is instant and its on/off state persists via localStorage. Re-verified with the Node test suite and a real-browser playthrough.
 - [ ] Step 2: Tutorial
 - [ ] Step 3: Main menu and loading screen
 - [ ] Step 4: Hints and soft currency

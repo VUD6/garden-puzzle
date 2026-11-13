@@ -17,20 +17,6 @@
     return positions;
   }
 
-  // Would placing a flower at (row, col) conflict with flowers already on the grid?
-  function wouldConflict(grid, row, col) {
-    const target = grid.cells[row][col];
-    const flowers = getFlowerPositions(grid);
-    for (const flower of flowers) {
-      if (flower.row === row && flower.col === col) continue;
-      if (flower.row === row) return true;
-      if (flower.col === col) return true;
-      if (flower.region === target.region) return true;
-      if (isAdjacent(flower, target)) return true;
-    }
-    return false;
-  }
-
   function isSolved(grid) {
     const flowers = getFlowerPositions(grid);
     if (flowers.length !== grid.size) return false;
@@ -57,7 +43,7 @@
     return true;
   }
 
-  const Rules = { isAdjacent, getFlowerPositions, wouldConflict, isSolved };
+  const Rules = { isAdjacent, getFlowerPositions, isSolved };
 
   root.Garden = root.Garden || {};
   root.Garden.rules = Rules;
