@@ -4,6 +4,7 @@
 (function (root) {
   const LEVEL_KEY = 'garden.currentLevel';
   const PATTERNS_KEY = 'garden.patternsEnabled';
+  const BOARD_KEY_PREFIX = 'garden.board.';
 
   function hasStorage() {
     return typeof localStorage !== 'undefined';
@@ -32,6 +33,27 @@
     return raw === null ? true : raw === '1';
   }
 
+  function saveBoard(level, boardState) {
+    if (!hasStorage()) return;
+    localStorage.setItem(BOARD_KEY_PREFIX + level, JSON.stringify(boardState));
+  }
+
+  function loadBoard(level) {
+    if (!hasStorage()) return null;
+    const raw = localStorage.getItem(BOARD_KEY_PREFIX + level);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function clearBoard(level) {
+    if (!hasStorage()) return;
+    localStorage.removeItem(BOARD_KEY_PREFIX + level);
+  }
+
   // Stubs for the Yandex Games SDK integration (roadmap step 7). Calling code
   // elsewhere should only ever go through these, never touch ads directly.
   function showRewardedAd(onComplete) {
@@ -47,6 +69,9 @@
     loadProgress,
     savePatternsEnabled,
     loadPatternsEnabled,
+    saveBoard,
+    loadBoard,
+    clearBoard,
     showRewardedAd,
     showInterstitialAd,
   };

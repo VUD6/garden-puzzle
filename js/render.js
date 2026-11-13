@@ -154,6 +154,11 @@
             { once: true }
           );
         } else {
+          // Removing (rather than leaving) this class also cancels any
+          // still-running pop-fade animation from an earlier loss, which
+          // prevents its pending 'animationend' handler from firing later
+          // and clobbering a life count that has since been reset (e.g. retry).
+          el.classList.remove('drop-losing');
           el.classList.toggle('drop-filled', filled);
           el.classList.toggle('drop-empty', !filled);
         }

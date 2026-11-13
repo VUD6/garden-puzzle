@@ -22,25 +22,7 @@
     return { size, cells };
   }
 
-  function getCell(grid, row, col) {
-    return grid.cells[row][col];
-  }
-
-  function forEachCell(grid, fn) {
-    for (let row = 0; row < grid.size; row++) {
-      for (let col = 0; col < grid.size; col++) {
-        fn(grid.cells[row][col]);
-      }
-    }
-  }
-
-  function nextState(state) {
-    if (state === CellState.EMPTY) return CellState.X;
-    if (state === CellState.X) return CellState.FLOWER;
-    return CellState.EMPTY;
-  }
-
-  const Grid = { CellState, createGrid, getCell, forEachCell, nextState };
+  const Grid = { CellState, createGrid };
 
   root.Garden = root.Garden || {};
   root.Garden.grid = Grid;

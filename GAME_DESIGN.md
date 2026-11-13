@@ -17,15 +17,13 @@ An N×N grid is divided into N colored regions ("flower beds"). The player place
 
 ## Controls
 
-Tap/click cycles a cell through three states:
+- Single tap on an empty cell → white X mark ("no flower here"), placed immediately, no delay.
+- Double tap (a second tap within ~300 ms on the same cell, while it shows an X) → the X becomes a flower.
+- Single tap on an X with no quick follow-up → clears back to empty.
+- Single tap on a flower → clears back to empty, immediately.
+- The pre-placed flower and any red X marks are locked and can't be changed.
 
-1. First tap → X mark ("no flower here").
-2. Second tap → flower.
-3. Third tap → clear (empty).
-
-A flower always needs a deliberate second tap; a single tap never plants one directly.
-
-Works with mouse and touch.
+A flower always needs a deliberate double tap; a single tap never plants one directly. Works the same with mouse and touch, and `touch-action: manipulation` plus a non-zoomable viewport keep a fast double-tap from triggering the browser's zoom gesture on phones.
 
 ## Starting flower
 
@@ -43,6 +41,12 @@ If the player plants a flower in a cell that breaks a rule or isn't part of the 
 4. If not unique, regenerate.
 
 Grid size grows with level progression, from 4×4 up to 8×8.
+
+**Deterministic by level.** Every random choice in generation (flower placement, region growth, which solution flower is pre-placed) is drawn from a seeded PRNG (`js/rng.js`, mulberry32) seeded by the level number itself — never `Math.random`. Level N therefore looks exactly the same — same beds, same colors, same pre-placed flower — for every player, every time, every reload. `tests/determinism.test.js` builds each of a sample of levels twice and asserts the results are identical.
+
+## Saving in-progress play
+
+The current board (every cell's X/flower/red-X mark and lock state) and remaining water drops are saved to localStorage after every move, keyed by level number. Reloading mid-level restores exactly where the player left off. The saved board is cleared when the level is completed (solved) or explicitly restarted (Retry); a level never resumes stale progress after either of those.
 
 ## Lives
 
@@ -84,6 +88,7 @@ Grid size grows with level progression, from 4×4 up to 8×8.
 - [x] Naming, theme, and accessibility decisions locked in (title "Клумба: цветочная головоломка", ladybug mascot, water-drop lives, seed currency, flower collection, pattern accessibility toggle).
 - [x] Step 1: Core gameplay loop — grid/rules/solver/generator (unique-solution guaranteed), 3 water-drop lives, win screen, next level, level number saved via `platform.js`/localStorage, responsive square board (phone portrait through desktop), region color + pattern accessibility toggle. One flower type for now (collection system deferred to a later step). Verified by `tests/generator.test.js` (1000 checks, 0 failures) and by driving `index.html` in a real browser (tap cycle, conflict/life loss, fail+retry, win+next-level, resize/orientation).
 - [x] Playtest fixes on the core loop: one solution flower is pre-placed and locked at the start of every level; wrong flower placements (rule-breaking or simply not part of the unique solution) now get a permanent red X — visually distinct from the plain "no flower" X — with a one-shot shake, and a matching water-drop pop/fade; confirmed the tap cycle never places a flower on a single tap; confirmed the patterns toggle is instant and its on/off state persists via localStorage. Re-verified with the Node test suite and a real-browser playthrough.
+- [x] Second round of playtest fixes: levels are now fully deterministic by level number via a seeded PRNG (`js/rng.js`), verified identical across repeated builds by `tests/determinism.test.js`; in-progress board + lives now save to localStorage after every move and restore on reload, clearing on level completion or Retry; controls switched to single-tap-places-X / double-tap-(<300ms)-promotes-to-flower / single-tap-clears, with locked cells (pre-placed flower, red X) unaffected. Along the way, fixed a bug where a life-loss animation still in flight when Retry was clicked could later fire and incorrectly re-empty a drop that had already been reset to full. Verified by `tests/state.test.js`, `tests/determinism.test.js`, and a real-browser playthrough (double-tap timing, locked cells, save/restore across reload, fail→retry).
 - [ ] Step 2: Tutorial
 - [ ] Step 3: Main menu and loading screen
 - [ ] Step 4: Hints and soft currency
