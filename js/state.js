@@ -61,7 +61,8 @@
     let solutionKeys = null; // Set of 'row,col' for the puzzle's one true solution
     let lastTap = null; // { row, col, time } - tracks the double-tap gesture
     let levelScore = 0;
-    let totalScore = platform.loadTotalScore();
+    let committedScore = platform.loadTotalScore(); // persisted total; only changes on first-ever level completion
+    let awardedCells = new Set(); // 'row,col' already scored this attempt - safeguard against double-awarding
     let levelStartTime = Date.now();
 
     function cellKey(row, col) {
@@ -76,7 +77,11 @@
         grid,
         status,
         levelScore,
-        totalScore,
+        // While playing, preview the total as if this level's score were
+        // already banked. Once won, committedScore is already final (it was
+        // only added to if this was the level's first-ever completion), so
+        // adding levelScore again here would double-count it.
+        totalScore: status === 'won' ? committedScore : committedScore + levelScore,
         perfect: lives === MAX_LIVES,
       };
     }
@@ -95,7 +100,7 @@
         }
         cells.push(rowCells);
       }
-      return { lives, levelScore, cells };
+      return { lives, levelScore, cells, awardedCells: Array.from(awardedCells) };
     }
 
     function commit(extra) {
@@ -122,6 +127,7 @@
       if (saved && Array.isArray(saved.cells) && saved.cells.length === built.size) {
         lives = saved.lives;
         levelScore = saved.levelScore || 0;
+        awardedCells = new Set(Array.isArray(saved.awardedCells) ? saved.awardedCells : []);
         for (let row = 0; row < built.size; row++) {
           for (let col = 0; col < built.size; col++) {
             const savedCell = saved.cells[row][col];
@@ -134,6 +140,7 @@
       } else {
         lives = MAX_LIVES;
         levelScore = 0;
+        awardedCells = new Set();
       }
 
       platform.saveProgress(level);
@@ -169,9 +176,18 @@
       const mistakesUsed = MAX_LIVES - lives;
       const rating = computeRating(grid.size, mistakesUsed, elapsedSeconds);
 
+      // Best time and stars can always improve on a replay, but the total
+      // score only ever gets this level's points once, on its first-ever
+      // completion - replaying an already-completed level earns no more.
       const previousBest = platform.loadBestTime(level);
-      const bestTimeSeconds = previousBest === null ? elapsedSeconds : Math.min(previousBest, elapsedSeconds);
+      const alreadyCompletedBefore = previousBest !== null;
+      const bestTimeSeconds = alreadyCompletedBefore ? Math.min(previousBest, elapsedSeconds) : elapsedSeconds;
       platform.saveBestTime(level, bestTimeSeconds);
+
+      if (!alreadyCompletedBefore) {
+        committedScore += levelScore;
+        platform.saveTotalScore(committedScore);
+      }
 
       status = 'won';
       platform.clearBoard(level);
@@ -188,12 +204,21 @@
         return;
       }
 
+      // Correct flowers lock immediately, exactly like the pre-placed one:
+      // once planted correctly, a cell can never be changed again.
       cell.state = CellState.FLOWER;
-      levelScore += POINTS_PER_FLOWER;
-      totalScore += POINTS_PER_FLOWER;
-      platform.saveTotalScore(totalScore);
+      cell.locked = true;
 
-      const scoreGain = { row, col, amount: POINTS_PER_FLOWER };
+      // Safeguard: a given cell's points are only ever awarded once per
+      // level attempt, even if it were somehow possible to clear and
+      // replant it (the lock above already prevents that in normal play).
+      const key = cellKey(row, col);
+      let scoreGain = null;
+      if (!awardedCells.has(key)) {
+        awardedCells.add(key);
+        levelScore += POINTS_PER_FLOWER;
+        scoreGain = { row, col, amount: POINTS_PER_FLOWER };
+      }
 
       if (rules.isSolved(grid)) {
         finishLevel(scoreGain);
@@ -231,15 +256,13 @@
       } else if (cell.state === CellState.X) {
         // Single tap on an existing X: wait out the double-tap window before
         // clearing, in case a second tap arrives and promotes it to a flower.
+        // (A FLOWER cell is always locked, so there's no "tap clears it" case.)
         setTimeout(function () {
           if (cell.state === CellState.X) {
             cell.state = CellState.EMPTY;
             commit();
           }
         }, DOUBLE_TAP_WINDOW_MS);
-      } else if (cell.state === CellState.FLOWER) {
-        cell.state = CellState.EMPTY;
-        commit();
       }
     }
 

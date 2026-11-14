@@ -124,8 +124,9 @@ assert(cellToSolve.state === Grid.CellState.FLOWER, 'sanity: the brute-forced so
 
 const afterScoreSnap = game.getSnapshot();
 assert(afterScoreSnap.levelScore === State.POINTS_PER_FLOWER, 'levelScore increases by POINTS_PER_FLOWER on a correct placement');
-assert(afterScoreSnap.totalScore === State.POINTS_PER_FLOWER, 'totalScore increases by POINTS_PER_FLOWER on a correct placement');
-assert(Platform.loadTotalScore() === State.POINTS_PER_FLOWER, 'totalScore is persisted to storage immediately');
+assert(afterScoreSnap.totalScore === State.POINTS_PER_FLOWER, 'totalScore previews the in-progress levelScore before the level is won');
+assert(cellToSolve.locked === true, 'a correctly planted flower locks immediately, like the pre-placed one');
+assert(Platform.loadTotalScore() === 0, 'totalScore is NOT persisted to storage until the level is actually completed');
 
 // --- perfect vs done ---
 assert(afterScoreSnap.perfect === true, 'perfect stays true with no mistakes made');
