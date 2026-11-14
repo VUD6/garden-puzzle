@@ -7,6 +7,7 @@
   const Grid = root.Garden.grid;
   const I18n = root.Garden.i18n;
   const Platform = root.Garden.platform;
+  const State = root.Garden.state;
 
   // Must stay in sync with --region-0..7 in css/style.css: the flower's
   // own color is derived from the bed's hue at draw time (not a separate
@@ -186,6 +187,13 @@
       dom.vibrationUnsupportedNote.textContent = I18n.t('vibrationUnsupportedNote');
       dom.settingsCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
       dom.replayTutorialButton.textContent = I18n.t('replayTutorialButton');
+      dom.hintButtonLabel.textContent = I18n.t('hintButtonLabel');
+      dom.hintCostAmount.textContent = String(State.HINT_COST);
+    }
+
+    function renderSeeds(amount) {
+      dom.seedsDisplay.textContent = String(amount);
+      dom.seedsPill.setAttribute('aria-label', I18n.t('seedsAriaLabel', { amount }));
     }
 
     function buildBoard(grid) {
@@ -247,7 +255,11 @@
       }
     }
 
-    function syncCells(grid) {
+    // hintPos (optional {row, col}): under reduce motion, the hinted cell
+    // plays a plain fade instead of the full bloom+sparkle flourish - a
+    // hint happens without the player's own tap gesture, so some feedback
+    // still needs to show something changed, but it stays minimal.
+    function syncCells(grid, hintPos) {
       for (let row = 0; row < grid.size; row++) {
         for (let col = 0; col < grid.size; col++) {
           const cell = grid.cells[row][col];
@@ -264,9 +276,14 @@
           ref.markEl.classList.toggle('mark-flower', cell.state === Grid.CellState.FLOWER);
 
           if (cell.state !== ref.prevState) {
+            const isHintedCell = hintPos && hintPos.row === row && hintPos.col === col;
             if (cell.state === Grid.CellState.FLOWER) {
-              triggerOneShotAnim(ref.markEl, 'mark-bloom');
-              spawnSparkles(row, col);
+              if (isHintedCell && reducedMotion) {
+                triggerOneShotAnim(ref.markEl, 'hint-fade');
+              } else {
+                triggerOneShotAnim(ref.markEl, 'mark-bloom');
+                spawnSparkles(row, col);
+              }
             } else if (cell.state === Grid.CellState.X) {
               triggerOneShotAnim(ref.markEl, 'mark-pop');
             }
@@ -486,12 +503,27 @@
       dom.winMessage.textContent = I18n.t('scoreEarnedLabel', { amount: snapshot.levelScore });
       dom.bestTimeLine.textContent = I18n.t('bestTimeLabel', { time: formatTime(snapshot.bestTimeSeconds) });
 
+      // Only shown on a level's first-ever completion (see finishLevel in
+      // state.js) - a replay's seedGain is null, so no fake/stale number
+      // ever lingers here.
+      if (snapshot.seedGain) {
+        dom.seedRewardAmount.textContent = '+' + snapshot.seedGain;
+        dom.seedReward.hidden = false;
+        triggerOneShotAnim(dom.seedReward, 'seed-pop');
+      } else {
+        dom.seedReward.hidden = true;
+      }
+
       dom.winOverlay.hidden = false;
     }
 
     function render(snapshot) {
       renderLevel(snapshot.level);
       renderScore(snapshot.totalScore);
+      renderSeeds(snapshot.seeds);
+      // canUseHint already folds in the double-spend lock window (see
+      // state.js useHint/HINT_LOCK_MS), so this is the only check needed.
+      dom.hintButton.disabled = !snapshot.canUseHint;
 
       if (!dropEls) buildLives(snapshot.maxLives);
       syncLives(snapshot.lives, snapshot.maxLives, snapshot.mistake ? snapshot.mistake.lostLifeIndex : null);
@@ -503,7 +535,7 @@
         rulesPopupOpen = false;
         applyRulesMode(snapshot.level);
       } else {
-        syncCells(snapshot.grid);
+        syncCells(snapshot.grid, snapshot.hint);
         syncBedTracker(snapshot.grid);
       }
 

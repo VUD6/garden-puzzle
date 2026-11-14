@@ -54,6 +54,9 @@
         ? I18n.t('menuContinueButton', { level })
         : I18n.t('menuPlayButton');
       dom.dailyChallengeButton.hidden = !shouldShowDailyLock(level);
+      const seeds = Platform.loadSeeds();
+      dom.menuSeedsDisplay.textContent = String(seeds);
+      dom.menuSeedsPill.setAttribute('aria-label', I18n.t('seedsAriaLabel', { amount: seeds }));
     }
 
     return { render };

@@ -46,6 +46,8 @@
       menuContinueButton: 'Продолжить · Уровень {level}',
       howToPlayButton: 'Как играть',
       dailyChallengeCaption: 'Откроется на уровне 15',
+      hintButtonLabel: 'Подсказка',
+      seedsAriaLabel: 'Семена: {amount}',
     },
     en: {
       appTitle: 'Garden Bed',
@@ -92,6 +94,8 @@
       menuContinueButton: 'Continue · Level {level}',
       howToPlayButton: 'How to play',
       dailyChallengeCaption: 'Unlocks at level 15',
+      hintButtonLabel: 'Hint',
+      seedsAriaLabel: 'Seeds: {amount}',
     },
   };
 

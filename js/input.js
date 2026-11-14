@@ -105,6 +105,26 @@
       handlers.onBack();
     });
 
+    dom.hintButton.addEventListener('click', function () {
+      // useHint() is itself the single source of truth on whether this is
+      // allowed right now (seeds, solved state, and the double-spend lock
+      // window all live in state.js) - a disabled button also won't fire
+      // 'click' in a real browser, so this is just the call site.
+      const used = game.useHint();
+      if (used) {
+        // Nothing else changes state during the lock window, so nothing
+        // would otherwise flip the button's disabled state back on once it
+        // expires. Deliberately touches only the button - re-running the
+        // full renderer.render() here with a plain getSnapshot() would be
+        // missing this tick's transient fields (winFill, seedGain, ...) and
+        // could re-trigger the win-overlay branch with stale data while a
+        // win's fill-wave animation is still in flight.
+        setTimeout(function () {
+          dom.hintButton.disabled = !game.canUseHint();
+        }, root.Garden.state.HINT_LOCK_MS);
+      }
+    });
+
     dom.settingsButton.addEventListener('click', function () {
       renderer.openSettings();
     });

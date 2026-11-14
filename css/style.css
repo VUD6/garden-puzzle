@@ -354,6 +354,22 @@ html.reduce-motion .loading-pulse span {
   flex-shrink: 0;
 }
 
+.seeds-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--ink);
+  font-weight: 600;
+  padding: 0.2rem 0.75rem 0.2rem 0.55rem;
+}
+
+.seed-icon {
+  width: 15px;
+  height: 15px;
+  fill: var(--pollen-color);
+  flex-shrink: 0;
+}
+
 .lives {
   display: flex;
   gap: 0.3rem;
@@ -568,6 +584,66 @@ html.reduce-motion .loading-pulse span {
   transform: scale(1);
 }
 
+.hint-row {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0.2rem 0.75rem;
+}
+
+.hint-button {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.9rem 0.35rem 0.4rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: var(--shadow-sm);
+}
+
+.hint-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint-mascot {
+  width: 30px;
+  height: 25px;
+  flex-shrink: 0;
+}
+
+.hint-mascot svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hint-text {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.hint-cost {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--panel-soft);
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 0.8rem;
+  border-radius: var(--radius-pill);
+  padding: 0.15rem 0.5rem;
+}
+
+.hint-cost .seed-icon {
+  width: 13px;
+  height: 13px;
+}
+
 .board-wrap {
   position: relative;
   flex: 1;
@@ -727,6 +803,18 @@ html.reduce-motion .loading-pulse span {
 
 html.reduce-motion .cell-mark.mark-bloom .petal {
   animation: none;
+}
+
+@keyframes hint-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Reduce-motion's stand-in for the hint's bloom: render.js only applies
+   this class when motion is already reduced, so it is never itself gated
+   behind html.reduce-motion - it IS the reduced version. */
+.cell-mark.hint-fade {
+  animation: hint-fade-in 0.2s ease-out both;
 }
 
 @keyframes sparkle-float {
@@ -898,6 +986,39 @@ html.reduce-motion .board.board-complete .cell-mark.mark-flower {
 
 .stars.star-pop svg:nth-child(2) { animation-delay: 0.08s; }
 .stars.star-pop svg:nth-child(3) { animation-delay: 0.16s; }
+
+.seed-reward {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  margin: 0 0 0.5rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.seed-reward[hidden] {
+  display: none;
+}
+
+.seed-reward .seed-icon {
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes seed-reward-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.seed-reward.seed-pop {
+  animation: seed-reward-pop 0.4s var(--ease-spring) both;
+}
+
+html.reduce-motion .seed-reward.seed-pop {
+  animation: none;
+}
 
 .overlay-card .rank-title {
   margin: 0 0 0.4rem;
