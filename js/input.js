@@ -10,7 +10,6 @@
 
   function attach(dom, game, handlers) {
     let patternsEnabled = true;
-    let autoXEnabled = false;
     let drag = null; // { pointerId, startRow, startCol, mode, moved, visited }
 
     function applyDragAction(row, col) {
@@ -79,17 +78,9 @@
       handlers.onTogglePatterns(patternsEnabled);
     });
 
-    dom.autoXToggle.addEventListener('click', function () {
-      autoXEnabled = !autoXEnabled;
-      handlers.onToggleAutoX(autoXEnabled);
-    });
-
     return {
       setPatternsEnabled: function (enabled) {
         patternsEnabled = enabled;
-      },
-      setAutoXEnabled: function (enabled) {
-        autoXEnabled = enabled;
       },
     };
   }

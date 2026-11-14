@@ -1,4 +1,4 @@
-// Plain Node script, no test framework/dependency. Run with: node tests/drag-score-autox.test.js
+// Plain Node script, no test framework/dependency. Run with: node tests/drag-score-win.test.js
 require('../js/rng.js');
 require('../js/grid.js');
 require('../js/rules.js');
@@ -149,54 +149,64 @@ if (wrongRow !== -1) {
   assert(afterMistakeSnap.perfect === false, 'perfect becomes false after a mistake');
 }
 
-// --- Auto-X ---
+function solveLevel(game, grid, solution, mistakesToMake) {
+  let madeMistakes = 0;
+  for (let row = 0; row < grid.size; row++) {
+    const cell = grid.cells[row][solution[row]];
+    if (cell.state === Grid.CellState.FLOWER) continue; // the pre-placed given flower
+
+    if (madeMistakes < mistakesToMake) {
+      // find a wrong column in this row to burn a life on first
+      for (let col = 0; col < grid.size; col++) {
+        if (col === solution[row]) continue;
+        const wrongCell = grid.cells[row][col];
+        if (wrongCell.locked) continue;
+        game.tapCell(row, col);
+        game.tapCell(row, col);
+        madeMistakes++;
+        break;
+      }
+    }
+
+    game.tapCell(row, solution[row]);
+    game.tapCell(row, solution[row]);
+  }
+  return game.getSnapshot();
+}
+
+// --- Win-fill, rating, and best time: a flawless solve earns 3 stars ---
 resetStorage();
-game = State.createGame({ onChange: () => {} });
-game.setAutoXEnabled(true);
+let lastEmitted = null;
+game = State.createGame({ onChange: (snap) => { lastEmitted = snap; } });
 snap = game.getSnapshot();
+const levelForWin = snap.level;
 solution = solveBruteForce(snap.grid);
 
-let autoRow = -1;
-let autoCol = -1;
-for (let r = 0; r < snap.grid.size; r++) {
-  if (snap.grid.cells[r][solution[r]].state !== Grid.CellState.FLOWER) {
-    autoRow = r;
-    autoCol = solution[r];
-    break;
+solveLevel(game, snap.grid, solution, 0);
+let finalSnap = game.getSnapshot();
+assert(finalSnap.status === 'won', 'solving every row wins the level');
+assert(lastEmitted.winFill !== undefined, 'the winning emit carries a winFill list');
+
+let anyEmptyLeft = false;
+for (let r = 0; r < finalSnap.grid.size; r++) {
+  for (let c = 0; c < finalSnap.grid.size; c++) {
+    if (finalSnap.grid.cells[r][c].state === Grid.CellState.EMPTY) anyEmptyLeft = true;
   }
 }
-game.tapCell(autoRow, autoCol);
-game.tapCell(autoRow, autoCol);
+assert(!anyEmptyLeft, 'every remaining empty cell got filled with X on win');
+assert(lastEmitted.rating === 3, 'a flawless, fast solve earns 3 stars (got ' + lastEmitted.rating + ')');
+assert(typeof lastEmitted.elapsedSeconds === 'number', 'win emit reports elapsedSeconds');
+assert(lastEmitted.bestTimeSeconds === Platform.loadBestTime(levelForWin), 'best time is persisted and matches the emitted value');
 
-const afterAutoX = game.getSnapshot();
-let rowAllNonEmpty = true;
-for (let c = 0; c < afterAutoX.grid.size; c++) {
-  if (afterAutoX.grid.cells[autoRow][c].state === Grid.CellState.EMPTY) rowAllNonEmpty = false;
-}
-assert(rowAllNonEmpty, 'auto-X fills the rest of the flower\'s row with X when enabled');
-
-let colAllNonEmpty = true;
-for (let r = 0; r < afterAutoX.grid.size; r++) {
-  if (afterAutoX.grid.cells[r][autoCol].state === Grid.CellState.EMPTY) colAllNonEmpty = false;
-}
-assert(colAllNonEmpty, 'auto-X fills the rest of the flower\'s column with X when enabled');
-
-let foundUntouchedFarCell = false;
-for (let r = 0; r < afterAutoX.grid.size; r++) {
-  for (let c = 0; c < afterAutoX.grid.size; c++) {
-    const cell = afterAutoX.grid.cells[r][c];
-    const farFromFlower = Math.abs(r - autoRow) > 1 || Math.abs(c - autoCol) > 1;
-    const differentRowCol = r !== autoRow && c !== autoCol;
-    const differentRegion = cell.region !== afterAutoX.grid.cells[autoRow][autoCol].region;
-    if (farFromFlower && differentRowCol && differentRegion && cell.state === Grid.CellState.EMPTY) {
-      foundUntouchedFarCell = true;
-    }
-  }
-}
-// Not asserted strictly (small grids may leave no such cell) - informational only.
-if (!foundUntouchedFarCell) {
-  console.log('(info) no far/unrelated empty cell existed to double-check auto-X scope on this level; not a failure.');
-}
+// --- Two mistakes before winning caps the rating at 1 star ---
+resetStorage();
+game = State.createGame({ onChange: (snap) => { lastEmitted = snap; } });
+snap = game.getSnapshot();
+solution = solveBruteForce(snap.grid);
+solveLevel(game, snap.grid, solution, 2);
+finalSnap = game.getSnapshot();
+assert(finalSnap.status === 'won', 'solving with 2 mistakes (1 life left) still wins');
+assert(lastEmitted.rating === 1, 'two mistakes caps the rating at 1 star (got ' + lastEmitted.rating + ')');
 
 console.log(`${checks} checks run, ${failures} failed.`);
 process.exit(failures === 0 ? 0 : 1);

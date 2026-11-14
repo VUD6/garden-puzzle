@@ -1,7 +1,7 @@
 // DOM rendering. Browser-only (uses document); never contains game-rule logic.
-// Cell/life/bed DOM nodes are built once per level and updated in place
-// afterwards, so one-shot CSS animations (shake, life-drop pop, auto-X
-// appear) fire exactly once.
+// Cell/life/bed/star DOM nodes are built once per level (or once ever, for
+// lives/stars) and updated in place afterwards, so one-shot CSS animations
+// (shake, life-drop pop, win-fill wave, star pop) fire exactly once.
 (function (root) {
   const Grid = root.Garden.grid;
   const I18n = root.Garden.i18n;
@@ -24,6 +24,12 @@
     '<line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></g></svg>';
 
   const DROP_PATH = 'M12 2C12 2 5 10.5 5 15.5A7 7 0 0 0 19 15.5C19 10.5 12 2 12 2Z';
+  const STAR_PATH = 'M12 2l2.9 6.26L22 9.27l-5 5.13L18.18 22 12 18.56 5.82 22 7 14.4l-5-5.13 7.1-1.01L12 2z';
+
+  const RANK_KEY_BY_RATING = { 1: 'rankGardener', 2: 'rankSkilledGardener', 3: 'rankMasterGardener' };
+
+  const WAVE_STAGGER_MS = 35;
+  const WAVE_DURATION_MS = 250;
 
   function markFor(state) {
     if (state === Grid.CellState.FLOWER) return FLOWER_SVG;
@@ -32,11 +38,18 @@
     return '';
   }
 
+  function formatTime(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes + ':' + String(seconds).padStart(2, '0');
+  }
+
   function createRenderer(dom) {
     let cellEls = null; // [row][col] -> .cell element, rebuilt only when the grid changes
     let bedEls = null; // [region] -> .bed-icon element
     let renderedGrid = null;
     let dropEls = null; // built once; lives persist as a fixed set of 3 icons
+    let starEls = null; // built once; rating persists as a fixed set of 3 icons
 
     function fitBoard() {
       const available = Math.min(dom.boardWrap.clientWidth, dom.boardWrap.clientHeight);
@@ -56,7 +69,6 @@
       dom.failMessage.textContent = I18n.t('failMessage');
       dom.retryButton.textContent = I18n.t('retryButton');
       dom.patternsToggle.textContent = I18n.t('patternsToggleLabel');
-      dom.autoXToggle.textContent = I18n.t('autoXToggleLabel');
       dom.ruleTextBed.textContent = I18n.t('ruleBedText');
       dom.ruleTextRowCol.textContent = I18n.t('ruleRowColText');
       dom.ruleTextTouch.textContent = I18n.t('ruleTouchText');
@@ -125,21 +137,30 @@
       );
     }
 
-    function triggerAutoXAppear(cells) {
+    // Plays a staggered "wave" of appear animations over cells that just got
+    // auto-filled with X on level completion, then calls onDone once the last
+    // one finishes so the win overlay can appear right after.
+    function triggerWinFillWave(cells, onDone) {
+      if (!cells.length) {
+        onDone();
+        return;
+      }
+
       cells.forEach(function (pos, index) {
         const markEl = cellEls[pos.row][pos.col].markEl;
-        markEl.style.animationDelay = index * 30 + 'ms';
-        markEl.classList.add('auto-x-appear');
-        markEl.addEventListener(
-          'animationend',
-          function handler() {
-            markEl.classList.remove('auto-x-appear');
-            markEl.style.animationDelay = '';
-            markEl.removeEventListener('animationend', handler);
-          },
-          { once: true }
-        );
+        markEl.style.animationDelay = index * WAVE_STAGGER_MS + 'ms';
+        markEl.classList.add('wave-appear');
       });
+
+      const totalMs = (cells.length - 1) * WAVE_STAGGER_MS + WAVE_DURATION_MS;
+      setTimeout(function () {
+        cells.forEach(function (pos) {
+          const markEl = cellEls[pos.row][pos.col].markEl;
+          markEl.classList.remove('wave-appear');
+          markEl.style.animationDelay = '';
+        });
+        onDone();
+      }, totalMs);
     }
 
     function spawnScorePopup(row, col, amount) {
@@ -231,6 +252,33 @@
       }
     }
 
+    function buildStars() {
+      dom.starsContainer.innerHTML = '';
+      starEls = [];
+      for (let i = 0; i < 3; i++) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.classList.add('star-empty');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', STAR_PATH);
+        svg.appendChild(path);
+        dom.starsContainer.appendChild(svg);
+        starEls.push(svg);
+      }
+    }
+
+    function syncStars(rating) {
+      for (let i = 0; i < 3; i++) {
+        starEls[i].classList.toggle('star-filled', i < rating);
+        starEls[i].classList.toggle('star-empty', i >= rating);
+      }
+      // Force a reflow so the staggered pop restarts on every win, even back
+      // to back with the same rating.
+      dom.starsContainer.classList.remove('star-pop');
+      void dom.starsContainer.offsetWidth;
+      dom.starsContainer.classList.add('star-pop');
+    }
+
     function renderLevel(level) {
       dom.levelIndicator.textContent = I18n.t('levelLabel', { level });
     }
@@ -239,22 +287,21 @@
       dom.scoreDisplay.textContent = I18n.t('scoreLabel', { score: totalScore });
     }
 
-    function renderResult(perfect, levelScore) {
-      dom.winTitle.textContent = I18n.t(perfect ? 'resultPerfect' : 'resultDone');
-      dom.winTitle.className = 'result-text ' + (perfect ? 'result-perfect' : 'result-done');
-      dom.winMessage.textContent = I18n.t('scoreEarnedLabel', { amount: levelScore });
-
-      // Force a reflow so the pop animation restarts even if winTitle already
-      // had the 'result-pop' class from a previous level's win.
+    function showWinOverlay(snapshot) {
+      dom.winTitle.textContent = I18n.t(snapshot.perfect ? 'resultPerfect' : 'resultDone');
+      dom.winTitle.className = 'result-text ' + (snapshot.perfect ? 'result-perfect' : 'result-done');
       dom.winTitle.classList.remove('result-pop');
       void dom.winTitle.offsetWidth;
       dom.winTitle.classList.add('result-pop');
-    }
 
-    function renderOverlays(snapshot) {
-      dom.winOverlay.hidden = snapshot.status !== 'won';
-      dom.failOverlay.hidden = snapshot.status !== 'lost';
-      if (snapshot.status === 'won') renderResult(snapshot.perfect, snapshot.levelScore);
+      if (!starEls) buildStars();
+      syncStars(snapshot.rating);
+      dom.rankTitle.textContent = I18n.t(RANK_KEY_BY_RATING[snapshot.rating]);
+
+      dom.winMessage.textContent = I18n.t('scoreEarnedLabel', { amount: snapshot.levelScore });
+      dom.bestTimeLine.textContent = I18n.t('bestTimeLabel', { time: formatTime(snapshot.bestTimeSeconds) });
+
+      dom.winOverlay.hidden = false;
     }
 
     function render(snapshot) {
@@ -275,9 +322,18 @@
 
       if (snapshot.mistake) triggerMistakeShake(snapshot.mistake.row, snapshot.mistake.col);
       if (snapshot.scoreGain) spawnScorePopup(snapshot.scoreGain.row, snapshot.scoreGain.col, snapshot.scoreGain.amount);
-      if (snapshot.autoX && snapshot.autoX.length) triggerAutoXAppear(snapshot.autoX);
 
-      renderOverlays(snapshot);
+      dom.failOverlay.hidden = snapshot.status !== 'lost';
+
+      if (snapshot.status === 'won' && snapshot.winFill) {
+        dom.winOverlay.hidden = true;
+        triggerWinFillWave(snapshot.winFill, function () {
+          showWinOverlay(snapshot);
+        });
+      } else {
+        dom.winOverlay.hidden = snapshot.status !== 'won';
+      }
+
       fitBoard();
     }
 
@@ -286,13 +342,9 @@
       dom.patternsToggle.setAttribute('aria-pressed', String(enabled));
     }
 
-    function setAutoXEnabled(enabled) {
-      dom.autoXToggle.setAttribute('aria-pressed', String(enabled));
-    }
-
     renderStaticText();
 
-    return { render, setPatternsEnabled, setAutoXEnabled };
+    return { render, setPatternsEnabled };
   }
 
   root.Garden = root.Garden || {};

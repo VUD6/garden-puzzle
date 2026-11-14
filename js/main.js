@@ -9,7 +9,6 @@
       scoreDisplay: document.getElementById('scoreDisplay'),
       lives: document.getElementById('livesContainer'),
       patternsToggle: document.getElementById('patternsToggle'),
-      autoXToggle: document.getElementById('autoXToggle'),
       ruleTextBed: document.getElementById('ruleTextBed'),
       ruleTextRowCol: document.getElementById('ruleTextRowCol'),
       ruleTextTouch: document.getElementById('ruleTextTouch'),
@@ -18,7 +17,10 @@
       board: document.getElementById('board'),
       winOverlay: document.getElementById('winOverlay'),
       winTitle: document.getElementById('winTitle'),
+      starsContainer: document.getElementById('starsContainer'),
+      rankTitle: document.getElementById('rankTitle'),
       winMessage: document.getElementById('winMessage'),
+      bestTimeLine: document.getElementById('bestTimeLine'),
       nextLevelButton: document.getElementById('nextLevelButton'),
       failOverlay: document.getElementById('failOverlay'),
       failTitle: document.getElementById('failTitle'),
@@ -38,20 +40,10 @@
         platform.savePatternsEnabled(enabled);
         renderer.setPatternsEnabled(enabled);
       },
-      onToggleAutoX: function (enabled) {
-        platform.saveAutoXEnabled(enabled);
-        game.setAutoXEnabled(enabled);
-        renderer.setAutoXEnabled(enabled);
-      },
     });
 
     const initialPatternsEnabled = platform.loadPatternsEnabled();
     renderer.setPatternsEnabled(initialPatternsEnabled);
     input.setPatternsEnabled(initialPatternsEnabled);
-
-    const initialAutoXEnabled = platform.loadAutoXEnabled();
-    game.setAutoXEnabled(initialAutoXEnabled);
-    renderer.setAutoXEnabled(initialAutoXEnabled);
-    input.setAutoXEnabled(initialAutoXEnabled);
   });
 })(typeof window !== 'undefined' ? window : globalThis);

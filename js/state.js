@@ -2,14 +2,35 @@
 // small API. No DOM dependency - render.js subscribes via the onChange callback.
 (function (root) {
   const MAX_LIVES = 3;
-  const SIZES_BY_STAGE = [4, 5, 6, 7, 8];
-  const LEVELS_PER_STAGE = 3;
   const DOUBLE_TAP_WINDOW_MS = 300;
   const POINTS_PER_FLOWER = 10;
 
+  // Grid size by level: 1-2 -> 4x4, 3-5 -> 5x5, 6-9 -> 6x6, 10-14 -> 7x7, 15+ -> 8x8.
+  const SIZE_THRESHOLDS = [
+    { minLevel: 1, size: 4 },
+    { minLevel: 3, size: 5 },
+    { minLevel: 6, size: 6 },
+    { minLevel: 10, size: 7 },
+    { minLevel: 15, size: 8 },
+  ];
+
   function gridSizeForLevel(level) {
-    const stageIndex = Math.min(Math.floor((level - 1) / LEVELS_PER_STAGE), SIZES_BY_STAGE.length - 1);
-    return SIZES_BY_STAGE[stageIndex];
+    let size = SIZE_THRESHOLDS[0].size;
+    for (const entry of SIZE_THRESHOLDS) {
+      if (level >= entry.minLevel) size = entry.size;
+    }
+    return size;
+  }
+
+  // Win rating (1-3 stars): based on mistakes made and time taken, scaled to
+  // grid size since bigger boards naturally take longer to solve.
+  const STAR3_SECONDS_PER_CELL_SIDE = 10;
+  const STAR2_SECONDS_PER_CELL_SIDE = 20;
+
+  function computeRating(size, mistakesUsed, elapsedSeconds) {
+    if (mistakesUsed === 0 && elapsedSeconds <= size * STAR3_SECONDS_PER_CELL_SIDE) return 3;
+    if (mistakesUsed <= 1 && elapsedSeconds <= size * STAR2_SECONDS_PER_CELL_SIDE) return 2;
+    return 1;
   }
 
   // Pure, deterministic level construction: level N always produces the exact
@@ -41,7 +62,7 @@
     let lastTap = null; // { row, col, time } - tracks the double-tap gesture
     let levelScore = 0;
     let totalScore = platform.loadTotalScore();
-    let autoXEnabled = false;
+    let levelStartTime = Date.now();
 
     function cellKey(row, col) {
       return row + ',' + col;
@@ -86,6 +107,7 @@
       level = levelNumber;
       status = 'playing';
       lastTap = null;
+      levelStartTime = Date.now();
 
       const built = buildLevel(levelNumber);
       grid = gridModule.createGrid(built.size, built.regionOf);
@@ -127,41 +149,33 @@
       startLevel(level + 1);
     }
 
-    function setAutoXEnabled(enabled) {
-      autoXEnabled = enabled;
-    }
-
-    // Every cell that can never hold a flower now that (row, col) has one:
-    // its row, its column, its whole bed, and its 8 neighbors.
-    function autoMarkAround(row, col) {
-      const regionIdx = grid.cells[row][col].region;
-      const affected = new Set();
-
-      for (let c = 0; c < grid.size; c++) affected.add(cellKey(row, c));
-      for (let r = 0; r < grid.size; r++) affected.add(cellKey(r, col));
-      for (let r = 0; r < grid.size; r++) {
-        for (let c = 0; c < grid.size; c++) {
-          if (grid.cells[r][c].region === regionIdx) affected.add(cellKey(r, c));
+    // All remaining empty cells get a white X (a solved board never leaves
+    // ambiguous empty cells), then the level ends: score is finalized,
+    // rating (1-3 stars) is computed from mistakes + time, and the level's
+    // best time is updated if this run beat it.
+    function finishLevel(scoreGain) {
+      const winFill = [];
+      for (let row = 0; row < grid.size; row++) {
+        for (let col = 0; col < grid.size; col++) {
+          const fillCell = grid.cells[row][col];
+          if (fillCell.state === CellState.EMPTY) {
+            fillCell.state = CellState.X;
+            winFill.push({ row, col });
+          }
         }
       }
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const nr = row + dr;
-          const nc = col + dc;
-          if (nr >= 0 && nr < grid.size && nc >= 0 && nc < grid.size) affected.add(cellKey(nr, nc));
-        }
-      }
-      affected.delete(cellKey(row, col));
 
-      const changed = [];
-      for (const key of affected) {
-        const [r, c] = key.split(',').map(Number);
-        const cell = grid.cells[r][c];
-        if (cell.locked || cell.state !== CellState.EMPTY) continue;
-        cell.state = CellState.X;
-        changed.push({ row: r, col: c });
-      }
-      return changed;
+      const elapsedSeconds = Math.max(0, Math.round((Date.now() - levelStartTime) / 1000));
+      const mistakesUsed = MAX_LIVES - lives;
+      const rating = computeRating(grid.size, mistakesUsed, elapsedSeconds);
+
+      const previousBest = platform.loadBestTime(level);
+      const bestTimeSeconds = previousBest === null ? elapsedSeconds : Math.min(previousBest, elapsedSeconds);
+      platform.saveBestTime(level, bestTimeSeconds);
+
+      status = 'won';
+      platform.clearBoard(level);
+      emit({ scoreGain, winFill, rating, elapsedSeconds, bestTimeSeconds });
     }
 
     function attemptFlower(row, col, cell) {
@@ -179,17 +193,14 @@
       totalScore += POINTS_PER_FLOWER;
       platform.saveTotalScore(totalScore);
 
-      const autoX = autoXEnabled ? autoMarkAround(row, col) : [];
       const scoreGain = { row, col, amount: POINTS_PER_FLOWER };
 
       if (rules.isSolved(grid)) {
-        status = 'won';
-        platform.clearBoard(level);
-        emit({ scoreGain, autoX });
+        finishLevel(scoreGain);
         return;
       }
 
-      commit({ scoreGain, autoX });
+      commit({ scoreGain });
     }
 
     function tapCell(row, col) {
@@ -252,13 +263,14 @@
 
     startLevel(level);
 
-    return { tapCell, markCellX, clearCellX, nextLevel, retryLevel, setAutoXEnabled, getSnapshot };
+    return { tapCell, markCellX, clearCellX, nextLevel, retryLevel, getSnapshot };
   }
 
   const State = {
     createGame,
     gridSizeForLevel,
     buildLevel,
+    computeRating,
     MAX_LIVES,
     DOUBLE_TAP_WINDOW_MS,
     POINTS_PER_FLOWER,

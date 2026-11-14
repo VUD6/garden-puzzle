@@ -4,9 +4,9 @@
 (function (root) {
   const LEVEL_KEY = 'garden.currentLevel';
   const PATTERNS_KEY = 'garden.patternsEnabled';
-  const AUTO_X_KEY = 'garden.autoXEnabled';
   const TOTAL_SCORE_KEY = 'garden.totalScore';
   const BOARD_KEY_PREFIX = 'garden.board.';
+  const BEST_TIME_KEY_PREFIX = 'garden.bestTime.';
 
   function hasStorage() {
     return typeof localStorage !== 'undefined';
@@ -33,16 +33,6 @@
     if (!hasStorage()) return true;
     const raw = localStorage.getItem(PATTERNS_KEY);
     return raw === null ? true : raw === '1';
-  }
-
-  function saveAutoXEnabled(enabled) {
-    if (!hasStorage()) return;
-    localStorage.setItem(AUTO_X_KEY, enabled ? '1' : '0');
-  }
-
-  function loadAutoXEnabled() {
-    if (!hasStorage()) return false;
-    return localStorage.getItem(AUTO_X_KEY) === '1';
   }
 
   function saveTotalScore(score) {
@@ -78,6 +68,19 @@
     localStorage.removeItem(BOARD_KEY_PREFIX + level);
   }
 
+  function saveBestTime(level, seconds) {
+    if (!hasStorage()) return;
+    localStorage.setItem(BEST_TIME_KEY_PREFIX + level, String(seconds));
+  }
+
+  function loadBestTime(level) {
+    if (!hasStorage()) return null;
+    const raw = localStorage.getItem(BEST_TIME_KEY_PREFIX + level);
+    if (raw === null) return null;
+    const seconds = parseInt(raw, 10);
+    return Number.isInteger(seconds) && seconds >= 0 ? seconds : null;
+  }
+
   // Stubs for the Yandex Games SDK integration (roadmap step 7). Calling code
   // elsewhere should only ever go through these, never touch ads directly.
   function showRewardedAd(onComplete) {
@@ -93,13 +96,13 @@
     loadProgress,
     savePatternsEnabled,
     loadPatternsEnabled,
-    saveAutoXEnabled,
-    loadAutoXEnabled,
     saveTotalScore,
     loadTotalScore,
     saveBoard,
     loadBoard,
     clearBoard,
+    saveBestTime,
+    loadBestTime,
     showRewardedAd,
     showInterstitialAd,
   };

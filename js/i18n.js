@@ -11,7 +11,6 @@
       failMessage: 'Попробуйте снова.',
       retryButton: 'Повторить',
       patternsToggleLabel: 'Узоры на клумбах',
-      autoXToggleLabel: 'Авто-крестики',
       scoreLabel: 'Очки: {score}',
       scoreEarnedLabel: 'Очки за уровень: +{amount}',
       resultPerfect: 'Идеально!',
@@ -19,6 +18,10 @@
       ruleBedText: '1 цветок на клумбу',
       ruleRowColText: '1 цветок в ряду и столбце',
       ruleTouchText: 'Цветы не касаются друг друга',
+      rankGardener: 'Садовник',
+      rankSkilledGardener: 'Умелый садовник',
+      rankMasterGardener: 'Мастер-садовник',
+      bestTimeLabel: 'Лучшее время: {time}',
     },
     en: {
       appTitle: 'Garden Bed',
@@ -30,7 +33,6 @@
       failMessage: 'Try again.',
       retryButton: 'Retry',
       patternsToggleLabel: 'Bed patterns',
-      autoXToggleLabel: 'Auto X',
       scoreLabel: 'Score: {score}',
       scoreEarnedLabel: 'Level score: +{amount}',
       resultPerfect: 'Perfect!',
@@ -38,6 +40,10 @@
       ruleBedText: '1 flower per bed',
       ruleRowColText: '1 flower per row and column',
       ruleTouchText: "Flowers can't touch",
+      rankGardener: 'Gardener',
+      rankSkilledGardener: 'Skilled gardener',
+      rankMasterGardener: 'Master gardener',
+      bestTimeLabel: 'Best time: {time}',
     },
   };
 
