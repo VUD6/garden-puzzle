@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flower style picker (dev tool)</title>
+<style>
+  :root {
+    --bg-top: #16271c;
+    --bg-bottom: #0a140e;
+    --ink: #e9f1e7;
+    --ink-soft: #9db3a1;
+    --panel: #1d3426;
+    --panel-border: #34503c;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(160deg, var(--bg-top) 0%, var(--bg-bottom) 70%);
+    color: var(--ink);
+    font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+  }
+
+  body {
+    padding: 1.5rem;
+  }
+
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.4rem;
+  }
+
+  .intro {
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .intro strong {
+    color: var(--ink);
+  }
+
+  .styles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .style-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 1rem;
+  }
+
+  .style-card h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .style-card h2 .letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: #4caf6e;
+    color: #11271a;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 1 1 80px;
+  }
+
+  .caption {
+    margin: 0;
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+
+  .tile {
+    width: 72px;
+    height: 72px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tile.on-dark {
+    background: #0a140e;
+    border: 1px dashed var(--panel-border);
+  }
+
+  .flower-slot {
+    width: 70%;
+    height: 70%;
+  }
+
+  .flower-slot svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* --- shared petal/ring animation plumbing ---
+     Every design's moving parts carry .anim-part; the animation itself is
+     declared "none" by default and only enabled while an ancestor
+     .bloom-slot has the .playing class, so the exact same markup can sit in
+     all three preview slots (planted / bloom loop / dark) and only the
+     bloom-loop slot ever actually plays it. */
+  .anim-part {
+    animation: none;
+  }
+
+  .bloom-slot.playing [data-style="a"] .anim-part { animation: tulipOpen 0.6s cubic-bezier(.34,1.56,.64,1) both; }
+  .bloom-slot.playing [data-style="b"] .anim-part { animation: daisyOpen 0.5s cubic-bezier(.34,1.56,.64,1) both; }
+  .bloom-slot.playing [data-style="c"] .anim-part { animation: lotusOpen 0.6s cubic-bezier(.34,1.56,.64,1) both; }
+  .bloom-slot.playing [data-style="d"] .anim-part { animation: flatOpen 0.5s cubic-bezier(.34,1.56,.64,1) both; }
+  .bloom-slot.playing [data-style="e"] .anim-part.stem { animation: sproutStem 1s cubic-bezier(.34,1.56,.64,1) both; }
+  .bloom-slot.playing [data-style="e"] .anim-part.bud { animation: sproutBud 1s ease-in-out both; }
+  .bloom-slot.playing [data-style="e"] .anim-part.head { animation: sproutHead 1s cubic-bezier(.34,1.56,.64,1) both; }
+  .bloom-slot.playing [data-style="f"] .anim-part { animation: roseOpen 0.7s cubic-bezier(.34,1.56,.64,1) both; }
+
+  [data-style="a"] .petal { transform-box: fill-box; transform-origin: 50% 100%; }
+  [data-style="a"] .leaf { transform-box: fill-box; transform-origin: 50% 100%; }
+  [data-style="b"] .petal { transform-box: fill-box; transform-origin: 50% 100%; }
+  [data-style="c"] .petal { transform-box: fill-box; transform-origin: 50% 100%; }
+  [data-style="d"] .blob { transform-box: fill-box; transform-origin: 50% 50%; }
+  [data-style="e"] .stem { transform-box: fill-box; transform-origin: 50% 100%; }
+  [data-style="e"] .bud { transform-box: fill-box; transform-origin: 50% 50%; }
+  [data-style="e"] .head { transform-box: fill-box; transform-origin: 50% 50%; }
+  [data-style="f"] .petal { transform-box: fill-box; transform-origin: 50% 100%; }
+
+  @keyframes tulipOpen {
+    0% { transform: scale(0.15); opacity: 0; }
+    60% { transform: scale(1.15); opacity: 1; }
+    80% { transform: scale(0.94); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes daisyOpen {
+    0% { transform: scale(0.1); opacity: 0; }
+    60% { transform: scale(1.18); opacity: 1; }
+    80% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes lotusOpen {
+    0% { transform: scale(0.12); opacity: 0; }
+    60% { transform: scale(1.16); opacity: 1; }
+    80% { transform: scale(0.93); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes flatOpen {
+    0% { transform: scale(0.2); opacity: 0; }
+    65% { transform: scale(1.12); opacity: 1; }
+    85% { transform: scale(0.95); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes sproutStem {
+    0% { transform: scaleY(0); }
+    40% { transform: scaleY(1); }
+    100% { transform: scaleY(1); }
+  }
+
+  @keyframes sproutBud {
+    0% { transform: scale(0); opacity: 0; }
+    30% { transform: scale(1); opacity: 1; }
+    48% { transform: scale(1); opacity: 1; }
+    68% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(0); opacity: 0; }
+  }
+
+  @keyframes sproutHead {
+    0%, 58% { transform: scale(0); opacity: 0; }
+    88% { transform: scale(1.18); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes roseOpen {
+    0% { transform: scale(0.1) rotate(-18deg); opacity: 0; }
+    65% { transform: scale(1.12) rotate(4deg); opacity: 1; }
+    85% { transform: scale(0.95) rotate(-2deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<h1>Flower style picker</h1>
+<p class="intro">
+  Dev-only comparison page — <strong>not part of the game build</strong> (not linked from
+  <code>index.html</code>, loads nothing from <code>js/</code>). Six candidate flower designs,
+  each shown planted on a sample bed tile, looping its bloom animation on a tile, and alone on a
+  dark background. Pick a letter and tell me which one to wire into the real game.
+</p>
+
+<div class="styles-grid" id="grid"></div>
+
+<script>
+  const STYLES = [
+    { letter: 'a', name: 'Тюльпан / Tulip', tile: '#c97b84', build: buildTulip },
+    { letter: 'b', name: 'Ромашка / Daisy', tile: '#6f9bc4', build: buildDaisy },
+    { letter: 'c', name: 'Лотос / Lotus', tile: '#6fb08a', build: buildLotus },
+    { letter: 'd', name: 'Плоская иконка / Flat icon', tile: '#a888c9', build: buildFlatIcon },
+    { letter: 'e', name: 'Росток / Sprout', tile: '#cc8c5c', build: buildSprout },
+    { letter: 'f', name: 'Спиральная роза / Rose spiral', tile: '#5cb3a8', build: buildRose },
+  ];
+
+  function ring(count, angleOffset, delayStep, delayBase, pathFor, colorFor) {
+    let out = '';
+    for (let i = 0; i < count; i++) {
+      const angle = angleOffset + (360 / count) * i;
+      out +=
+        '<g transform="rotate(' + angle + ' 12 12)">' +
+        '<path class="petal anim-part" style="animation-delay:' + (delayBase + i * delayStep) + 'ms" fill="' + colorFor(i) + '" d="' + pathFor(i) + '"/>' +
+        '</g>';
+    }
+    return out;
+  }
+
+  function buildTulip() {
+    const cup = 'M12 5C9.6 5 8 8.3 8 11.6C8 14 9.7 15.7 12 16.9C14.3 15.7 16 14 16 11.6C16 8.3 14.4 5 12 5Z';
+    let petals = '';
+    [-18, 0, 18].forEach((angle, i) => {
+      const fill = i === 1 ? '#e0486f' : '#ef6a8c';
+      petals +=
+        '<g transform="rotate(' + angle + ' 12 14)">' +
+        '<path class="petal anim-part" style="animation-delay:' + (i === 1 ? 0 : 70) + 'ms" fill="' + fill + '" d="' + cup + '"/>' +
+        '</g>';
+    });
+    const leaves =
+      '<path class="leaf anim-part" style="animation-delay:130ms" d="M11 18C8 18 5 16 4 12" stroke="#4f9d5c" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+      '<path class="leaf anim-part" style="animation-delay:150ms" d="M13 18C16 18 19 16 20 12" stroke="#4f9d5c" stroke-width="2" fill="none" stroke-linecap="round"/>';
+    return '<svg viewBox="0 0 24 24" data-style="a">' + leaves + petals + '</svg>';
+  }
+
+  function buildDaisy() {
+    let petals = '';
+    for (let i = 0; i < 14; i++) {
+      const angle = (360 / 14) * i;
+      const fill = i % 2 === 0 ? '#fbe9c6' : '#f3d6a6';
+      petals +=
+        '<g transform="rotate(' + angle + ' 12 12)">' +
+        '<ellipse class="petal anim-part" style="animation-delay:' + (i * 16) + 'ms" cx="12" cy="6.2" rx="1.3" ry="4.3" fill="' + fill + '"/>' +
+        '</g>';
+    }
+    const center = '<circle cx="12" cy="12" r="3.6" fill="#f4c23a"/>';
+    return '<svg viewBox="0 0 24 24" data-style="b">' + petals + center + '</svg>';
+  }
+
+  function buildLotus() {
+    const outer = ring(8, 0, 22, 0, () => 'M12 2C13.6 5 14.3 8.3 12 12C9.7 8.3 10.4 5 12 2Z', () => '#f2a6c9');
+    const inner = ring(6, 15, 22, 140, () => 'M12 5C13 7 13.4 9.2 12 12C10.6 9.2 11 7 12 5Z', () => '#d9699e');
+    const center = '<circle cx="12" cy="12" r="2" fill="#eede6a"/>';
+    return '<svg viewBox="0 0 24 24" data-style="c">' + outer + inner + center + '</svg>';
+  }
+
+  function buildFlatIcon() {
+    const color = '#ef5a4e';
+    let blobs = '<circle class="blob anim-part" cx="12" cy="12" r="4.2" fill="' + color + '"/>';
+    for (let i = 0; i < 5; i++) {
+      const angle = (360 / 5) * i;
+      const x = 12 + Math.cos((angle - 90) * Math.PI / 180) * 4;
+      const y = 12 + Math.sin((angle - 90) * Math.PI / 180) * 4;
+      blobs += '<circle class="blob anim-part" cx="' + x.toFixed(2) + '" cy="' + y.toFixed(2) + '" r="4.2" fill="' + color + '"/>';
+    }
+    return '<svg viewBox="0 0 24 24" data-style="d"><g>' + blobs + '</g></svg>';
+  }
+
+  function buildSprout() {
+    const stem = '<rect class="stem anim-part" x="11.3" y="14" width="1.4" height="8" rx="0.7" fill="#4f9d5c"/>';
+    const bud = '<circle class="bud anim-part" cx="12" cy="13" r="2.2" fill="#6fae52"/>';
+    let petals = '';
+    for (let i = 0; i < 4; i++) {
+      const angle = 90 * i;
+      const fill = i % 2 === 0 ? '#e85c96' : '#f28fb3';
+      petals += '<g transform="rotate(' + angle + ' 12 10)"><rect x="9.6" y="6.4" width="4.8" height="6" rx="2" fill="' + fill + '"/></g>';
+    }
+    const head = '<g class="head anim-part">' + petals + '<circle cx="12" cy="10" r="1.4" fill="#ffe17a"/></g>';
+    return '<svg viewBox="0 0 24 24" data-style="e">' + stem + bud + head + '</svg>';
+  }
+
+  function buildRose() {
+    const outer = ring(6, 0, 20, 0, () => 'M12 5C13.8 7 14.2 9.4 12 12C9.8 9.4 10.2 7 12 5Z', () => '#c23a63');
+    const middle = ring(5, 30, 20, 130, () => 'M12 7C13.3 8.4 13.6 10 12 12C10.4 10 10.7 8.4 12 7Z', () => '#e0577f');
+    const innerR = ring(4, 55, 20, 250, () => 'M12 9C12.9 9.8 13.1 10.6 12 12C10.9 10.6 11.1 9.8 12 9Z', () => '#f08aa8');
+    const center = '<circle cx="12" cy="12" r="1.3" fill="#ffd9e6"/>';
+    return '<svg viewBox="0 0 24 24" data-style="f">' + outer + middle + innerR + center + '</svg>';
+  }
+
+  const grid = document.getElementById('grid');
+
+  STYLES.forEach((style) => {
+    const card = document.createElement('section');
+    card.className = 'style-card';
+    card.innerHTML =
+      '<h2><span class="letter">' + style.letter + '</span>' + style.name + '</h2>' +
+      '<div class="previews">' +
+      '<div class="preview"><div class="tile" style="background:' + style.tile + '"><div class="flower-slot planted-slot"></div></div><p class="caption">Planted</p></div>' +
+      '<div class="preview"><div class="bloom-slot"><div class="tile" style="background:' + style.tile + '"><div class="flower-slot bloom-slot-inner"></div></div></div><p class="caption">Bloom loop</p></div>' +
+      '<div class="preview"><div class="tile on-dark"><div class="flower-slot dark-slot"></div></div><p class="caption">On dark bg</p></div>' +
+      '</div>';
+    grid.appendChild(card);
+
+    card.querySelector('.planted-slot').innerHTML = style.build();
+    card.querySelector('.bloom-slot-inner').innerHTML = style.build();
+    card.querySelector('.dark-slot').innerHTML = style.build();
+  });
+
+  function restartBlooms() {
+    document.querySelectorAll('.bloom-slot').forEach((el) => {
+      el.classList.remove('playing');
+      void el.offsetWidth;
+      el.classList.add('playing');
+    });
+  }
+  restartBlooms();
+  setInterval(restartBlooms, 2600);
+</script>
+</body>
+</html>

@@ -55,36 +55,14 @@
   const WAVE_DURATION_MS = 250;
   const RULES_INLINE_MAX_LEVEL = 5;
   const PARTICLE_COUNT = 10;
-  const BED_BORDER_WIDTH = 3;
 
-  // Gap between tiles scales down a bit on bigger boards so cells stay a
-  // comfortable minimum size on phones, while still reading as separate tiles.
+  // One uniform gap between every cell (same bed or not - beds are told
+  // apart only by color), scaled down a touch on bigger boards so cells
+  // stay a comfortable minimum size on phones.
   function gapForSize(size) {
-    if (size <= 5) return 6;
-    if (size <= 7) return 5;
-    return 4;
-  }
-
-  // Which sides of this cell border a *different* bed (or the edge of the
-  // board). Used to draw a thicker, darker line only along bed boundaries,
-  // so each bed still reads as one shape at a glance.
-  function bedBorderSides(grid, row, col) {
-    const region = grid.cells[row][col].region;
-    return {
-      top: row === 0 || grid.cells[row - 1][col].region !== region,
-      right: col === grid.size - 1 || grid.cells[row][col + 1].region !== region,
-      bottom: row === grid.size - 1 || grid.cells[row + 1][col].region !== region,
-      left: col === 0 || grid.cells[row][col - 1].region !== region,
-    };
-  }
-
-  function applyBedBorder(el, grid, row, col) {
-    const sides = bedBorderSides(grid, row, col);
-    const border = BED_BORDER_WIDTH + 'px solid var(--bed-border-color)';
-    el.style.borderTop = sides.top ? border : '';
-    el.style.borderRight = sides.right ? border : '';
-    el.style.borderBottom = sides.bottom ? border : '';
-    el.style.borderLeft = sides.left ? border : '';
+    if (size <= 5) return 4;
+    if (size <= 7) return 3.5;
+    return 3;
   }
 
   function markFor(state, region) {
@@ -166,7 +144,6 @@
           const el = document.createElement('div');
           el.dataset.row = String(row);
           el.dataset.col = String(col);
-          applyBedBorder(el, grid, row, col);
 
           const patternEl = document.createElement('div');
           patternEl.className = 'cell-pattern pattern-' + patternIdx;
