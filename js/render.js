@@ -9,15 +9,30 @@
   const Platform = root.Garden.platform;
 
   const FLOWER_COLOR_COUNT = 8;
+  const PETAL_COUNT = 5;
+  const PETAL_STAGGER_MS = 45;
 
+  // Single reusable "tile flower" component: rounded-square petals rotated
+  // around a center circle, alternating between two shades of the bed's
+  // flower color. Swapping the art style later only means changing this
+  // one function - markFor()/syncCells() just ask it for an SVG string.
   function flowerSvgFor(region) {
-    const petalColor = 'var(--flower-' + (region % FLOWER_COLOR_COUNT) + ')';
-    return (
-      '<svg viewBox="0 0 24 24"><g fill="' + petalColor + '">' +
-      '<circle cx="12" cy="7" r="4"/><circle cx="12" cy="17" r="4"/>' +
-      '<circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/></g>' +
-      '<circle cx="12" cy="12" r="3.4" fill="var(--flower-center)"/></svg>'
-    );
+    const idx = (region || 0) % FLOWER_COLOR_COUNT;
+    const baseColor = 'var(--flower-' + idx + ')';
+    const shadeColor = 'var(--flower-' + idx + '-b)';
+
+    let petals = '';
+    for (let i = 0; i < PETAL_COUNT; i++) {
+      const angle = (360 / PETAL_COUNT) * i;
+      const color = i % 2 === 0 ? baseColor : shadeColor;
+      const delay = i * PETAL_STAGGER_MS;
+      petals +=
+        '<g transform="rotate(' + angle + ' 12 12)">' +
+        '<rect class="petal" style="animation-delay:' + delay + 'ms" x="9" y="2.2" width="6" height="7.6" rx="2.4" fill="' + color + '"/>' +
+        '</g>';
+    }
+
+    return '<svg viewBox="0 0 24 24">' + petals + '<circle cx="12" cy="12" r="3.1" fill="var(--flower-center)"/></svg>';
   }
 
   const X_SVG =
@@ -40,6 +55,37 @@
   const WAVE_DURATION_MS = 250;
   const RULES_INLINE_MAX_LEVEL = 5;
   const PARTICLE_COUNT = 10;
+  const BED_BORDER_WIDTH = 3;
+
+  // Gap between tiles scales down a bit on bigger boards so cells stay a
+  // comfortable minimum size on phones, while still reading as separate tiles.
+  function gapForSize(size) {
+    if (size <= 5) return 6;
+    if (size <= 7) return 5;
+    return 4;
+  }
+
+  // Which sides of this cell border a *different* bed (or the edge of the
+  // board). Used to draw a thicker, darker line only along bed boundaries,
+  // so each bed still reads as one shape at a glance.
+  function bedBorderSides(grid, row, col) {
+    const region = grid.cells[row][col].region;
+    return {
+      top: row === 0 || grid.cells[row - 1][col].region !== region,
+      right: col === grid.size - 1 || grid.cells[row][col + 1].region !== region,
+      bottom: row === grid.size - 1 || grid.cells[row + 1][col].region !== region,
+      left: col === 0 || grid.cells[row][col - 1].region !== region,
+    };
+  }
+
+  function applyBedBorder(el, grid, row, col) {
+    const sides = bedBorderSides(grid, row, col);
+    const border = BED_BORDER_WIDTH + 'px solid var(--bed-border-color)';
+    el.style.borderTop = sides.top ? border : '';
+    el.style.borderRight = sides.right ? border : '';
+    el.style.borderBottom = sides.bottom ? border : '';
+    el.style.borderLeft = sides.left ? border : '';
+  }
 
   function markFor(state, region) {
     if (state === Grid.CellState.FLOWER) return flowerSvgFor(region || 0);
@@ -107,6 +153,7 @@
       dom.board.classList.remove('board-complete');
       dom.board.style.gridTemplateColumns = 'repeat(' + grid.size + ', 1fr)';
       dom.board.style.gridTemplateRows = 'repeat(' + grid.size + ', 1fr)';
+      dom.board.style.gap = gapForSize(grid.size) + 'px';
       dom.board.innerHTML = '';
 
       cellEls = [];
@@ -119,6 +166,7 @@
           const el = document.createElement('div');
           el.dataset.row = String(row);
           el.dataset.col = String(col);
+          applyBedBorder(el, grid, row, col);
 
           const patternEl = document.createElement('div');
           patternEl.className = 'cell-pattern pattern-' + patternIdx;
