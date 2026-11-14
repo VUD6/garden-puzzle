@@ -183,6 +183,7 @@
       dom.patternsToggleLabelText.textContent = I18n.t('patternsToggleLabel');
       dom.reduceMotionLabelText.textContent = I18n.t('reduceMotionLabel');
       dom.vibrationLabelText.textContent = I18n.t('vibrationLabel');
+      dom.vibrationUnsupportedNote.textContent = I18n.t('vibrationUnsupportedNote');
       dom.settingsCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
       dom.replayTutorialButton.textContent = I18n.t('replayTutorialButton');
     }

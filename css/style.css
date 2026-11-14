@@ -414,11 +414,21 @@ html.reduce-motion .loading-pulse span {
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.3rem 0.75rem;
+  /* Horizontal padding matches .board-wrap's side padding, so the bar never
+     reaches wider than the board below it. */
+  padding: 0.3rem 0.5rem;
+  max-width: 100%;
 }
 
 .rules-bar[hidden] {
   display: none;
+}
+
+.rules-bar:not(.popup-mode) {
+  /* Force the bar to take exactly the available row width (rather than the
+     fit-content width of its unwrapped children) so it can never grow past
+     the viewport; .rule-card's flex:1 1 0 below then shares that width. */
+  width: 100%;
 }
 
 .rules-bar.popup-mode {
@@ -452,6 +462,15 @@ html.reduce-motion .loading-pulse span {
   padding: 0.35rem 0.6rem;
   max-width: 150px;
   box-shadow: var(--shadow-sm);
+}
+
+.rules-bar:not(.popup-mode) .rule-card {
+  /* Three cards share the bar's width equally and shrink past their content
+     size (min-width: 0 overrides the flex-item default of min-width: auto),
+     so the text wraps instead of pushing the row wider than the viewport. */
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
 }
 
 .rule-diagram {
@@ -510,6 +529,8 @@ html.reduce-motion .loading-pulse span {
 
 .rule-text {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
   font-size: 0.68rem;
   line-height: 1.2;
   color: var(--ink-soft);
@@ -942,9 +963,21 @@ html.reduce-motion .board.board-complete .cell-mark.mark-flower {
   border-bottom: none;
 }
 
+.settings-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
 .settings-row-label {
   font-size: 0.92rem;
   color: var(--ink);
+}
+
+.settings-row-note {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
 }
 
 .toggle-switch {
@@ -978,6 +1011,11 @@ html.reduce-motion .board.board-complete .cell-mark.mark-flower {
 .toggle-switch[aria-pressed="true"] .toggle-knob {
   transform: translateX(18px);
   background: var(--accent-ink);
+}
+
+.toggle-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .tutorial-overlay {

@@ -122,6 +122,13 @@
     }
   }
 
+  // iOS Safari has no navigator.vibrate at all, so the "Vibrate on mistake"
+  // setting would otherwise be a silent no-op there; the settings UI uses
+  // this to show the toggle as disabled with an explanatory note instead.
+  function isVibrationSupported() {
+    return typeof navigator !== 'undefined' && 'vibrate' in navigator;
+  }
+
   // Called once after boot (i18n/settings/saves ready). Stub for now;
   // step 8 will hook Yandex LoadingAPI.ready() into it without changing
   // the call site in main.js.
@@ -156,6 +163,7 @@
     saveVibrationEnabled,
     loadVibrationEnabled,
     vibrate,
+    isVibrationSupported,
     gameReady,
     showRewardedAd,
     showInterstitialAd,

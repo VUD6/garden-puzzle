@@ -52,6 +52,7 @@
       reduceMotionLabelText: document.getElementById('reduceMotionLabelText'),
       reduceMotionToggle: document.getElementById('reduceMotionToggle'),
       vibrationLabelText: document.getElementById('vibrationLabelText'),
+      vibrationUnsupportedNote: document.getElementById('vibrationUnsupportedNote'),
       vibrationToggle: document.getElementById('vibrationToggle'),
       replayTutorialButton: document.getElementById('replayTutorialButton'),
       settingsCloseButton: document.getElementById('settingsCloseButton'),
@@ -135,6 +136,12 @@
     const initialVibrationEnabled = platform.loadVibrationEnabled();
     dom.vibrationToggle.setAttribute('aria-pressed', String(initialVibrationEnabled));
     renderer.setVibrationEnabled(initialVibrationEnabled);
+
+    // The setting's stored value is left untouched either way; this only
+    // controls whether the toggle can actually do anything on this device.
+    const vibrationSupported = platform.isVibrationSupported();
+    dom.vibrationToggle.disabled = !vibrationSupported;
+    dom.vibrationUnsupportedNote.hidden = vibrationSupported;
 
     dom.replayTutorialButton.addEventListener('click', function () {
       renderer.closeSettings();
