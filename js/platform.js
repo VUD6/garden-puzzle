@@ -7,6 +7,7 @@
   const TOTAL_SCORE_KEY = 'garden.totalScore';
   const BOARD_KEY_PREFIX = 'garden.board.';
   const BEST_TIME_KEY_PREFIX = 'garden.bestTime.';
+  const TUTORIAL_DONE_KEY = 'garden.tutorialDone';
 
   function hasStorage() {
     return typeof localStorage !== 'undefined';
@@ -81,6 +82,16 @@
     return Number.isInteger(seconds) && seconds >= 0 ? seconds : null;
   }
 
+  function saveTutorialDone(done) {
+    if (!hasStorage()) return;
+    localStorage.setItem(TUTORIAL_DONE_KEY, done ? '1' : '0');
+  }
+
+  function loadTutorialDone() {
+    if (!hasStorage()) return false;
+    return localStorage.getItem(TUTORIAL_DONE_KEY) === '1';
+  }
+
   // Stubs for the Yandex Games SDK integration (roadmap step 7). Calling code
   // elsewhere should only ever go through these, never touch ads directly.
   function showRewardedAd(onComplete) {
@@ -103,6 +114,8 @@
     clearBoard,
     saveBestTime,
     loadBestTime,
+    saveTutorialDone,
+    loadTutorialDone,
     showRewardedAd,
     showInterstitialAd,
   };

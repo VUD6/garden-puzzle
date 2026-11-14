@@ -348,5 +348,5 @@
   }
 
   root.Garden = root.Garden || {};
-  root.Garden.render = { createRenderer };
+  root.Garden.render = { createRenderer, markFor };
 })(typeof window !== 'undefined' ? window : globalThis);

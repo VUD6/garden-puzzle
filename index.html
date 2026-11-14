@@ -15,6 +15,7 @@
     <div class="lives" id="livesContainer"></div>
     <div class="settings-toggles">
       <button class="patterns-toggle" id="patternsToggle" type="button"></button>
+      <button class="replay-tutorial-button" id="replayTutorialButton" type="button"></button>
     </div>
   </header>
   <section class="rules-bar" id="rulesBar">
@@ -82,6 +83,20 @@
       <button id="retryButton" type="button"></button>
     </div>
   </div>
+  <div class="overlay tutorial-overlay" id="tutorialOverlay" hidden>
+    <div class="tutorial-card" id="tutorialPlay">
+      <div class="tutorial-board-wrap">
+        <div class="board tutorial-board" id="tutorialBoard"></div>
+        <div class="tutorial-hand" id="tutorialHand" hidden></div>
+      </div>
+      <p class="tutorial-bubble" id="tutorialBubble"></p>
+    </div>
+    <div class="overlay-card tutorial-final" id="tutorialFinal" hidden>
+      <h2 id="tutorialFinalTitle"></h2>
+      <p id="tutorialFinalText"></p>
+      <button id="tutorialGotItButton" type="button"></button>
+    </div>
+  </div>
 </div>
 <script src="js/i18n.js"></script>
 <script src="js/platform.js"></script>
@@ -93,6 +108,7 @@
 <script src="js/state.js"></script>
 <script src="js/render.js"></script>
 <script src="js/input.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -9,6 +9,7 @@
       scoreDisplay: document.getElementById('scoreDisplay'),
       lives: document.getElementById('livesContainer'),
       patternsToggle: document.getElementById('patternsToggle'),
+      replayTutorialButton: document.getElementById('replayTutorialButton'),
       ruleTextBed: document.getElementById('ruleTextBed'),
       ruleTextRowCol: document.getElementById('ruleTextRowCol'),
       ruleTextTouch: document.getElementById('ruleTextTouch'),
@@ -26,6 +27,15 @@
       failTitle: document.getElementById('failTitle'),
       failMessage: document.getElementById('failMessage'),
       retryButton: document.getElementById('retryButton'),
+      tutorialOverlay: document.getElementById('tutorialOverlay'),
+      tutorialPlay: document.getElementById('tutorialPlay'),
+      tutorialBoard: document.getElementById('tutorialBoard'),
+      tutorialHand: document.getElementById('tutorialHand'),
+      tutorialBubble: document.getElementById('tutorialBubble'),
+      tutorialFinal: document.getElementById('tutorialFinal'),
+      tutorialFinalTitle: document.getElementById('tutorialFinalTitle'),
+      tutorialFinalText: document.getElementById('tutorialFinalText'),
+      tutorialGotItButton: document.getElementById('tutorialGotItButton'),
     };
 
     const platform = Garden.platform;
@@ -45,5 +55,12 @@
     const initialPatternsEnabled = platform.loadPatternsEnabled();
     renderer.setPatternsEnabled(initialPatternsEnabled);
     input.setPatternsEnabled(initialPatternsEnabled);
+
+    dom.replayTutorialButton.textContent = Garden.i18n.t('replayTutorialButton');
+    const tutorial = Garden.tutorial.createTutorial(dom);
+    dom.replayTutorialButton.addEventListener('click', function () {
+      tutorial.start();
+    });
+    if (!platform.loadTutorialDone()) tutorial.start();
   });
 })(typeof window !== 'undefined' ? window : globalThis);
