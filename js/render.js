@@ -8,31 +8,86 @@
   const I18n = root.Garden.i18n;
   const Platform = root.Garden.platform;
 
-  const FLOWER_COLOR_COUNT = 8;
-  const PETAL_COUNT = 5;
-  const PETAL_STAGGER_MS = 45;
+  // Must stay in sync with --region-0..7 in css/style.css: the flower's
+  // own color is derived from the bed's hue at draw time (not a separate
+  // hardcoded token per region), so this is the one place that needs to
+  // know what a bed actually looks like.
+  const REGION_COLORS = ['#c97b84', '#6f9bc4', '#cdb15a', '#6fb08a', '#a888c9', '#cc8c5c', '#5cb3a8', '#c47bb0'];
 
-  // Single reusable "tile flower" component: rounded-square petals rotated
-  // around a center circle, alternating between two shades of the bed's
-  // flower color. Swapping the art style later only means changing this
-  // one function - markFor()/syncCells() just ask it for an SVG string.
-  function flowerSvgFor(region) {
-    const idx = (region || 0) % FLOWER_COLOR_COUNT;
-    const baseColor = 'var(--flower-' + idx + ')';
-    const shadeColor = 'var(--flower-' + idx + '-b)';
+  // Rose-spiral layout: three rings of petals, each smaller and rotated a
+  // bit further than the last, opening outer-to-inner. Reused for every
+  // flower in the game (board, bed tracker, tutorial, win screen).
+  const ROSE_RINGS = [
+    { count: 6, angleOffset: 0, delayBase: 0, path: 'M12 5C13.8 7 14.2 9.4 12 12C9.8 9.4 10.2 7 12 5Z', shade: 'outer' },
+    { count: 5, angleOffset: 30, delayBase: 110, path: 'M12 7C13.3 8.4 13.6 10 12 12C10.4 10 10.7 8.4 12 7Z', shade: 'middle' },
+    { count: 4, angleOffset: 55, delayBase: 210, path: 'M12 9C12.9 9.8 13.1 10.6 12 12C10.9 10.6 11.1 9.8 12 9Z', shade: 'inner' },
+  ];
+  const RING_DELAY_STEP_MS = 20;
 
-    let petals = '';
-    for (let i = 0; i < PETAL_COUNT; i++) {
-      const angle = (360 / PETAL_COUNT) * i;
-      const color = i % 2 === 0 ? baseColor : shadeColor;
-      const delay = i * PETAL_STAGGER_MS;
-      petals +=
-        '<g transform="rotate(' + angle + ' 12 12)">' +
-        '<rect class="petal" style="animation-delay:' + delay + 'ms" x="9" y="2.2" width="6" height="7.6" rx="2.4" fill="' + color + '"/>' +
-        '</g>';
+  function clamp(value, lo, hi) {
+    return Math.max(lo, Math.min(hi, value));
+  }
+
+  function hexToHsl(hex) {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    let h = 0;
+    let s = 0;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
     }
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  }
 
-    return '<svg viewBox="0 0 24 24">' + petals + '<circle cx="12" cy="12" r="3.1" fill="var(--flower-center)"/></svg>';
+  function hsl(h, s, l) {
+    return 'hsl(' + h.toFixed(0) + ' ' + clamp(s, 0, 100).toFixed(0) + '% ' + clamp(l, 0, 100).toFixed(0) + '%)';
+  }
+
+  // Three shades for the rose's three rings, all pushed away from the
+  // bed's own lightness (lighter bed -> darker flower, darker bed ->
+  // lighter flower) so the flower always reads clearly against its bed,
+  // then nudged progressively further in that same direction ring by
+  // ring for a bit of depth.
+  function flowerPalette(region) {
+    const bed = hexToHsl(REGION_COLORS[(region || 0) % REGION_COLORS.length]);
+    const sign = bed.l > 55 ? -1 : 1;
+    const baseL = clamp(bed.l + sign * 38, 14, 90);
+    const baseS = Math.min(90, bed.s + 15);
+    const step = sign * 11;
+    return {
+      outer: hsl(bed.h, baseS, baseL),
+      middle: hsl(bed.h, baseS - 8, baseL + step),
+      inner: hsl(bed.h, baseS - 16, baseL + step * 2),
+    };
+  }
+
+  // Single reusable "rose spiral" flower component: swapping the art
+  // style later only means changing this one function - markFor() and
+  // every caller (board, bed tracker, tutorial, win screen) just ask it
+  // for an SVG string.
+  function flowerSvgFor(region) {
+    const palette = flowerPalette(region);
+    let petals = '';
+    ROSE_RINGS.forEach(function (ring) {
+      for (let i = 0; i < ring.count; i++) {
+        const angle = ring.angleOffset + (360 / ring.count) * i;
+        const delay = ring.delayBase + i * RING_DELAY_STEP_MS;
+        petals +=
+          '<g transform="rotate(' + angle + ' 12 12)">' +
+          '<path class="petal" style="animation-delay:' + delay + 'ms" fill="' + palette[ring.shade] + '" d="' + ring.path + '"/>' +
+          '</g>';
+      }
+    });
+    return '<svg viewBox="0 0 24 24">' + petals + '<circle cx="12" cy="12" r="1.3" fill="var(--flower-center)"/></svg>';
   }
 
   const X_SVG =
@@ -57,11 +112,13 @@
   const PARTICLE_COUNT = 10;
 
   // One uniform gap between every cell (same bed or not - beds are told
-  // apart only by color), scaled down a touch on bigger boards so cells
-  // stay a comfortable minimum size on phones.
+  // apart only by color), scaled down on bigger boards so cells stay a
+  // comfortable minimum size on phones, but never below ~3px.
   function gapForSize(size) {
-    if (size <= 5) return 4;
-    if (size <= 7) return 3.5;
+    if (size <= 4) return 8;
+    if (size === 5) return 7;
+    if (size === 6) return 6;
+    if (size === 7) return 4.5;
     return 3;
   }
 
@@ -409,6 +466,9 @@
     }
 
     function showWinOverlay(snapshot) {
+      dom.winFlower.innerHTML = flowerSvgFor(0);
+      triggerOneShotAnim(dom.winFlower, 'mark-bloom');
+
       dom.winTitle.textContent = I18n.t(snapshot.perfect ? 'resultPerfect' : 'resultDone');
       dom.winTitle.className = 'result-text ' + (snapshot.perfect ? 'result-perfect' : 'result-done');
       dom.winTitle.classList.remove('result-pop');

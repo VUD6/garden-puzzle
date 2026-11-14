@@ -22,6 +22,7 @@
       boardWrap: document.querySelector('.board-wrap'),
       board: document.getElementById('board'),
       winOverlay: document.getElementById('winOverlay'),
+      winFlower: document.getElementById('winFlower'),
       winTitle: document.getElementById('winTitle'),
       starsContainer: document.getElementById('starsContainer'),
       rankTitle: document.getElementById('rankTitle'),
