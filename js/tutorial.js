@@ -108,7 +108,7 @@
           className += active ? ' tutorial-active' : ' tutorial-dim';
           ref.el.className = className;
 
-          const mark = markFor(cs.state);
+          const mark = markFor(cs.state, REGION_OF[row][col]);
           if (ref.markEl.__mark !== mark) {
             ref.markEl.innerHTML = mark;
             ref.markEl.__mark = mark;

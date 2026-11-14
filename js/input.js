@@ -1,20 +1,44 @@
-// Pointer/touch input. Browser-only; translates DOM events into state.js calls.
+// Pointer/touch input. Browser-only; translates DOM events into state.js
+// calls and wires the chrome (back/settings/rules buttons, toggles) to the
+// renderer and platform.
 (function (root) {
   const CellState = root.Garden.grid.CellState;
+  const SINK_MS = 140;
 
   function cellFromElement(el) {
     const cellEl = el && el.closest ? el.closest('.cell') : null;
     if (!cellEl) return null;
-    return { row: parseInt(cellEl.dataset.row, 10), col: parseInt(cellEl.dataset.col, 10) };
+    return { row: parseInt(cellEl.dataset.row, 10), col: parseInt(cellEl.dataset.col, 10), el: cellEl };
   }
 
-  function attach(dom, game, handlers) {
-    let patternsEnabled = true;
+  function triggerSink(el) {
+    el.classList.add('cell-sinking');
+    setTimeout(function () {
+      el.classList.remove('cell-sinking');
+    }, SINK_MS);
+  }
+
+  function wireToggle(buttonEl, onChange) {
+    buttonEl.addEventListener('click', function () {
+      const next = buttonEl.getAttribute('aria-pressed') !== 'true';
+      buttonEl.setAttribute('aria-pressed', String(next));
+      onChange(next);
+    });
+  }
+
+  function wireBackdropDismiss(overlayEl, onClose) {
+    overlayEl.addEventListener('click', function (event) {
+      if (event.target === overlayEl) onClose();
+    });
+  }
+
+  function attach(dom, game, renderer, handlers) {
     let drag = null; // { pointerId, startRow, startCol, mode, moved, visited }
 
-    function applyDragAction(row, col) {
+    function applyDragAction(row, col, el) {
       if (drag.mode === 'mark') game.markCellX(row, col);
       else if (drag.mode === 'clear') game.clearCellX(row, col);
+      triggerSink(el);
     }
 
     dom.board.addEventListener('pointerdown', function (event) {
@@ -29,6 +53,7 @@
       }
 
       drag = { pointerId: event.pointerId, startRow: hit.row, startCol: hit.col, mode, moved: false, visited: new Set() };
+      triggerSink(hit.el);
       dom.board.setPointerCapture(event.pointerId);
       event.preventDefault();
     });
@@ -43,16 +68,19 @@
         drag.moved = true;
         if (drag.mode) {
           drag.visited.add(drag.startRow + ',' + drag.startCol);
-          applyDragAction(drag.startRow, drag.startCol);
+          applyDragAction(drag.startRow, drag.startCol, hit.el);
         }
       }
 
       if (!drag.moved || !drag.mode) return;
 
       const key = hit.row + ',' + hit.col;
-      if (drag.visited.has(key)) return;
+      if (drag.visited.has(key)) {
+        triggerSink(hit.el);
+        return;
+      }
       drag.visited.add(key);
-      applyDragAction(hit.row, hit.col);
+      applyDragAction(hit.row, hit.col, hit.el);
     });
 
     function endDrag(event) {
@@ -73,16 +101,35 @@
       game.retryLevel();
     });
 
-    dom.patternsToggle.addEventListener('click', function () {
-      patternsEnabled = !patternsEnabled;
-      handlers.onTogglePatterns(patternsEnabled);
+    dom.backButton.addEventListener('click', function () {
+      handlers.onBack();
     });
 
-    return {
-      setPatternsEnabled: function (enabled) {
-        patternsEnabled = enabled;
-      },
-    };
+    dom.settingsButton.addEventListener('click', function () {
+      renderer.openSettings();
+    });
+    dom.settingsCloseButton.addEventListener('click', function () {
+      renderer.closeSettings();
+    });
+    wireBackdropDismiss(dom.settingsOverlay, renderer.closeSettings);
+
+    dom.rulesHelpButton.addEventListener('click', function () {
+      renderer.toggleRulesPopup();
+    });
+    dom.rulesCloseButton.addEventListener('click', function () {
+      renderer.closeRulesPopup();
+    });
+    wireBackdropDismiss(dom.rulesBar, renderer.closeRulesPopup);
+
+    wireToggle(dom.patternsToggle, function (enabled) {
+      handlers.onTogglePatterns(enabled);
+    });
+    wireToggle(dom.reduceMotionToggle, function (enabled) {
+      handlers.onToggleReduceMotion(enabled);
+    });
+    wireToggle(dom.vibrationToggle, function (enabled) {
+      handlers.onToggleVibration(enabled);
+    });
   }
 
   root.Garden = root.Garden || {};

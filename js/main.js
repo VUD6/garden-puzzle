@@ -4,12 +4,17 @@
     const Garden = root.Garden;
 
     const dom = {
-      appTitle: document.getElementById('appTitle'),
+      ambientParticles: document.getElementById('ambientParticles'),
+      backButton: document.getElementById('backButton'),
+      settingsButton: document.getElementById('settingsButton'),
       levelIndicator: document.getElementById('levelIndicator'),
       scoreDisplay: document.getElementById('scoreDisplay'),
       lives: document.getElementById('livesContainer'),
-      patternsToggle: document.getElementById('patternsToggle'),
-      replayTutorialButton: document.getElementById('replayTutorialButton'),
+      rulesArea: document.getElementById('rulesArea'),
+      rulesHelpButton: document.getElementById('rulesHelpButton'),
+      rulesBar: document.getElementById('rulesBar'),
+      rulesCloseButton: document.getElementById('rulesCloseButton'),
+      rulesPopupTitle: document.getElementById('rulesPopupTitle'),
       ruleTextBed: document.getElementById('ruleTextBed'),
       ruleTextRowCol: document.getElementById('ruleTextRowCol'),
       ruleTextTouch: document.getElementById('ruleTextTouch'),
@@ -27,6 +32,16 @@
       failTitle: document.getElementById('failTitle'),
       failMessage: document.getElementById('failMessage'),
       retryButton: document.getElementById('retryButton'),
+      settingsOverlay: document.getElementById('settingsOverlay'),
+      settingsTitleText: document.getElementById('settingsTitleText'),
+      patternsToggleLabelText: document.getElementById('patternsToggleLabelText'),
+      patternsToggle: document.getElementById('patternsToggle'),
+      reduceMotionLabelText: document.getElementById('reduceMotionLabelText'),
+      reduceMotionToggle: document.getElementById('reduceMotionToggle'),
+      vibrationLabelText: document.getElementById('vibrationLabelText'),
+      vibrationToggle: document.getElementById('vibrationToggle'),
+      replayTutorialButton: document.getElementById('replayTutorialButton'),
+      settingsCloseButton: document.getElementById('settingsCloseButton'),
       tutorialOverlay: document.getElementById('tutorialOverlay'),
       tutorialPlay: document.getElementById('tutorialPlay'),
       tutorialBoard: document.getElementById('tutorialBoard'),
@@ -40,25 +55,48 @@
 
     const platform = Garden.platform;
     const renderer = Garden.render.createRenderer(dom);
+    const prefersReducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     const game = Garden.state.createGame({
       onChange: renderer.render,
     });
 
-    const input = Garden.input.attach(dom, game, {
+    const input = Garden.input.attach(dom, game, renderer, {
+      onBack: function () {
+        platform.navigateToMenu();
+      },
       onTogglePatterns: function (enabled) {
         platform.savePatternsEnabled(enabled);
         renderer.setPatternsEnabled(enabled);
       },
+      onToggleReduceMotion: function (enabled) {
+        platform.saveReduceMotionEnabled(enabled);
+        renderer.setReducedMotion(enabled || prefersReducedMotionQuery.matches);
+      },
+      onToggleVibration: function (enabled) {
+        platform.saveVibrationEnabled(enabled);
+        renderer.setVibrationEnabled(enabled);
+      },
     });
 
     const initialPatternsEnabled = platform.loadPatternsEnabled();
+    dom.patternsToggle.setAttribute('aria-pressed', String(initialPatternsEnabled));
     renderer.setPatternsEnabled(initialPatternsEnabled);
-    input.setPatternsEnabled(initialPatternsEnabled);
 
-    dom.replayTutorialButton.textContent = Garden.i18n.t('replayTutorialButton');
+    const reduceMotionSetting = platform.loadReduceMotionEnabled();
+    dom.reduceMotionToggle.setAttribute('aria-pressed', String(reduceMotionSetting));
+    renderer.setReducedMotion(reduceMotionSetting || prefersReducedMotionQuery.matches);
+    prefersReducedMotionQuery.addEventListener('change', function (event) {
+      renderer.setReducedMotion(platform.loadReduceMotionEnabled() || event.matches);
+    });
+
+    const initialVibrationEnabled = platform.loadVibrationEnabled();
+    dom.vibrationToggle.setAttribute('aria-pressed', String(initialVibrationEnabled));
+    renderer.setVibrationEnabled(initialVibrationEnabled);
+
     const tutorial = Garden.tutorial.createTutorial(dom);
     dom.replayTutorialButton.addEventListener('click', function () {
+      renderer.closeSettings();
       tutorial.start();
     });
     if (!platform.loadTutorialDone()) tutorial.start();

@@ -1,26 +1,34 @@
 // DOM rendering. Browser-only (uses document); never contains game-rule logic.
 // Cell/life/bed/star DOM nodes are built once per level (or once ever, for
 // lives/stars) and updated in place afterwards, so one-shot CSS animations
-// (shake, life-drop pop, win-fill wave, star pop) fire exactly once.
+// (shake, life-drop pop, win-fill wave, bloom, mark-pop, star pop) fire
+// exactly once per real transition.
 (function (root) {
   const Grid = root.Garden.grid;
   const I18n = root.Garden.i18n;
+  const Platform = root.Garden.platform;
 
-  const FLOWER_SVG =
-    '<svg viewBox="0 0 24 24"><g fill="#e8678b">' +
-    '<circle cx="12" cy="7" r="4"/><circle cx="12" cy="17" r="4"/>' +
-    '<circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/></g>' +
-    '<circle cx="12" cy="12" r="3.4" fill="#fbe36b"/></svg>';
+  const FLOWER_COLOR_COUNT = 8;
+
+  function flowerSvgFor(region) {
+    const petalColor = 'var(--flower-' + (region % FLOWER_COLOR_COUNT) + ')';
+    return (
+      '<svg viewBox="0 0 24 24"><g fill="' + petalColor + '">' +
+      '<circle cx="12" cy="7" r="4"/><circle cx="12" cy="17" r="4"/>' +
+      '<circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/></g>' +
+      '<circle cx="12" cy="12" r="3.4" fill="var(--flower-center)"/></svg>'
+    );
+  }
 
   const X_SVG =
-    '<svg viewBox="0 0 24 24" stroke="#9a8f84" stroke-width="3" stroke-linecap="round" fill="none">' +
+    '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none">' +
     '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
 
   // Visually distinct from the plain "no flower" X: red, bolder, on a soft red disc.
   const WRONG_SVG =
     '<svg viewBox="0 0 24 24">' +
-    '<circle cx="12" cy="12" r="11" fill="#c0392b" fill-opacity="0.15"/>' +
-    '<g stroke="#c0392b" stroke-width="4" stroke-linecap="round">' +
+    '<circle cx="12" cy="12" r="11" fill="var(--mark-wrong-bg)"/>' +
+    '<g stroke="var(--mark-wrong)" stroke-width="4" stroke-linecap="round">' +
     '<line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></g></svg>';
 
   const DROP_PATH = 'M12 2C12 2 5 10.5 5 15.5A7 7 0 0 0 19 15.5C19 10.5 12 2 12 2Z';
@@ -30,9 +38,11 @@
 
   const WAVE_STAGGER_MS = 35;
   const WAVE_DURATION_MS = 250;
+  const RULES_INLINE_MAX_LEVEL = 5;
+  const PARTICLE_COUNT = 10;
 
-  function markFor(state) {
-    if (state === Grid.CellState.FLOWER) return FLOWER_SVG;
+  function markFor(state, region) {
+    if (state === Grid.CellState.FLOWER) return flowerSvgFor(region || 0);
     if (state === Grid.CellState.X) return X_SVG;
     if (state === Grid.CellState.WRONG) return WRONG_SVG;
     return '';
@@ -44,12 +54,22 @@
     return minutes + ':' + String(seconds).padStart(2, '0');
   }
 
+  function triggerOneShotAnim(el, className) {
+    el.classList.remove(className);
+    void el.offsetWidth;
+    el.classList.add(className);
+  }
+
   function createRenderer(dom) {
     let cellEls = null; // [row][col] -> .cell element, rebuilt only when the grid changes
     let bedEls = null; // [region] -> .bed-icon element
     let renderedGrid = null;
     let dropEls = null; // built once; lives persist as a fixed set of 3 icons
     let starEls = null; // built once; rating persists as a fixed set of 3 icons
+    let reducedMotion = false;
+    let vibrationEnabled = true;
+    let rulesPopupOpen = false;
+    let rulesInline = true;
 
     function fitBoard() {
       const available = Math.min(dom.boardWrap.clientWidth, dom.boardWrap.clientHeight);
@@ -62,19 +82,29 @@
     window.addEventListener('orientationchange', fitBoard);
 
     function renderStaticText() {
-      dom.appTitle.textContent = I18n.t('appTitle');
       document.title = I18n.t('appFullTitle');
       dom.nextLevelButton.textContent = I18n.t('nextLevelButton');
       dom.failTitle.textContent = I18n.t('failTitle');
       dom.failMessage.textContent = I18n.t('failMessage');
       dom.retryButton.textContent = I18n.t('retryButton');
-      dom.patternsToggle.textContent = I18n.t('patternsToggleLabel');
       dom.ruleTextBed.textContent = I18n.t('ruleBedText');
       dom.ruleTextRowCol.textContent = I18n.t('ruleRowColText');
       dom.ruleTextTouch.textContent = I18n.t('ruleTouchText');
+      dom.rulesPopupTitle.textContent = I18n.t('rulesPopupTitle');
+      dom.rulesHelpButton.setAttribute('aria-label', I18n.t('rulesHelpButtonLabel'));
+      dom.rulesCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
+      dom.backButton.setAttribute('aria-label', I18n.t('backButtonLabel'));
+      dom.settingsButton.setAttribute('aria-label', I18n.t('settingsButtonLabel'));
+      dom.settingsTitleText.textContent = I18n.t('settingsTitle');
+      dom.patternsToggleLabelText.textContent = I18n.t('patternsToggleLabel');
+      dom.reduceMotionLabelText.textContent = I18n.t('reduceMotionLabel');
+      dom.vibrationLabelText.textContent = I18n.t('vibrationLabel');
+      dom.settingsCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
+      dom.replayTutorialButton.textContent = I18n.t('replayTutorialButton');
     }
 
     function buildBoard(grid) {
+      dom.board.classList.remove('board-complete');
       dom.board.style.gridTemplateColumns = 'repeat(' + grid.size + ', 1fr)';
       dom.board.style.gridTemplateRows = 'repeat(' + grid.size + ', 1fr)';
       dom.board.innerHTML = '';
@@ -99,12 +129,36 @@
           el.appendChild(patternEl);
           el.appendChild(markEl);
           dom.board.appendChild(el);
-          rowEls.push({ el, markEl, region: cell.region });
+          rowEls.push({ el, markEl, region: cell.region, prevState: cell.state });
         }
         cellEls.push(rowEls);
       }
 
       syncCells(grid);
+    }
+
+    function spawnSparkles(row, col) {
+      if (reducedMotion) return;
+      const cellRect = cellEls[row][col].el.getBoundingClientRect();
+      const wrapRect = dom.boardWrap.getBoundingClientRect();
+      const cx = cellRect.left - wrapRect.left + cellRect.width / 2;
+      const cy = cellRect.top - wrapRect.top + cellRect.height / 2;
+      const count = 4;
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.6;
+        const dist = 16 + Math.random() * 10;
+        const sx = Math.cos(angle) * dist;
+        const sy = Math.sin(angle) * dist - 6;
+
+        const el = document.createElement('div');
+        el.className = 'sparkle';
+        el.style.left = cx + 'px';
+        el.style.top = cy + 'px';
+        el.style.setProperty('--sx', sx + 'px');
+        el.style.setProperty('--sy', sy + 'px');
+        dom.boardWrap.appendChild(el);
+        el.addEventListener('animationend', function () { el.remove(); }, { once: true });
+      }
     }
 
     function syncCells(grid) {
@@ -115,10 +169,34 @@
           const className = 'cell region-' + ref.region + (cell.locked ? ' locked' : '');
           if (ref.el.className !== className) ref.el.className = className;
 
-          const mark = markFor(cell.state);
+          const mark = markFor(cell.state, ref.region);
           if (ref.markEl.__mark !== mark) {
             ref.markEl.innerHTML = mark;
             ref.markEl.__mark = mark;
+          }
+
+          ref.markEl.classList.toggle('mark-flower', cell.state === Grid.CellState.FLOWER);
+
+          if (cell.state !== ref.prevState) {
+            if (cell.state === Grid.CellState.FLOWER) {
+              triggerOneShotAnim(ref.markEl, 'mark-bloom');
+              spawnSparkles(row, col);
+            } else if (cell.state === Grid.CellState.X) {
+              triggerOneShotAnim(ref.markEl, 'mark-pop');
+            }
+            ref.prevState = cell.state;
+          }
+        }
+      }
+    }
+
+    function applyBoardComplete(grid) {
+      dom.board.classList.add('board-complete');
+      for (let row = 0; row < grid.size; row++) {
+        for (let col = 0; col < grid.size; col++) {
+          const cell = grid.cells[row][col];
+          if (cell.state === Grid.CellState.FLOWER) {
+            cellEls[row][col].markEl.style.animationDelay = ((row + col) % 5) * 0.18 + 's';
           }
         }
       }
@@ -186,7 +264,7 @@
 
         const mark = document.createElement('div');
         mark.className = 'bed-icon-mark';
-        mark.innerHTML = FLOWER_SVG;
+        mark.innerHTML = flowerSvgFor(region);
 
         el.appendChild(mark);
         dom.bedTracker.appendChild(el);
@@ -287,6 +365,24 @@
       dom.scoreDisplay.textContent = I18n.t('scoreLabel', { score: totalScore });
     }
 
+    function applyRulesMode(level) {
+      rulesInline = level <= RULES_INLINE_MAX_LEVEL;
+      dom.rulesHelpButton.hidden = rulesInline;
+      dom.rulesBar.classList.toggle('popup-mode', !rulesInline);
+      dom.rulesBar.hidden = rulesInline ? false : !rulesPopupOpen;
+    }
+
+    function toggleRulesPopup() {
+      if (rulesInline) return;
+      rulesPopupOpen = !rulesPopupOpen;
+      dom.rulesBar.hidden = !rulesPopupOpen;
+    }
+
+    function closeRulesPopup() {
+      rulesPopupOpen = false;
+      if (!rulesInline) dom.rulesBar.hidden = true;
+    }
+
     function showWinOverlay(snapshot) {
       dom.winTitle.textContent = I18n.t(snapshot.perfect ? 'resultPerfect' : 'resultDone');
       dom.winTitle.className = 'result-text ' + (snapshot.perfect ? 'result-perfect' : 'result-done');
@@ -315,12 +411,17 @@
         buildBoard(snapshot.grid);
         buildBedTracker(snapshot.grid);
         renderedGrid = snapshot.grid;
+        rulesPopupOpen = false;
+        applyRulesMode(snapshot.level);
       } else {
         syncCells(snapshot.grid);
         syncBedTracker(snapshot.grid);
       }
 
-      if (snapshot.mistake) triggerMistakeShake(snapshot.mistake.row, snapshot.mistake.col);
+      if (snapshot.mistake) {
+        triggerMistakeShake(snapshot.mistake.row, snapshot.mistake.col);
+        if (vibrationEnabled) Platform.vibrate(120);
+      }
       if (snapshot.scoreGain) spawnScorePopup(snapshot.scoreGain.row, snapshot.scoreGain.col, snapshot.scoreGain.amount);
 
       dom.failOverlay.hidden = snapshot.status !== 'lost';
@@ -328,6 +429,7 @@
       if (snapshot.status === 'won' && snapshot.winFill) {
         dom.winOverlay.hidden = true;
         triggerWinFillWave(snapshot.winFill, function () {
+          applyBoardComplete(snapshot.grid);
           showWinOverlay(snapshot);
         });
       } else {
@@ -338,13 +440,53 @@
     }
 
     function setPatternsEnabled(enabled) {
-      dom.board.classList.toggle('patterns-off', !enabled);
-      dom.patternsToggle.setAttribute('aria-pressed', String(enabled));
+      dom.board.classList.toggle('patterns-on', enabled);
+    }
+
+    function setReducedMotion(enabled) {
+      reducedMotion = enabled;
+      document.documentElement.classList.toggle('reduce-motion', enabled);
+    }
+
+    function setVibrationEnabled(enabled) {
+      vibrationEnabled = enabled;
+    }
+
+    function openSettings() {
+      dom.settingsOverlay.hidden = false;
+    }
+
+    function closeSettings() {
+      dom.settingsOverlay.hidden = true;
+    }
+
+    function spawnParticles() {
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const duration = 14 + Math.random() * 10;
+        const el = document.createElement('div');
+        el.className = 'particle';
+        el.style.left = Math.random() * 100 + '%';
+        el.style.setProperty('--size', (3 + Math.random() * 4).toFixed(1) + 'px');
+        el.style.setProperty('--dur', duration.toFixed(1) + 's');
+        el.style.setProperty('--delay', '-' + (Math.random() * duration).toFixed(1) + 's');
+        el.style.setProperty('--drift', ((Math.random() - 0.5) * 60).toFixed(0) + 'px');
+        dom.ambientParticles.appendChild(el);
+      }
     }
 
     renderStaticText();
+    spawnParticles();
 
-    return { render, setPatternsEnabled };
+    return {
+      render,
+      setPatternsEnabled,
+      setReducedMotion,
+      setVibrationEnabled,
+      toggleRulesPopup,
+      closeRulesPopup,
+      openSettings,
+      closeSettings,
+    };
   }
 
   root.Garden = root.Garden || {};

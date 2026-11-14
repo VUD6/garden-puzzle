@@ -8,6 +8,8 @@
   const BOARD_KEY_PREFIX = 'garden.board.';
   const BEST_TIME_KEY_PREFIX = 'garden.bestTime.';
   const TUTORIAL_DONE_KEY = 'garden.tutorialDone';
+  const REDUCE_MOTION_KEY = 'garden.reduceMotion';
+  const VIBRATION_KEY = 'garden.vibrationEnabled';
 
   function hasStorage() {
     return typeof localStorage !== 'undefined';
@@ -30,10 +32,11 @@
     localStorage.setItem(PATTERNS_KEY, enabled ? '1' : '0');
   }
 
+  // Off by default: patterns are an accessibility aid, not the normal look.
   function loadPatternsEnabled() {
-    if (!hasStorage()) return true;
+    if (!hasStorage()) return false;
     const raw = localStorage.getItem(PATTERNS_KEY);
-    return raw === null ? true : raw === '1';
+    return raw === null ? false : raw === '1';
   }
 
   function saveTotalScore(score) {
@@ -92,6 +95,37 @@
     return localStorage.getItem(TUTORIAL_DONE_KEY) === '1';
   }
 
+  function saveReduceMotionEnabled(enabled) {
+    if (!hasStorage()) return;
+    localStorage.setItem(REDUCE_MOTION_KEY, enabled ? '1' : '0');
+  }
+
+  function loadReduceMotionEnabled() {
+    if (!hasStorage()) return false;
+    return localStorage.getItem(REDUCE_MOTION_KEY) === '1';
+  }
+
+  function saveVibrationEnabled(enabled) {
+    if (!hasStorage()) return;
+    localStorage.setItem(VIBRATION_KEY, enabled ? '1' : '0');
+  }
+
+  function loadVibrationEnabled() {
+    if (!hasStorage()) return true;
+    const raw = localStorage.getItem(VIBRATION_KEY);
+    return raw === null ? true : raw === '1';
+  }
+
+  function vibrate(pattern) {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(pattern);
+    }
+  }
+
+  // Stub for the future main-menu step (roadmap step 3): the back button
+  // calls this so the call site never needs to change once a real menu exists.
+  function navigateToMenu() {}
+
   // Stubs for the Yandex Games SDK integration (roadmap step 7). Calling code
   // elsewhere should only ever go through these, never touch ads directly.
   function showRewardedAd(onComplete) {
@@ -116,6 +150,12 @@
     loadBestTime,
     saveTutorialDone,
     loadTutorialDone,
+    saveReduceMotionEnabled,
+    loadReduceMotionEnabled,
+    saveVibrationEnabled,
+    loadVibrationEnabled,
+    vibrate,
+    navigateToMenu,
     showRewardedAd,
     showInterstitialAd,
   };
