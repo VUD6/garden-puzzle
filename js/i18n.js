@@ -39,6 +39,12 @@
       closeButtonLabel: 'Закрыть',
       rulesHelpButtonLabel: 'Правила',
       rulesPopupTitle: 'Правила',
+      loadingStatusText: 'Загрузка…',
+      menuSubtitle: 'цветочная головоломка',
+      menuPlayButton: 'Играть',
+      menuContinueButton: 'Продолжить · Уровень {level}',
+      howToPlayButton: 'Как играть',
+      dailyChallengeCaption: 'Откроется на уровне 15',
     },
     en: {
       appTitle: 'Garden Bed',
@@ -78,6 +84,12 @@
       closeButtonLabel: 'Close',
       rulesHelpButtonLabel: 'Rules',
       rulesPopupTitle: 'Rules',
+      loadingStatusText: 'Loading…',
+      menuSubtitle: 'a flower puzzle',
+      menuPlayButton: 'Play',
+      menuContinueButton: 'Continue · Level {level}',
+      howToPlayButton: 'How to play',
+      dailyChallengeCaption: 'Unlocks at level 15',
     },
   };
 

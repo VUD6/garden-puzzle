@@ -5,6 +5,18 @@
 
     const dom = {
       ambientParticles: document.getElementById('ambientParticles'),
+      loadingScreen: document.getElementById('loadingScreen'),
+      loadingTitle: document.getElementById('loadingTitle'),
+      loadingStatusText: document.getElementById('loadingStatusText'),
+      menuScreen: document.getElementById('menuScreen'),
+      menuTitle: document.getElementById('menuTitle'),
+      menuSubtitle: document.getElementById('menuSubtitle'),
+      playButton: document.getElementById('playButton'),
+      howToPlayButton: document.getElementById('howToPlayButton'),
+      menuSettingsButton: document.getElementById('menuSettingsButton'),
+      dailyChallengeButton: document.getElementById('dailyChallengeButton'),
+      dailyChallengeCaption: document.getElementById('dailyChallengeCaption'),
+      gameScreen: document.getElementById('gameScreen'),
       backButton: document.getElementById('backButton'),
       settingsButton: document.getElementById('settingsButton'),
       levelIndicator: document.getElementById('levelIndicator'),
@@ -62,10 +74,39 @@
       onChange: renderer.render,
     });
 
-    const input = Garden.input.attach(dom, game, renderer, {
-      onBack: function () {
-        platform.navigateToMenu();
+    const router = Garden.router.createRouter(dom);
+    const tutorial = Garden.tutorial.createTutorial(dom);
+
+    function enterGame() {
+      router.showScreen('game');
+      // The board was last sized while the game screen was hidden (clientWidth/
+      // Height both 0 then), so it needs a fresh render now that it's visible.
+      renderer.render(game.getSnapshot());
+    }
+
+    function returnToMenu() {
+      menuScreen.render();
+      router.showScreen('menu');
+    }
+
+    const menuScreen = Garden.menu.createMenuScreen(dom, {
+      onPlay: function () {
+        if (!platform.loadTutorialDone()) {
+          tutorial.start(enterGame);
+        } else {
+          enterGame();
+        }
       },
+      onHowToPlay: function () {
+        tutorial.start();
+      },
+      onSettings: function () {
+        renderer.openSettings();
+      },
+    });
+
+    const input = Garden.input.attach(dom, game, renderer, {
+      onBack: returnToMenu,
       onTogglePatterns: function (enabled) {
         platform.savePatternsEnabled(enabled);
         renderer.setPatternsEnabled(enabled);
@@ -95,11 +136,13 @@
     dom.vibrationToggle.setAttribute('aria-pressed', String(initialVibrationEnabled));
     renderer.setVibrationEnabled(initialVibrationEnabled);
 
-    const tutorial = Garden.tutorial.createTutorial(dom);
     dom.replayTutorialButton.addEventListener('click', function () {
       renderer.closeSettings();
       tutorial.start();
     });
-    if (!platform.loadTutorialDone()) tutorial.start();
+
+    menuScreen.render();
+    platform.gameReady();
+    router.leaveLoading();
   });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -165,6 +165,8 @@
 
     function renderStaticText() {
       document.title = I18n.t('appFullTitle');
+      dom.loadingTitle.textContent = I18n.t('appTitle');
+      dom.loadingStatusText.textContent = I18n.t('loadingStatusText');
       dom.nextLevelButton.textContent = I18n.t('nextLevelButton');
       dom.failTitle.textContent = I18n.t('failTitle');
       dom.failMessage.textContent = I18n.t('failMessage');
@@ -576,5 +578,5 @@
   }
 
   root.Garden = root.Garden || {};
-  root.Garden.render = { createRenderer, markFor };
+  root.Garden.render = { createRenderer, markFor, flowerSvgFor };
 })(typeof window !== 'undefined' ? window : globalThis);

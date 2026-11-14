@@ -122,9 +122,10 @@
     }
   }
 
-  // Stub for the future main-menu step (roadmap step 3): the back button
-  // calls this so the call site never needs to change once a real menu exists.
-  function navigateToMenu() {}
+  // Called once after boot (i18n/settings/saves ready). Stub for now;
+  // step 8 will hook Yandex LoadingAPI.ready() into it without changing
+  // the call site in main.js.
+  function gameReady() {}
 
   // Stubs for the Yandex Games SDK integration (roadmap step 7). Calling code
   // elsewhere should only ever go through these, never touch ads directly.
@@ -155,7 +156,7 @@
     saveVibrationEnabled,
     loadVibrationEnabled,
     vibrate,
-    navigateToMenu,
+    gameReady,
     showRewardedAd,
     showInterstitialAd,
   };

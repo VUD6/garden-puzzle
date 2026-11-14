@@ -46,6 +46,7 @@
     let stepIndex = 0;
     let pending = null; // Set of 'row,col' still needing an action this step
     let lastTap = null;
+    let pendingOnComplete = function () {};
 
     function buildBoard() {
       dom.tutorialBoard.style.gridTemplateColumns = 'repeat(' + SIZE + ', 1fr)';
@@ -218,7 +219,12 @@
       handleTap(parseInt(cellEl.dataset.row, 10), parseInt(cellEl.dataset.col, 10));
     }
 
-    function start() {
+    // onComplete fires once the player dismisses the final "Got it!" screen.
+    // Used by the menu's Play button on first launch to enter the game right
+    // after the tutorial finishes; omitted when replaying from the menu or
+    // settings, where simply closing the overlay reveals the screen beneath.
+    function start(onComplete) {
+      pendingOnComplete = typeof onComplete === 'function' ? onComplete : function () {};
       dom.tutorialPlay.hidden = false;
       dom.tutorialFinal.hidden = true;
       dom.tutorialOverlay.hidden = false;
@@ -230,6 +236,9 @@
     function finish() {
       root.Garden.platform.saveTutorialDone(true);
       dom.tutorialOverlay.hidden = true;
+      const onComplete = pendingOnComplete;
+      pendingOnComplete = function () {};
+      onComplete();
     }
 
     dom.tutorialBoard.addEventListener('pointerup', onBoardPointerUp);
