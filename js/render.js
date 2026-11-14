@@ -52,21 +52,22 @@
     return 'hsl(' + h.toFixed(0) + ' ' + clamp(s, 0, 100).toFixed(0) + '% ' + clamp(l, 0, 100).toFixed(0) + '%)';
   }
 
-  // Three shades for the rose's three rings, all pushed away from the
-  // bed's own lightness (lighter bed -> darker flower, darker bed ->
-  // lighter flower) so the flower always reads clearly against its bed,
-  // then nudged progressively further in that same direction ring by
-  // ring for a bit of depth.
+  // Three shades for the rose's three rings, all pushed well away from
+  // the bed's own lightness (lighter bed -> darker flower, darker bed ->
+  // lighter flower) so the flower reads clearly at a glance even on a
+  // small 8x8 tile, then nudged a little further in that same direction
+  // ring by ring for some depth - each stage clamped on its own so the
+  // inner ring can never collapse to pure black/white.
   function flowerPalette(region) {
     const bed = hexToHsl(REGION_COLORS[(region || 0) % REGION_COLORS.length]);
-    const sign = bed.l > 55 ? -1 : 1;
-    const baseL = clamp(bed.l + sign * 38, 14, 90);
-    const baseS = Math.min(90, bed.s + 15);
-    const step = sign * 11;
+    const sign = bed.l > 52 ? -1 : 1;
+    const flowerL = clamp(bed.l + sign * 42, 12, 90);
+    const flowerS = clamp(bed.s + 20, 35, 95);
+    const step = sign * 7;
     return {
-      outer: hsl(bed.h, baseS, baseL),
-      middle: hsl(bed.h, baseS - 8, baseL + step),
-      inner: hsl(bed.h, baseS - 16, baseL + step * 2),
+      outer: hsl(bed.h, flowerS, flowerL),
+      middle: hsl(bed.h, clamp(flowerS - 10, 30, 95), clamp(flowerL + step, 10, 92)),
+      inner: hsl(bed.h, clamp(flowerS - 18, 25, 95), clamp(flowerL + step * 2, 8, 94)),
     };
   }
 
