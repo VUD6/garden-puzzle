@@ -11,6 +11,7 @@
   const REDUCE_MOTION_KEY = 'garden.reduceMotion';
   const VIBRATION_KEY = 'garden.vibrationEnabled';
   const SEEDS_KEY = 'garden.seeds';
+  const CHECKIN_KEY = 'garden.checkin';
 
   // Granted once, on first-ever launch (see loadSeeds below) - never
   // re-granted just because the balance later drops to 0.
@@ -143,6 +144,40 @@
     return Number.isInteger(seeds) && seeds >= 0 ? seeds : 0;
   }
 
+  // The single clock entry point for anything date-based (currently just the
+  // daily check-in). Tests override this directly (Platform.now = () => ...)
+  // to simulate arbitrary days without waiting for real ones.
+  function now() {
+    return new Date();
+  }
+
+  function freshCheckinRecord() {
+    return { lastClaimDate: null, currentStreak: 0, bestStreak: 0 };
+  }
+
+  function saveCheckin(record) {
+    if (!hasStorage()) return;
+    localStorage.setItem(CHECKIN_KEY, JSON.stringify(record));
+  }
+
+  // Corruption-tolerant: anything missing, unparsable, or shaped wrong
+  // (wrong types, negative counts) falls back to a fresh record rather
+  // than throwing or trusting bad data.
+  function loadCheckin() {
+    if (!hasStorage()) return freshCheckinRecord();
+    const raw = localStorage.getItem(CHECKIN_KEY);
+    if (!raw) return freshCheckinRecord();
+    try {
+      const parsed = JSON.parse(raw);
+      const lastClaimDate = typeof parsed.lastClaimDate === 'string' ? parsed.lastClaimDate : null;
+      const currentStreak = Number.isInteger(parsed.currentStreak) && parsed.currentStreak >= 0 ? parsed.currentStreak : 0;
+      const bestStreak = Number.isInteger(parsed.bestStreak) && parsed.bestStreak >= 0 ? parsed.bestStreak : 0;
+      return { lastClaimDate, currentStreak, bestStreak };
+    } catch (e) {
+      return freshCheckinRecord();
+    }
+  }
+
   function vibrate(pattern) {
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       navigator.vibrate(pattern);
@@ -194,6 +229,9 @@
     saveSeeds,
     loadSeeds,
     STARTING_SEEDS,
+    now,
+    saveCheckin,
+    loadCheckin,
     gameReady,
     showRewardedAd,
     showInterstitialAd,

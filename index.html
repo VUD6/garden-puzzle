@@ -57,6 +57,10 @@
       <button class="menu-button menu-play-button" id="playButton" type="button"></button>
       <button class="menu-button menu-secondary-button" id="howToPlayButton" type="button"></button>
       <button class="menu-button menu-secondary-button" id="menuSettingsButton" type="button"></button>
+      <button class="menu-button menu-secondary-button checkin-menu-button" id="dailyCheckinButton" type="button">
+        <span id="dailyCheckinLabel"></span>
+        <span class="checkin-dot-badge" id="checkinBadge" hidden></span>
+      </button>
       <button class="menu-button menu-daily-button" id="dailyChallengeButton" type="button" disabled hidden>
         <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="5" y="11" width="14" height="9" rx="2"/>
@@ -212,6 +216,20 @@
       <button class="overlay-close-button" id="settingsCloseButton" type="button"></button>
     </div>
   </div>
+  <div class="overlay checkin-overlay" id="checkinOverlay" hidden>
+    <div class="overlay-card checkin-card">
+      <h2 id="checkinTitle"></h2>
+      <div class="checkin-days" id="checkinDaysRow"></div>
+      <p class="checkin-streak-line" id="checkinCurrentStreakText"></p>
+      <p class="checkin-streak-line" id="checkinBestStreakText"></p>
+      <div class="seed-reward" id="checkinClaimReward" hidden>
+        <svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
+        <span id="checkinClaimRewardAmount"></span>
+      </div>
+      <button id="checkinClaimButton" type="button"></button>
+      <button class="overlay-close-button" id="checkinCloseButton" type="button"></button>
+    </div>
+  </div>
   <div class="overlay tutorial-overlay" id="tutorialOverlay" hidden>
     <div class="tutorial-card" id="tutorialPlay">
       <div class="tutorial-board-wrap">
@@ -254,6 +272,7 @@
 <script src="js/generator.js"></script>
 <script src="js/state.js"></script>
 <script src="js/menu.js"></script>
+<script src="js/checkin.js"></script>
 <script src="js/router.js"></script>
 <script src="js/render.js"></script>
 <script src="js/input.js"></script>

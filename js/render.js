@@ -611,5 +611,5 @@
   }
 
   root.Garden = root.Garden || {};
-  root.Garden.render = { createRenderer, markFor, flowerSvgFor };
+  root.Garden.render = { createRenderer, markFor, flowerSvgFor, triggerOneShotAnim };
 })(typeof window !== 'undefined' ? window : globalThis);

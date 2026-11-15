@@ -18,6 +18,18 @@
       menuSettingsButton: document.getElementById('menuSettingsButton'),
       dailyChallengeButton: document.getElementById('dailyChallengeButton'),
       dailyChallengeCaption: document.getElementById('dailyChallengeCaption'),
+      dailyCheckinButton: document.getElementById('dailyCheckinButton'),
+      dailyCheckinLabel: document.getElementById('dailyCheckinLabel'),
+      checkinBadge: document.getElementById('checkinBadge'),
+      checkinOverlay: document.getElementById('checkinOverlay'),
+      checkinTitle: document.getElementById('checkinTitle'),
+      checkinDaysRow: document.getElementById('checkinDaysRow'),
+      checkinCurrentStreakText: document.getElementById('checkinCurrentStreakText'),
+      checkinBestStreakText: document.getElementById('checkinBestStreakText'),
+      checkinClaimReward: document.getElementById('checkinClaimReward'),
+      checkinClaimRewardAmount: document.getElementById('checkinClaimRewardAmount'),
+      checkinClaimButton: document.getElementById('checkinClaimButton'),
+      checkinCloseButton: document.getElementById('checkinCloseButton'),
       gameScreen: document.getElementById('gameScreen'),
       backButton: document.getElementById('backButton'),
       settingsButton: document.getElementById('settingsButton'),
@@ -96,8 +108,15 @@
 
     function returnToMenu() {
       menuScreen.render();
+      checkinScreen.render();
       router.showScreen('menu');
     }
+
+    const checkinScreen = Garden.checkin.createCheckinScreen(dom, {
+      onClaimed: function () {
+        menuScreen.render();
+      },
+    });
 
     const menuScreen = Garden.menu.createMenuScreen(dom, {
       onPlay: function () {
@@ -158,6 +177,7 @@
     });
 
     menuScreen.render();
+    checkinScreen.render();
     platform.gameReady();
     router.leaveLoading();
   });

@@ -48,6 +48,11 @@
       dailyChallengeCaption: 'Откроется на уровне 15',
       hintButtonLabel: 'Подсказка',
       seedsAriaLabel: 'Семена: {amount}',
+      dailyCheckinButtonLabel: 'Ежедневная награда',
+      checkinCurrentStreak: 'Текущая серия: {count}',
+      checkinBestStreak: 'Лучшая серия: {count}',
+      checkinClaimButton: 'Забрать',
+      checkinClaimedButton: 'Награда получена',
     },
     en: {
       appTitle: 'Garden Bed',
@@ -96,6 +101,11 @@
       dailyChallengeCaption: 'Unlocks at level 15',
       hintButtonLabel: 'Hint',
       seedsAriaLabel: 'Seeds: {amount}',
+      dailyCheckinButtonLabel: 'Daily reward',
+      checkinCurrentStreak: 'Current streak: {count}',
+      checkinBestStreak: 'Best streak: {count}',
+      checkinClaimButton: 'Claim',
+      checkinClaimedButton: 'Reward claimed',
     },
   };
 
