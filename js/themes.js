@@ -1,5 +1,5 @@
 // Theme registry: purely visual presentation data (CSS token overrides, bed
-// colors, piece art, mascot/hint/currency icons, i18n keys). Never touches
+// colors, piece art, mascot icon, i18n keys). Never touches
 // rng.js/generator.js/solver.js/state.js - switching themes must never
 // change what level N looks like board-wise (same beds, same solution),
 // only how it is drawn.
@@ -170,8 +170,8 @@
   }
 
   // --- Shared mascot: a ladybug, optionally wearing a small Santa hat
-  // overlay. One component used by the loading screen, menu, tutorial
-  // bubble, and (for garden) the hint button. ---
+  // overlay. One component used by the loading screen, menu, and tutorial
+  // bubble. ---
   const LADYBUG_BODY_SVG =
     '<ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>' +
     '<line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>' +
@@ -196,46 +196,6 @@
   function mascotSvg(withHat) {
     return '<svg viewBox="0 0 48 40">' + LADYBUG_BODY_SVG + (withHat ? SANTA_HAT_SVG : '') + '</svg>';
   }
-
-  // --- Hint button icon: garden keeps the plain ladybug; winter gets a
-  // candy cane (a striped SVG <pattern>, self-contained - its red/cream
-  // colors are fixed art, not theme tokens, like the board frame). ---
-  const CANDY_CANE_HINT_SVG =
-    '<svg viewBox="0 0 24 24">' +
-    '<defs><pattern id="hintCandyStripe" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">' +
-    '<rect width="5" height="5" fill="#fbf2e4"/><rect width="2.5" height="5" fill="#c0433f"/>' +
-    '</pattern></defs>' +
-    '<path d="M9 21 L9 10 Q9 3 16 3 Q21 3 21 8 Q21 12 16 12 Q13 12 13 9" fill="none" stroke="url(#hintCandyStripe)" stroke-width="4.2" stroke-linecap="round"/>' +
-    '</svg>';
-
-  function gardenHintIconSvg() {
-    return mascotSvg(false);
-  }
-
-  function winterHintIconSvg() {
-    return CANDY_CANE_HINT_SVG;
-  }
-
-  // --- Currency icon: the inner <path>/<g> markup dropped inside
-  // <svg class="seed-icon">...</svg> - that wrapper already carries
-  // fill: var(--currency-icon-color) in CSS, so these only need to define
-  // shapes, no fill of their own, to inherit it. ---
-  const GARDEN_CURRENCY_ICON_INNER =
-    '<path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/>';
-
-  function buildSnowflakeInner() {
-    let spokes = '';
-    for (let i = 0; i < 6; i++) {
-      const angle = i * 60;
-      spokes +=
-        '<g transform="rotate(' + angle + ' 12 12)">' +
-        '<path d="M12 12 L12.8 3.2 L12 1.6 L11.2 3.2 Z"/>' +
-        '<path d="M12 6.6 L13.6 5.2 L12.9 4.1 L12 5.4 L11.1 4.1 L10.4 5.2 Z"/>' +
-        '</g>';
-    }
-    return spokes;
-  }
-  const WINTER_CURRENCY_ICON_INNER = buildSnowflakeInner();
 
   // Must stay in sync with the garden :root defaults in css/style.css
   // (--region-0..7) - the garden theme applies no overrides, it just uses
@@ -293,10 +253,10 @@
     // below) rather than reusing --pollen-color for both fill and shadow.
     '--pollen-color': '#eef5ff',
     '--particle-glow': 'rgba(130, 160, 200, 0.55)',
-    // Decoupled from --pollen-color so the currency icon/notification dot
-    // stay readable sitting on a light panel (a near-white icon on a
-    // near-white panel would otherwise vanish).
-    '--currency-icon-color': '#3f6fc0',
+    // Decoupled from --pollen-color so the check-in notification dot stays
+    // readable sitting on a light panel (a near-white dot on a near-white
+    // panel would otherwise vanish).
+    '--notification-dot-color': '#3f6fc0',
     // Decoupled from --pollen-color for the same reason: "Perfect!" text
     // sits directly on the light panel.
     '--result-perfect-color': '#b8701a',
@@ -315,8 +275,6 @@
       bedColors: GARDEN_BED_COLORS,
       pieceArt: flowerArt,
       wantsSantaHat: false,
-      hintIconSvg: gardenHintIconSvg,
-      currencyIconInner: GARDEN_CURRENCY_ICON_INNER,
       // The night-garden look already IS the :root default - nothing to
       // override here, which is what keeps "garden theme: exactly today's
       // look" true for free.
@@ -328,8 +286,6 @@
       bedColors: WINTER_BED_COLORS,
       pieceArt: gingerbreadArt,
       wantsSantaHat: true,
-      hintIconSvg: winterHintIconSvg,
-      currencyIconInner: WINTER_CURRENCY_ICON_INNER,
       tokens: WINTER_TOKENS,
       // Exposed for tests/themes.test.js's contrast checks (the gingerbread
       // ignores its hex argument and always draws in these two colors).
@@ -383,10 +339,6 @@
     return THEMES[currentId];
   }
 
-  function currencyIconSvg() {
-    return '<svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true">' + getCurrentTheme().currencyIconInner + '</svg>';
-  }
-
   const Themes = {
     DEFAULT_THEME_ID,
     THEMES,
@@ -397,7 +349,6 @@
     colorDistance,
     contrastRatio,
     mascotSvg,
-    currencyIconSvg,
   };
 
   root.Garden = root.Garden || {};

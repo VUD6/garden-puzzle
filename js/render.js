@@ -7,8 +7,8 @@
   const Grid = root.Garden.grid;
   const I18n = root.Garden.i18n;
   const Platform = root.Garden.platform;
-  const State = root.Garden.state;
   const Themes = root.Garden.themes;
+  const Helpers = root.Garden.helpers;
 
   // Single reusable piece-art lookup: swapping the active theme only means
   // asking Themes for a different bed-color list and a different pieceArt
@@ -35,6 +35,33 @@
   const STAR_PATH = 'M12 2l2.9 6.26L22 9.27l-5 5.13L18.18 22 12 18.56 5.82 22 7 14.4l-5-5.13 7.1-1.01L12 2z';
 
   const RANK_KEY_BY_RATING = { 1: 'rankGardener', 2: 'rankSkilledGardener', 3: 'rankMasterGardener' };
+
+  // --- Helper icons: TEMPORARY placeholders (a plain letter glyph per
+  // helper) routed through this one function, so a later design pass can
+  // drop in real art for all three just by rewriting its body - no other
+  // call site (checkin.js's reward preview, this file's own render loop)
+  // needs to change. Theme-neutral on purpose: unlike the piece art, these
+  // aren't meant to be part of the final design either way. ---
+  const HELPER_GLYPH_BY_ID = { finder: 'F', random: '?', snowman: 'S' };
+
+  function helperIconFor(id) {
+    const glyph = HELPER_GLYPH_BY_ID[id] || '?';
+    return (
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<text x="12" y="17" font-size="13" font-weight="700" text-anchor="middle" font-family="sans-serif" fill="currentColor">' +
+      glyph +
+      '</text></svg>'
+    );
+  }
+
+  // Shared lock glyph - identical to the one already used on the main
+  // menu's daily-challenge teaser - shown on any locked helper button
+  // instead of its normal icon (currently just Snowman, below level 10).
+  const HELPER_LOCK_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+
+  const HELPER_NAME_KEY = { finder: 'helperNameFinder', random: 'helperNameRandom', snowman: 'helperNameSnowman' };
 
   const WAVE_STAGGER_MS = 35;
   const WAVE_DURATION_MS = 250;
@@ -82,6 +109,12 @@
     let rulesPopupOpen = false;
     let rulesInline = true;
 
+    const helperEls = {
+      finder: { button: dom.helperButtonFinder, icon: dom.helperIconFinder, badge: dom.helperBadgeFinder, lockCaption: dom.helperLockCaptionFinder },
+      random: { button: dom.helperButtonRandom, icon: dom.helperIconRandom, badge: dom.helperBadgeRandom, lockCaption: dom.helperLockCaptionRandom },
+      snowman: { button: dom.helperButtonSnowman, icon: dom.helperIconSnowman, badge: dom.helperBadgeSnowman, lockCaption: dom.helperLockCaptionSnowman },
+    };
+
     function fitBoard() {
       const available = Math.min(dom.boardWrap.clientWidth, dom.boardWrap.clientHeight);
       const size = Math.max(0, Math.min(available, 560));
@@ -118,36 +151,47 @@
       dom.vibrationUnsupportedNote.textContent = I18n.t('vibrationUnsupportedNote');
       dom.settingsCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
       dom.replayTutorialButton.textContent = I18n.t('replayTutorialButton');
-      dom.hintButtonLabel.textContent = I18n.t('hintButtonLabel');
-      dom.hintCostAmount.textContent = String(State.HINT_COST);
     }
 
     // Refreshes every themed icon that's baked as static innerHTML rather
-    // than recomputed on every render: the 3 mascot slots (loading screen,
-    // menu, tutorial bubble - the hint button's mascot/icon is handled
-    // separately since garden and winter show different things there), and
-    // the 5 currency-icon slots (menu pill, top-bar pill, hint cost, win
-    // seed reward, check-in claim reward). The check-in popup's own day-row
-    // reward icons aren't included here - they're rebuilt from scratch each
-    // time the popup opens/claims (see checkin.js), so they just ask
-    // Themes.currencyIconSvg() fresh instead of needing a refresh call.
+    // than recomputed on every render: just the 3 mascot slots (loading
+    // screen, menu, tutorial bubble). The helper buttons' icons are
+    // deliberately theme-neutral placeholders (see helperIconFor above), so
+    // they don't need a themed refresh here.
     function refreshThemedIcons() {
       const theme = Themes.getCurrentTheme();
       const mascot = Themes.mascotSvg(theme.wantsSantaHat);
       dom.loadingMascot.innerHTML = mascot;
       dom.menuMascot.innerHTML = mascot;
       dom.tutorialMascot.innerHTML = mascot;
-      dom.hintMascot.innerHTML = theme.hintIconSvg();
-
-      const currencyInner = theme.currencyIconInner;
-      [dom.menuSeedsIcon, dom.seedsPillIcon, dom.hintCostIcon, dom.seedRewardIcon, dom.checkinClaimRewardIcon].forEach(
-        function (el) { el.innerHTML = currencyInner; }
-      );
     }
 
-    function renderSeeds(amount) {
-      dom.seedsDisplay.textContent = String(amount);
-      dom.seedsPill.setAttribute('aria-label', I18n.t('seedsAriaLabel', { amount }));
+    function renderHelperButton(id, info) {
+      const els = helperEls[id];
+      els.button.classList.toggle('is-locked', info.locked);
+      els.button.classList.toggle('is-disabled', !info.locked && info.charges <= 0);
+      els.button.disabled = !info.canUse;
+
+      els.icon.innerHTML = info.locked ? HELPER_LOCK_SVG : helperIconFor(id);
+      els.badge.hidden = info.locked;
+      if (!info.locked) els.badge.textContent = String(info.charges);
+      els.lockCaption.hidden = !info.locked;
+
+      if (info.locked) {
+        els.lockCaption.textContent = I18n.t('helperLockedCaption', { level: Helpers.SNOWMAN_UNLOCK_LEVEL });
+        els.button.setAttribute(
+          'aria-label',
+          I18n.t('helperLockedAriaLabel', { name: I18n.t(HELPER_NAME_KEY[id]), level: Helpers.SNOWMAN_UNLOCK_LEVEL })
+        );
+      } else {
+        els.button.setAttribute('aria-label', I18n.t('helperAriaLabel', { name: I18n.t(HELPER_NAME_KEY[id]), count: info.charges }));
+      }
+    }
+
+    function renderHelpers(helpersSnapshot) {
+      Object.keys(helperEls).forEach(function (id) {
+        renderHelperButton(id, helpersSnapshot[id]);
+      });
     }
 
     function buildBoard(grid) {
@@ -209,11 +253,11 @@
       }
     }
 
-    // hintPos (optional {row, col}): under reduce motion, the hinted cell
-    // plays a plain fade instead of the full bloom+sparkle flourish - a
-    // hint happens without the player's own tap gesture, so some feedback
-    // still needs to show something changed, but it stays minimal.
-    function syncCells(grid, hintPos) {
+    // helperPlant (optional {row, col}): under reduce motion, a cell planted
+    // by Finder/Random plays a plain fade instead of the full bloom+sparkle
+    // flourish - it happens without the player's own tap gesture, so some
+    // feedback still needs to show something changed, but it stays minimal.
+    function syncCells(grid, helperPlant) {
       for (let row = 0; row < grid.size; row++) {
         for (let col = 0; col < grid.size; col++) {
           const cell = grid.cells[row][col];
@@ -230,10 +274,10 @@
           ref.markEl.classList.toggle('mark-flower', cell.state === Grid.CellState.FLOWER);
 
           if (cell.state !== ref.prevState) {
-            const isHintedCell = hintPos && hintPos.row === row && hintPos.col === col;
+            const isPlantedByHelper = helperPlant && helperPlant.row === row && helperPlant.col === col;
             if (cell.state === Grid.CellState.FLOWER) {
-              if (isHintedCell && reducedMotion) {
-                triggerOneShotAnim(ref.markEl, 'hint-fade');
+              if (isPlantedByHelper && reducedMotion) {
+                triggerOneShotAnim(ref.markEl, 'helper-plant-fade');
               } else {
                 triggerOneShotAnim(ref.markEl, 'mark-bloom');
                 spawnSparkles(row, col);
@@ -457,27 +501,15 @@
       dom.winMessage.textContent = I18n.t('scoreEarnedLabel', { amount: snapshot.levelScore });
       dom.bestTimeLine.textContent = I18n.t('bestTimeLabel', { time: formatTime(snapshot.bestTimeSeconds) });
 
-      // Only shown on a level's first-ever completion (see finishLevel in
-      // state.js) - a replay's seedGain is null, so no fake/stale number
-      // ever lingers here.
-      if (snapshot.seedGain) {
-        dom.seedRewardAmount.textContent = '+' + snapshot.seedGain;
-        dom.seedReward.hidden = false;
-        triggerOneShotAnim(dom.seedReward, 'seed-pop');
-      } else {
-        dom.seedReward.hidden = true;
-      }
-
       dom.winOverlay.hidden = false;
     }
 
     function render(snapshot) {
       renderLevel(snapshot.level);
       renderScore(snapshot.totalScore);
-      renderSeeds(snapshot.seeds);
-      // canUseHint already folds in the double-spend lock window (see
-      // state.js useHint/HINT_LOCK_MS), so this is the only check needed.
-      dom.hintButton.disabled = !snapshot.canUseHint;
+      // canUse already folds in each helper's double-spend lock window (see
+      // state.js canUseHelper/HELPER_LOCK_MS), so this is the only check needed.
+      renderHelpers(snapshot.helpers);
 
       if (!dropEls) buildLives(snapshot.maxLives);
       syncLives(snapshot.lives, snapshot.maxLives, snapshot.mistake ? snapshot.mistake.lostLifeIndex : null);
@@ -489,7 +521,7 @@
         rulesPopupOpen = false;
         applyRulesMode(snapshot.level);
       } else {
-        syncCells(snapshot.grid, snapshot.hint);
+        syncCells(snapshot.grid, snapshot.helperPlant);
         syncBedTracker(snapshot.grid);
       }
 
@@ -587,5 +619,5 @@
   }
 
   root.Garden = root.Garden || {};
-  root.Garden.render = { createRenderer, markFor, pieceSvgFor, triggerOneShotAnim };
+  root.Garden.render = { createRenderer, markFor, pieceSvgFor, helperIconFor, triggerOneShotAnim };
 })(typeof window !== 'undefined' ? window : globalThis);

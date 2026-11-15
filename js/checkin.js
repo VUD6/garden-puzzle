@@ -1,15 +1,20 @@
 // Daily check-in: pure streak/date logic (Node-testable, no DOM) plus a
 // small self-contained DOM controller for the menu button and its popup.
-// Seeds are always credited through platform.js's existing seeds module
-// (saveSeeds/loadSeeds) - this file never writes the balance directly.
+// Rewards are always credited through the helpers module (Garden.helpers) -
+// this file never writes charge storage directly.
 (function (root) {
   const Platform = root.Garden.platform;
 
   const CYCLE_LENGTH = 7;
-  // Reward seeds by position in the 7-day cycle; any day not listed (1, 2,
-  // 3, 5, 6) grants none - the day is just marked claimed and keeps the
-  // streak going. Kept as the one place these values live.
-  const SEED_REWARD_BY_DAY = { 4: 10, 7: 30 };
+  // Reward by position in the 7-day cycle; any day not listed (1, 2, 3, 5,
+  // 6) grants none - the day is just marked claimed and keeps the streak
+  // going. Kept as the one place these values live. allHelpers:false means
+  // one helper, chosen deterministically from the day's own calendar date
+  // (see pickDailyHelperId) - never from its position in the cycle.
+  const HELPER_REWARD_BY_DAY = {
+    4: { amount: 3, allHelpers: false },
+    7: { amount: 2, allHelpers: true },
+  };
 
   function pad2(n) {
     return n < 10 ? '0' + n : String(n);
@@ -41,6 +46,17 @@
     return Math.round((toUTC - fromUTC) / 86400000);
   }
 
+  // Same DST-safe UTC-anchor approach as daysBetweenKeys, just moving a
+  // calendar date forward (or backward) by a number of days instead of
+  // diffing two of them. Used to preview a future row in the check-in popup
+  // (e.g. "what date would day 4 of this cycle land on, assuming the streak
+  // continues uninterrupted") without ever touching time-of-day/DST.
+  function advanceDateKey(dateKey, days) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d) + days * 86400000);
+    return dateKeyFromParts(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+  }
+
   // Position in the 7-day row for a given (1-based) streak length: after
   // day 7, the next consecutive day wraps to position 1 of a new cycle
   // while the streak itself keeps counting (so bestStreak can exceed 7).
@@ -48,13 +64,31 @@
     return ((streak - 1) % CYCLE_LENGTH) + 1;
   }
 
-  function rewardForDay(day) {
-    return SEED_REWARD_BY_DAY[day] || 0;
+  // Deterministic pick of which single helper a day-4 reward credits,
+  // keyed only by that day's actual calendar date (never by which position
+  // in the cycle it happens to be) - so the same date always picks the same
+  // helper, and the check-in popup can preview it for a not-yet-claimed row.
+  function pickDailyHelperId(dateKey) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const seed = Date.UTC(y, m - 1, d) >>> 0;
+    const ids = root.Garden.helpers.HELPER_IDS;
+    const roll = root.Garden.rng.createRng(seed)();
+    return ids[Math.floor(roll * ids.length)];
+  }
+
+  // The reward a given cycle position would grant if claimed on dateKey, or
+  // null for a day that grants nothing. Shared by claim() (acting on the
+  // real today) and the popup preview (acting on a hypothetical future row).
+  function helperRewardForDayAt(day, dateKey) {
+    const config = HELPER_REWARD_BY_DAY[day];
+    if (!config) return null;
+    if (config.allHelpers) return { amount: config.amount, allHelpers: true, helperId: null };
+    return { amount: config.amount, allHelpers: false, helperId: pickDailyHelperId(dateKey) };
   }
 
   // Pure decision: given the persisted record and today's calendar-date
   // key, decides the new record and reward without touching storage or
-  // seeds. claim() below is the only thing that actually persists it.
+  // charges. claim() below is the only thing that actually persists it.
   //
   // alreadyClaimedToday covers two distinct cases that the UI treats the
   // same way (nothing to claim right now, show as already claimed):
@@ -69,17 +103,17 @@
     record = record || { lastClaimDate: null, currentStreak: 0, bestStreak: 0 };
 
     if (record.lastClaimDate === todayKey) {
-      return { claimed: false, alreadyClaimedToday: true, record, reward: 0 };
+      return { claimed: false, alreadyClaimedToday: true, record, reward: null };
     }
 
     if (record.lastClaimDate && daysBetweenKeys(record.lastClaimDate, todayKey) < 0) {
-      return { claimed: false, alreadyClaimedToday: true, record, reward: 0 };
+      return { claimed: false, alreadyClaimedToday: true, record, reward: null };
     }
 
     const isConsecutive = record.lastClaimDate && daysBetweenKeys(record.lastClaimDate, todayKey) === 1;
     const nextStreak = isConsecutive ? record.currentStreak + 1 : 1;
     const nextBest = Math.max(record.bestStreak || 0, nextStreak);
-    const reward = rewardForDay(dayInCycle(nextStreak));
+    const reward = helperRewardForDayAt(dayInCycle(nextStreak), todayKey);
 
     return {
       claimed: true,
@@ -90,18 +124,23 @@
   }
 
   // The only place that actually persists a claim. Writes the new streak
-  // record FIRST, then credits seeds - so a reload or crash between the
+  // record FIRST, then credits charges - so a reload or crash between the
   // two can never double-claim: a later call always sees lastClaimDate
   // already equal to today and reports alreadyClaimedToday, even if the
-  // seed credit itself never happened.
+  // charge credit itself never happened.
   function claim() {
     const record = Platform.loadCheckin();
     const todayKey = dateKeyFromDate(Platform.now());
     const result = computeClaim(record, todayKey);
     if (result.claimed) {
       Platform.saveCheckin(result.record);
-      if (result.reward > 0) {
-        Platform.saveSeeds(Platform.loadSeeds() + result.reward);
+      if (result.reward) {
+        const Helpers = root.Garden.helpers;
+        if (result.reward.allHelpers) {
+          Helpers.HELPER_IDS.forEach(function (id) { Helpers.addCharges(id, result.reward.amount); });
+        } else {
+          Helpers.addCharges(result.reward.helperId, result.reward.amount);
+        }
       }
     }
     return result;
@@ -112,8 +151,9 @@
   function createCheckinScreen(dom, handlers) {
     handlers = handlers || {};
     const I18n = root.Garden.i18n;
-    const Themes = root.Garden.themes;
+    const Helpers = root.Garden.helpers;
     const pieceSvgFor = root.Garden.render.pieceSvgFor;
+    const helperIconFor = root.Garden.render.helperIconFor;
     const triggerOneShotAnim = root.Garden.render.triggerOneShotAnim;
 
     dom.dailyCheckinLabel.textContent = I18n.t('dailyCheckinButtonLabel');
@@ -150,11 +190,18 @@
         }
         el.appendChild(markEl);
 
-        const reward = rewardForDay(day);
-        if (reward > 0) {
+        // The calendar date this row would actually be claimed on, assuming
+        // the streak continues uninterrupted from today - lets a day-4
+        // row's single-helper pick be previewed accurately even before it's
+        // reached, since the pick only ever depends on the date.
+        const rowDateKey = advanceDateKey(todayKey, day - todayPosition);
+        const reward = helperRewardForDayAt(day, rowDateKey);
+        if (reward) {
           const rewardEl = document.createElement('div');
           rewardEl.className = 'checkin-day-reward';
-          rewardEl.innerHTML = Themes.currencyIconSvg() + '<span>' + reward + '</span>';
+          const ids = reward.allHelpers ? Helpers.HELPER_IDS : [reward.helperId];
+          rewardEl.innerHTML =
+            '<span class="helper-reward-icons">' + ids.map(helperIconFor).join('') + '</span><span>+' + reward.amount + '</span>';
           el.appendChild(rewardEl);
         }
 
@@ -194,10 +241,12 @@
       const result = claim();
       buildPopup();
       updateBadge();
-      if (result.reward > 0) {
-        dom.checkinClaimRewardAmount.textContent = '+' + result.reward;
+      if (result.reward) {
+        const ids = result.reward.allHelpers ? Helpers.HELPER_IDS : [result.reward.helperId];
+        dom.checkinClaimRewardIcons.innerHTML = ids.map(helperIconFor).join('');
+        dom.checkinClaimRewardAmount.textContent = '+' + result.reward.amount;
         dom.checkinClaimReward.hidden = false;
-        triggerOneShotAnim(dom.checkinClaimReward, 'seed-pop');
+        triggerOneShotAnim(dom.checkinClaimReward, 'reward-pop');
       }
       if (typeof handlers.onClaimed === 'function') handlers.onClaimed(result);
     });
@@ -207,12 +256,14 @@
 
   const Checkin = {
     CYCLE_LENGTH,
-    SEED_REWARD_BY_DAY,
+    HELPER_REWARD_BY_DAY,
     dateKeyFromParts,
     dateKeyFromDate,
     daysBetweenKeys,
+    advanceDateKey,
     dayInCycle,
-    rewardForDay,
+    pickDailyHelperId,
+    helperRewardForDayAt,
     computeClaim,
     claim,
     createCheckinScreen,

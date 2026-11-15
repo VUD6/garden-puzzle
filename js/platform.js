@@ -10,13 +10,10 @@
   const TUTORIAL_DONE_KEY = 'garden.tutorialDone';
   const REDUCE_MOTION_KEY = 'garden.reduceMotion';
   const VIBRATION_KEY = 'garden.vibrationEnabled';
-  const SEEDS_KEY = 'garden.seeds';
   const CHECKIN_KEY = 'garden.checkin';
   const THEME_KEY = 'garden.theme';
-
-  // Granted once, on first-ever launch (see loadSeeds below) - never
-  // re-granted just because the balance later drops to 0.
-  const STARTING_SEEDS = 30;
+  const HELPER_CHARGES_KEY = 'garden.helperCharges';
+  const HIGHEST_LEVEL_KEY = 'garden.highestLevel';
 
   function hasStorage() {
     return typeof localStorage !== 'undefined';
@@ -137,26 +134,45 @@
     return raw === null ? true : raw === '1';
   }
 
-  function saveSeeds(amount) {
+  function saveHelperCharges(charges) {
     if (!hasStorage()) return;
-    localStorage.setItem(SEEDS_KEY, String(amount));
+    localStorage.setItem(HELPER_CHARGES_KEY, JSON.stringify(charges));
   }
 
-  // The starting balance is granted exactly once: the very first time this
-  // is ever called with nothing in storage yet, it persists STARTING_SEEDS
-  // immediately so that a later balance of 0 (after spending) is never
-  // mistaken for "never granted" and re-topped-up. Any other stored value
-  // that fails to parse is treated as corrupted and defaults to 0, not to
-  // a fresh grant.
-  function loadSeeds() {
-    if (!hasStorage()) return STARTING_SEEDS;
-    const raw = localStorage.getItem(SEEDS_KEY);
-    if (raw === null) {
-      saveSeeds(STARTING_SEEDS);
-      return STARTING_SEEDS;
+  // Raw charge-object storage: corruption-tolerant (a missing/negative/non-
+  // integer count for any id defaults that id to 0, never throws), and
+  // returns null when nothing has ever been stored yet so Garden.helpers
+  // (the one place that knows the starting amount and the helper id list)
+  // can tell "never granted" apart from "granted, then spent to 0" and do
+  // the one-time starting grant itself.
+  function loadHelperCharges() {
+    if (!hasStorage()) return null;
+    const raw = localStorage.getItem(HELPER_CHARGES_KEY);
+    if (raw === null) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return {};
+      const charges = {};
+      Object.keys(parsed).forEach(function (id) {
+        const value = parseInt(parsed[id], 10);
+        charges[id] = Number.isInteger(value) && value >= 0 ? value : 0;
+      });
+      return charges;
+    } catch (e) {
+      return {};
     }
-    const seeds = parseInt(raw, 10);
-    return Number.isInteger(seeds) && seeds >= 0 ? seeds : 0;
+  }
+
+  function saveHighestLevel(level) {
+    if (!hasStorage()) return;
+    localStorage.setItem(HIGHEST_LEVEL_KEY, String(level));
+  }
+
+  function loadHighestLevel() {
+    if (!hasStorage()) return 1;
+    const raw = localStorage.getItem(HIGHEST_LEVEL_KEY);
+    const level = parseInt(raw, 10);
+    return Number.isInteger(level) && level > 0 ? level : 1;
   }
 
   // The single clock entry point for anything date-based (currently just the
@@ -243,9 +259,10 @@
     loadVibrationEnabled,
     vibrate,
     isVibrationSupported,
-    saveSeeds,
-    loadSeeds,
-    STARTING_SEEDS,
+    saveHelperCharges,
+    loadHelperCharges,
+    saveHighestLevel,
+    loadHighestLevel,
     now,
     saveCheckin,
     loadCheckin,
