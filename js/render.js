@@ -122,6 +122,29 @@
       dom.hintCostAmount.textContent = String(State.HINT_COST);
     }
 
+    // Refreshes every themed icon that's baked as static innerHTML rather
+    // than recomputed on every render: the 3 mascot slots (loading screen,
+    // menu, tutorial bubble - the hint button's mascot/icon is handled
+    // separately since garden and winter show different things there), and
+    // the 5 currency-icon slots (menu pill, top-bar pill, hint cost, win
+    // seed reward, check-in claim reward). The check-in popup's own day-row
+    // reward icons aren't included here - they're rebuilt from scratch each
+    // time the popup opens/claims (see checkin.js), so they just ask
+    // Themes.currencyIconSvg() fresh instead of needing a refresh call.
+    function refreshThemedIcons() {
+      const theme = Themes.getCurrentTheme();
+      const mascot = Themes.mascotSvg(theme.wantsSantaHat);
+      dom.loadingMascot.innerHTML = mascot;
+      dom.menuMascot.innerHTML = mascot;
+      dom.tutorialMascot.innerHTML = mascot;
+      dom.hintMascot.innerHTML = theme.hintIconSvg();
+
+      const currencyInner = theme.currencyIconInner;
+      [dom.menuSeedsIcon, dom.seedsPillIcon, dom.hintCostIcon, dom.seedRewardIcon, dom.checkinClaimRewardIcon].forEach(
+        function (el) { el.innerHTML = currencyInner; }
+      );
+    }
+
     function renderSeeds(amount) {
       dom.seedsDisplay.textContent = String(amount);
       dom.seedsPill.setAttribute('aria-label', I18n.t('seedsAriaLabel', { amount }));
@@ -507,6 +530,7 @@
       const resolved = Themes.applyTheme(themeId);
       I18n.setTheme(resolved);
       renderStaticText();
+      refreshThemedIcons();
       if (renderedGrid) {
         buildBedTracker(renderedGrid);
         syncCells(renderedGrid);
@@ -546,6 +570,7 @@
     }
 
     renderStaticText();
+    refreshThemedIcons();
     spawnParticles();
 
     return {

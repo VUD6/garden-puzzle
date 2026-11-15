@@ -1,16 +1,22 @@
 // Theme registry: purely visual presentation data (CSS token overrides, bed
-// colors, piece art, piece-name i18n keys). Never touches rng.js/generator.js/
-// solver.js/state.js - switching themes must never change what level N looks
-// like board-wise (same beds, same solution), only how it is drawn.
+// colors, piece art, mascot/hint/currency icons, i18n keys). Never touches
+// rng.js/generator.js/solver.js/state.js - switching themes must never
+// change what level N looks like board-wise (same beds, same solution),
+// only how it is drawn.
 (function (root) {
   function clamp(value, lo, hi) {
     return Math.max(lo, Math.min(hi, value));
   }
 
+  function hexToRgb(hex) {
+    return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+  }
+
   function hexToHsl(hex) {
-    const r = parseInt(hex.slice(1, 3), 16) / 255;
-    const g = parseInt(hex.slice(3, 5), 16) / 255;
-    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const [r8, g8, b8] = hexToRgb(hex);
+    const r = r8 / 255;
+    const g = g8 / 255;
+    const b = b8 / 255;
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     const l = (max + min) / 2;
@@ -31,13 +37,48 @@
     return 'hsl(' + h.toFixed(0) + ' ' + clamp(s, 0, 100).toFixed(0) + '% ' + clamp(l, 0, 100).toFixed(0) + '%)';
   }
 
+  // Perceptual-ish RGB distance ("redmean" approximation) - cheap, no color-
+  // space conversion needed, good enough to catch two bed colors that read
+  // as "basically the same" to the eye. Used by tests/themes.test.js to
+  // guard the winter palette's distinguishability.
+  function colorDistance(hexA, hexB) {
+    const [r1, g1, b1] = hexToRgb(hexA);
+    const [r2, g2, b2] = hexToRgb(hexB);
+    const rMean = (r1 + r2) / 2;
+    const dr = r1 - r2;
+    const dg = g1 - g2;
+    const db = b1 - b2;
+    return Math.sqrt((2 + rMean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rMean) / 256) * db * db);
+  }
+
+  function srgbChannelToLinear(c) {
+    const v = c / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  }
+
+  function relativeLuminance(hex) {
+    const [r, g, b] = hexToRgb(hex).map(srgbChannelToLinear);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  // WCAG-style contrast ratio (1 to 21). Used both to pick the winter
+  // palette's readable tones and by tests/themes.test.js to guard that the
+  // gingerbread's body/outline stay legible against every winter bed color.
+  function contrastRatio(hexA, hexB) {
+    const l1 = relativeLuminance(hexA);
+    const l2 = relativeLuminance(hexB);
+    const hi = Math.max(l1, l2);
+    const lo = Math.min(l1, l2);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
   // Three shades, all pushed well away from the given color's own lightness
   // (lighter base -> darker shades, darker base -> lighter shades) so a piece
   // drawn in these shades always contrasts against its own bed tile, then
   // nudged a little further shade by shade for some depth - each stage
   // clamped independently so no shade can ever collapse to pure black/white.
-  // Shared by every theme's piece art, so a new bed color automatically gets
-  // a piece that contrasts with it without a separate hardcoded palette.
+  // Used by the garden theme's flower (the winter gingerbread uses a fixed
+  // palette instead - see GINGERBREAD_BODY/GINGERBREAD_OUTLINE below).
   function contrastShades(hex) {
     const base = hexToHsl(hex);
     const sign = base.l > 52 ? -1 : 1;
@@ -77,24 +118,30 @@
     return '<svg viewBox="0 0 24 24">' + petals + '<circle cx="12" cy="12" r="1.3" fill="var(--flower-center)"/></svg>';
   }
 
-  // --- Winter piece art: a simple gingerbread person, built from basic
-  // shapes (not one intricate path) so it stays legible even on an 8x8
-  // board's small cells. Shades reuse the exact same contrastShades() above
-  // as the flower does: outer for the cookie body, middle for an icing belt
-  // and cuffs, inner for the face/buttons - so any bed color automatically
-  // gets a gingerbread that contrasts with it, just like the flower. ---
+  // --- Winter piece art: a gingerbread person with a FIXED warm-brown body
+  // and cream icing (not hue-derived like the flower) - a fixed palette
+  // reads reliably on every one of the 8 winter bed colors, including the
+  // lighter yellow/orange ones, which tests/themes.test.js verifies via
+  // contrastRatio(). A few icing details (bow, buttons, smile) keep it
+  // readable as a face/figure rather than a flat blob. ---
+  const GINGERBREAD_BODY = '#4f2f18';
+  const GINGERBREAD_OUTLINE = '#fbf2e4';
+  const GINGERBREAD_BOW = '#c0433f';
+
   const GINGERBREAD_PARTS = [
-    { tag: 'circle', shade: 'outer', delay: 0, outline: true, attrs: { cx: 12, cy: 5.6, r: 2.8 } },
-    { tag: 'rect', shade: 'outer', delay: 10, outline: true, attrs: { x: 8.4, y: 8.6, width: 7.2, height: 8, rx: 3 } },
-    { tag: 'rect', shade: 'outer', delay: 20, outline: true, attrs: { x: 3.6, y: 9.8, width: 5, height: 2.8, rx: 1.4, transform: 'rotate(-28 6.1 11.2)' } },
-    { tag: 'rect', shade: 'outer', delay: 20, outline: true, attrs: { x: 15.4, y: 9.8, width: 5, height: 2.8, rx: 1.4, transform: 'rotate(28 17.9 11.2)' } },
-    { tag: 'rect', shade: 'outer', delay: 30, outline: true, attrs: { x: 7.8, y: 16, width: 3, height: 6, rx: 1.5, transform: 'rotate(14 9.3 19)' } },
-    { tag: 'rect', shade: 'outer', delay: 30, outline: true, attrs: { x: 13.2, y: 16, width: 3, height: 6, rx: 1.5, transform: 'rotate(-14 14.7 19)' } },
-    { tag: 'rect', shade: 'middle', delay: 70, attrs: { x: 8.4, y: 11.2, width: 7.2, height: 1.5 } },
-    { tag: 'circle', shade: 'inner', delay: 90, attrs: { cx: 10.9, cy: 5.2, r: 0.9 } },
-    { tag: 'circle', shade: 'inner', delay: 90, attrs: { cx: 13.1, cy: 5.2, r: 0.9 } },
-    { tag: 'circle', shade: 'inner', delay: 110, attrs: { cx: 12, cy: 9.6, r: 0.9 } },
-    { tag: 'circle', shade: 'inner', delay: 120, attrs: { cx: 12, cy: 14.3, r: 0.9 } },
+    { tag: 'circle', fill: 'body', delay: 0, outline: true, attrs: { cx: 12, cy: 5.6, r: 2.8 } },
+    { tag: 'rect', fill: 'body', delay: 10, outline: true, attrs: { x: 8.4, y: 8.6, width: 7.2, height: 8, rx: 3 } },
+    { tag: 'rect', fill: 'body', delay: 20, outline: true, attrs: { x: 3.6, y: 9.8, width: 5, height: 2.8, rx: 1.4, transform: 'rotate(-28 6.1 11.2)' } },
+    { tag: 'rect', fill: 'body', delay: 20, outline: true, attrs: { x: 15.4, y: 9.8, width: 5, height: 2.8, rx: 1.4, transform: 'rotate(28 17.9 11.2)' } },
+    { tag: 'rect', fill: 'body', delay: 30, outline: true, attrs: { x: 7.8, y: 16, width: 3, height: 6, rx: 1.5, transform: 'rotate(14 9.3 19)' } },
+    { tag: 'rect', fill: 'body', delay: 30, outline: true, attrs: { x: 13.2, y: 16, width: 3, height: 6, rx: 1.5, transform: 'rotate(-14 14.7 19)' } },
+    { tag: 'path', fill: 'bow', delay: 70, attrs: { d: 'M10.5 8.5 L12 9.9 L10.5 10.7 Z' } },
+    { tag: 'path', fill: 'bow', delay: 70, attrs: { d: 'M13.5 8.5 L12 9.9 L13.5 10.7 Z' } },
+    { tag: 'circle', fill: 'bow', delay: 75, attrs: { cx: 12, cy: 9.9, r: 0.55 } },
+    { tag: 'circle', fill: 'outline', delay: 90, attrs: { cx: 10.9, cy: 5.2, r: 0.9 } },
+    { tag: 'circle', fill: 'outline', delay: 90, attrs: { cx: 13.1, cy: 5.2, r: 0.9 } },
+    { tag: 'circle', fill: 'outline', delay: 100, attrs: { cx: 12, cy: 12.5, r: 0.9 } },
+    { tag: 'circle', fill: 'outline', delay: 110, attrs: { cx: 12, cy: 14.8, r: 0.9 } },
   ];
 
   function attrsToString(attrs) {
@@ -103,34 +150,105 @@
       .join(' ');
   }
 
-  // Body/limb pieces also get a thin "icing" outline stroke (the inner
-  // shade) so the silhouette reads as a piped cookie rather than a flat
-  // monochrome pictogram.
-  function gingerbreadArt(hex) {
-    const shades = contrastShades(hex);
+  const GINGERBREAD_FILL_BY_KEY = { body: GINGERBREAD_BODY, bow: GINGERBREAD_BOW, outline: GINGERBREAD_OUTLINE };
+
+  // hex is accepted for API parity with flowerArt(hex)/pieceArt(hex) but
+  // unused - the gingerbread's palette is intentionally fixed so it reads
+  // the same, reliably contrasting figure on every bed color.
+  function gingerbreadArt(hex) { // eslint-disable-line no-unused-vars
     let parts = '';
     GINGERBREAD_PARTS.forEach(function (part) {
-      const outline = part.outline ? ' stroke="' + shades.inner + '" stroke-width="0.4"' : '';
+      const outline = part.outline ? ' stroke="' + GINGERBREAD_OUTLINE + '" stroke-width="0.4"' : '';
       parts +=
         '<' + part.tag + ' class="piece-part" style="animation-delay:' + part.delay + 'ms" fill="' +
-        shades[part.shade] + '"' + outline + ' ' + attrsToString(part.attrs) + '/>';
+        GINGERBREAD_FILL_BY_KEY[part.fill] + '"' + outline + ' ' + attrsToString(part.attrs) + '/>';
     });
     parts +=
-      '<path class="piece-part" style="animation-delay:110ms" stroke="' + shades.inner +
+      '<path class="piece-part" style="animation-delay:120ms" stroke="' + GINGERBREAD_OUTLINE +
       '" stroke-width="0.8" stroke-linecap="round" fill="none" d="M10.4 7 Q12 8.1 13.6 7"/>';
     return '<svg viewBox="0 0 24 24">' + parts + '</svg>';
   }
+
+  // --- Shared mascot: a ladybug, optionally wearing a small Santa hat
+  // overlay. One component used by the loading screen, menu, tutorial
+  // bubble, and (for garden) the hint button. ---
+  const LADYBUG_BODY_SVG =
+    '<ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>' +
+    '<line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>' +
+    '<circle cx="16" cy="18" r="3" fill="#2a1f1c"/>' +
+    '<circle cx="32" cy="18" r="3" fill="#2a1f1c"/>' +
+    '<circle cx="16" cy="29" r="3" fill="#2a1f1c"/>' +
+    '<circle cx="32" cy="29" r="3" fill="#2a1f1c"/>' +
+    '<circle cx="24" cy="24" r="3" fill="#2a1f1c"/>' +
+    '<circle cx="24" cy="10" r="9" fill="#2a1f1c"/>' +
+    '<circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/>' +
+    '<circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/>' +
+    '<path d="M16 2 Q12 -2 10 2" stroke="#2a1f1c" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
+    '<path d="M32 2 Q36 -2 38 2" stroke="#2a1f1c" stroke-width="1.5" fill="none" stroke-linecap="round"/>';
+
+  // Kept entirely within y >= 0 (the shared 0 0 48 40 viewBox) so it's never
+  // clipped, and reused unscaled across every mascot slot.
+  const SANTA_HAT_SVG =
+    '<ellipse cx="22" cy="4.6" rx="10" ry="2.6" fill="#fbf2e4"/>' +
+    '<path d="M15 4.2 Q21 0.3 31 3.6 Q25 1.8 18 4.6 Z" fill="#c0433f"/>' +
+    '<circle cx="30.5" cy="3.3" r="2.3" fill="#fbf2e4"/>';
+
+  function mascotSvg(withHat) {
+    return '<svg viewBox="0 0 48 40">' + LADYBUG_BODY_SVG + (withHat ? SANTA_HAT_SVG : '') + '</svg>';
+  }
+
+  // --- Hint button icon: garden keeps the plain ladybug; winter gets a
+  // candy cane (a striped SVG <pattern>, self-contained - its red/cream
+  // colors are fixed art, not theme tokens, like the board frame). ---
+  const CANDY_CANE_HINT_SVG =
+    '<svg viewBox="0 0 24 24">' +
+    '<defs><pattern id="hintCandyStripe" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">' +
+    '<rect width="5" height="5" fill="#fbf2e4"/><rect width="2.5" height="5" fill="#c0433f"/>' +
+    '</pattern></defs>' +
+    '<path d="M9 21 L9 10 Q9 3 16 3 Q21 3 21 8 Q21 12 16 12 Q13 12 13 9" fill="none" stroke="url(#hintCandyStripe)" stroke-width="4.2" stroke-linecap="round"/>' +
+    '</svg>';
+
+  function gardenHintIconSvg() {
+    return mascotSvg(false);
+  }
+
+  function winterHintIconSvg() {
+    return CANDY_CANE_HINT_SVG;
+  }
+
+  // --- Currency icon: the inner <path>/<g> markup dropped inside
+  // <svg class="seed-icon">...</svg> - that wrapper already carries
+  // fill: var(--currency-icon-color) in CSS, so these only need to define
+  // shapes, no fill of their own, to inherit it. ---
+  const GARDEN_CURRENCY_ICON_INNER =
+    '<path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/>';
+
+  function buildSnowflakeInner() {
+    let spokes = '';
+    for (let i = 0; i < 6; i++) {
+      const angle = i * 60;
+      spokes +=
+        '<g transform="rotate(' + angle + ' 12 12)">' +
+        '<path d="M12 12 L12.8 3.2 L12 1.6 L11.2 3.2 Z"/>' +
+        '<path d="M12 6.6 L13.6 5.2 L12.9 4.1 L12 5.4 L11.1 4.1 L10.4 5.2 Z"/>' +
+        '</g>';
+    }
+    return spokes;
+  }
+  const WINTER_CURRENCY_ICON_INNER = buildSnowflakeInner();
 
   // Must stay in sync with the garden :root defaults in css/style.css
   // (--region-0..7) - the garden theme applies no overrides, it just uses
   // those defaults as-is, so this array has to match them exactly.
   const GARDEN_BED_COLORS = ['#c97b84', '#6f9bc4', '#cdb15a', '#6fb08a', '#a888c9', '#cc8c5c', '#5cb3a8', '#c47bb0'];
 
-  // 8 candy tones: mint, strawberry, lemon, grape, blueberry, orange sherbet,
-  // lime, bubblegum - spread across the hue wheel so they stay distinguishable
-  // from each other (the accessibility pattern overlay is theme-independent
-  // and keeps working on top of either set).
-  const WINTER_BED_COLORS = ['#7fd8b9', '#6e8fd6', '#f0d868', '#a8d86a', '#a480cf', '#f2a868', '#e8637a', '#e26fc2'];
+  // 8 candy tones (mint, strawberry, lemon, grape, blueberry, orange
+  // sherbet, lime, bubblegum), tuned (via tests/themes.test.js's color-
+  // distance/contrast checks) to stay clearly distinguishable from each
+  // other and from the light winter background, with medium
+  // lightness/saturation rather than pale pastels so they still pop on a
+  // light page.
+  const WINTER_BED_COLORS = ['#4fb892', '#e24b64', '#e8c23a', '#8a5fc2', '#4f7fd1', '#e8863f', '#8cc43f', '#c94a9e'];
 
   function tokensForBedColors(colors) {
     const tokens = {};
@@ -139,22 +257,55 @@
   }
 
   const WINTER_TOKENS = Object.assign(tokensForBedColors(WINTER_BED_COLORS), {
-    '--bg-top': '#0e1b33',
+    // Warm cream-to-pale-pink vertical gradient - no pure white anywhere.
+    '--bg-top': '#fdf0ea',
+    '--bg-bottom': '#f7e3d0',
+    '--ink': '#4a3220',
+    '--ink-soft': '#8a7260',
+    '--panel': '#fff8f0',
+    '--panel-soft': '#f6e9d8',
+    '--panel-border': '#e6d2b8',
+    '--mark-ink': '#4a3220',
+    '--drop-empty': '#9c7f5e',
+    '--overlay-scrim': 'rgba(74, 50, 34, 0.32)',
+    // A cozier, slightly deeper pine green than garden's accent, chosen so
+    // "Done!" text (--result-done via --accent) still clears a 3:1 contrast
+    // ratio against the light panel - see tests/themes.test.js.
+    '--accent': '#3e8f57',
+    '--accent-ink': '#0d1f14',
+    '--accent-glow': 'rgba(62, 143, 87, 0.5)',
     // Candy-cane rim: a diagonal red/off-white stripe (never pure #fff, per
     // the project's no-pure-white-or-black palette rule).
-    '--board-frame-bg': 'repeating-linear-gradient(45deg, #b8413f 0px 10px, #f4f1ea 10px 20px)',
-    // "Ice" tile: slightly translucent (the sheen layer), a brighter top
-    // highlight, and a cool blue-grey lower edge instead of black - same
-    // geometry/press behavior as the garden tile, just re-colored.
-    '--tile-highlight': 'inset 0 2px 0 rgba(244, 241, 234, 0.4)',
-    '--tile-edge': 'inset 0 -3px 0 rgba(70, 95, 130, 0.35)',
-    '--tile-edge-pressed': 'inset 0 -1px 0 rgba(70, 95, 130, 0.22)',
-    '--tile-shadow': '0 2px 4px rgba(10, 20, 40, 0.28)',
-    '--tile-shadow-pressed': '0 1px 2px rgba(10, 20, 40, 0.2)',
-    '--tile-sheen': 'inset 0 0 0 100px rgba(244, 241, 234, 0.12)',
-    // Ambient motes (snow) and the plant/claim sparkle reuse the same pollen
-    // token, just re-colored to an off-white.
-    '--pollen-color': '#eef2f7',
+    '--board-frame-bg': 'repeating-linear-gradient(45deg, #b8413f 0px 10px, #fbf2e4 10px 20px)',
+    // "Icy-candy" tile: a gentle highlight, a cool blue-grey lower edge, and
+    // a light translucent sheen - same geometry/press behavior as the
+    // garden tile, just re-colored for the light page.
+    '--tile-highlight': 'inset 0 2px 0 rgba(255, 250, 240, 0.45)',
+    '--tile-edge': 'inset 0 -3px 0 rgba(90, 110, 140, 0.28)',
+    '--tile-edge-pressed': 'inset 0 -1px 0 rgba(90, 110, 140, 0.18)',
+    '--tile-shadow': '0 2px 4px rgba(60, 50, 30, 0.22)',
+    '--tile-shadow-pressed': '0 1px 2px rgba(60, 50, 30, 0.16)',
+    '--tile-sheen': 'inset 0 0 0 100px rgba(255, 250, 240, 0.14)',
+    '--tile-lock-ring': 'inset 0 0 0 3px rgba(255, 250, 240, 0.55)',
+    // Snow motes (ambient particles + plant/claim sparkle) - a near-white
+    // mote needs its own visible blue-grey glow to read against a light
+    // page, which is why that glow is its own token (see --particle-glow
+    // below) rather than reusing --pollen-color for both fill and shadow.
+    '--pollen-color': '#eef5ff',
+    '--particle-glow': 'rgba(130, 160, 200, 0.55)',
+    // Decoupled from --pollen-color so the currency icon/notification dot
+    // stay readable sitting on a light panel (a near-white icon on a
+    // near-white panel would otherwise vanish).
+    '--currency-icon-color': '#3f6fc0',
+    // Decoupled from --pollen-color for the same reason: "Perfect!" text
+    // sits directly on the light panel.
+    '--result-perfect-color': '#b8701a',
+    // The plain gold star reads fine on a dark panel but washes out on a
+    // light one; winter uses a darker gold fill with a strong dark-gold
+    // outline so the star shape still pops even though the fill's own
+    // contrast is modest (see tests/themes.test.js).
+    '--star-filled-fill': '#d99a2b',
+    '--star-filled-stroke': '#8a5a12',
   });
 
   const THEMES = {
@@ -163,6 +314,9 @@
       pieceNameKey: 'pieceNameFlower',
       bedColors: GARDEN_BED_COLORS,
       pieceArt: flowerArt,
+      wantsSantaHat: false,
+      hintIconSvg: gardenHintIconSvg,
+      currencyIconInner: GARDEN_CURRENCY_ICON_INNER,
       // The night-garden look already IS the :root default - nothing to
       // override here, which is what keeps "garden theme: exactly today's
       // look" true for free.
@@ -173,7 +327,13 @@
       pieceNameKey: 'pieceNameGingerbread',
       bedColors: WINTER_BED_COLORS,
       pieceArt: gingerbreadArt,
+      wantsSantaHat: true,
+      hintIconSvg: winterHintIconSvg,
+      currencyIconInner: WINTER_CURRENCY_ICON_INNER,
       tokens: WINTER_TOKENS,
+      // Exposed for tests/themes.test.js's contrast checks (the gingerbread
+      // ignores its hex argument and always draws in these two colors).
+      pieceColors: { body: GINGERBREAD_BODY, outline: GINGERBREAD_OUTLINE },
     },
   };
 
@@ -223,6 +383,10 @@
     return THEMES[currentId];
   }
 
+  function currencyIconSvg() {
+    return '<svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true">' + getCurrentTheme().currencyIconInner + '</svg>';
+  }
+
   const Themes = {
     DEFAULT_THEME_ID,
     THEMES,
@@ -230,6 +394,10 @@
     getTheme,
     getCurrentTheme,
     contrastShades,
+    colorDistance,
+    contrastRatio,
+    mascotSvg,
+    currencyIconSvg,
   };
 
   root.Garden = root.Garden || {};

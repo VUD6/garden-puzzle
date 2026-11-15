@@ -1,7 +1,9 @@
 // Plain Node script, no test framework/dependency. Run with: node tests/themes.test.js
 // Covers the theme registry: default resolution, stored-value overrides and
 // corruption-tolerance, that switching themes never touches level generation,
-// and that the winter piece-art contrast shades stay sane for every bed.
+// that the winter bed colors stay distinguishable from each other and from
+// the board background, and that the fixed-color gingerbread stays legible
+// against every one of those bed colors.
 require('../js/rng.js');
 require('../js/grid.js');
 require('../js/rules.js');
@@ -88,27 +90,66 @@ assert(
   'garden theme bed colors are unchanged from the original 8 region colors'
 );
 
-// --- winter piece color contrast check for all 8 beds ---
-
-function parseHsl(hslString) {
-  const match = /^hsl\(([\d.]+) (\d+)% (\d+)%\)$/.exec(hslString);
-  assert(match !== null, `"${hslString}" parses as an hsl() string`);
-  return match ? { h: Number(match[1]), s: Number(match[2]), l: Number(match[3]) } : null;
-}
+// --- winter bed colors: minimum pairwise distance + distance from the board background ---
 
 const winterBedColors = Themes.THEMES.winter.bedColors;
 assert(winterBedColors.length === 8, 'winter theme defines exactly 8 bed colors');
 assert(new Set(winterBedColors).size === 8, 'winter theme bed colors are all distinct');
 
-for (const hex of winterBedColors) {
-  const shades = Themes.contrastShades(hex);
-  for (const ring of ['outer', 'middle', 'inner']) {
-    const parsed = parseHsl(shades[ring]);
-    if (!parsed) continue;
-    assert(parsed.l > 0 && parsed.l < 100, `${hex} ${ring} shade lightness (${parsed.l}%) never clips to pure black/white`);
-    assert(parsed.s > 0, `${hex} ${ring} shade keeps some saturation (not a flat grey)`);
+// Thresholds picked with real margin below the palette's actual worst case
+// (checked separately while tuning the colors: worst pairwise ~95, worst
+// vs-background ~227) so a future color tweak that erodes distinguishability
+// fails loudly well before it becomes a real problem.
+const MIN_PAIRWISE_DISTANCE = 80;
+const MIN_BACKGROUND_DISTANCE = 150;
+
+let minPairwiseDistance = Infinity;
+for (let i = 0; i < winterBedColors.length; i++) {
+  for (let j = i + 1; j < winterBedColors.length; j++) {
+    const d = Themes.colorDistance(winterBedColors[i], winterBedColors[j]);
+    minPairwiseDistance = Math.min(minPairwiseDistance, d);
   }
 }
+assert(
+  minPairwiseDistance >= MIN_PAIRWISE_DISTANCE,
+  `winter bed colors stay >= ${MIN_PAIRWISE_DISTANCE} color-distance apart from each other (worst pair: ${minPairwiseDistance.toFixed(1)})`
+);
+
+const bgTop = Themes.THEMES.winter.tokens['--bg-top'];
+const bgBottom = Themes.THEMES.winter.tokens['--bg-bottom'];
+assert(typeof bgTop === 'string' && typeof bgBottom === 'string', 'winter theme defines both background gradient stops');
+
+let minBackgroundDistance = Infinity;
+for (const hex of winterBedColors) {
+  const d = Math.min(Themes.colorDistance(hex, bgTop), Themes.colorDistance(hex, bgBottom));
+  minBackgroundDistance = Math.min(minBackgroundDistance, d);
+}
+assert(
+  minBackgroundDistance >= MIN_BACKGROUND_DISTANCE,
+  `winter bed colors stay >= ${MIN_BACKGROUND_DISTANCE} color-distance from the board background (worst: ${minBackgroundDistance.toFixed(1)})`
+);
+
+// --- winter gingerbread: body/outline contrast against all 8 bed colors ---
+
+// The gingerbread uses a FIXED body/outline palette (not hue-derived like
+// the flower), so what needs checking is that fixed pair against every one
+// of the 8 bed colors - whichever of the two (the dark body or the cream
+// outline) contrasts more is what actually carries the silhouette, so the
+// readability bar is "at least one of them clears the threshold", not both.
+const MIN_CONTRAST_RATIO = 3; // WCAG's "large text/graphics" baseline
+
+const pieceColors = Themes.THEMES.winter.pieceColors;
+assert(pieceColors && typeof pieceColors.body === 'string' && typeof pieceColors.outline === 'string', 'winter theme exposes its fixed gingerbread body/outline colors');
+
+let minGingerbreadContrast = Infinity;
+for (const hex of winterBedColors) {
+  const best = Math.max(Themes.contrastRatio(pieceColors.body, hex), Themes.contrastRatio(pieceColors.outline, hex));
+  minGingerbreadContrast = Math.min(minGingerbreadContrast, best);
+}
+assert(
+  minGingerbreadContrast >= MIN_CONTRAST_RATIO,
+  `the gingerbread's body or outline clears a ${MIN_CONTRAST_RATIO}:1 contrast ratio against every winter bed color (worst: ${minGingerbreadContrast.toFixed(2)}:1)`
+);
 
 console.log(`${checks} checks run, ${failures} failed.`);
 process.exit(failures === 0 ? 0 : 1);

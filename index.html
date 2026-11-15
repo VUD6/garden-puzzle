@@ -9,8 +9,27 @@
 <body>
 <div id="app">
   <div class="ambient-particles" id="ambientParticles" aria-hidden="true"></div>
+  <div class="winter-decor" id="winterDecor" aria-hidden="true">
+    <div class="snow-drift"></div>
+    <svg class="fir-tree fir-tree-left" viewBox="0 0 48 72">
+      <rect x="21" y="60" width="6" height="12" fill="#6b4a33"/>
+      <path d="M24 6 L40 30 L32 30 L44 50 L34 50 L46 64 L2 64 L14 50 L4 50 L16 30 L8 30 Z" fill="#3f7a52"/>
+      <circle cx="18" cy="34" r="2.2" fill="#fbf2e4"/>
+      <circle cx="30" cy="44" r="2.2" fill="#fbf2e4"/>
+      <circle cx="14" cy="52" r="2.2" fill="#fbf2e4"/>
+      <circle cx="34" cy="56" r="2.2" fill="#fbf2e4"/>
+    </svg>
+    <svg class="fir-tree fir-tree-right" viewBox="0 0 48 72">
+      <rect x="21" y="60" width="6" height="12" fill="#6b4a33"/>
+      <path d="M24 6 L40 30 L32 30 L44 50 L34 50 L46 64 L2 64 L14 50 L4 50 L16 30 L8 30 Z" fill="#3f7a52"/>
+      <circle cx="30" cy="34" r="2.2" fill="#fbf2e4"/>
+      <circle cx="18" cy="44" r="2.2" fill="#fbf2e4"/>
+      <circle cx="34" cy="52" r="2.2" fill="#fbf2e4"/>
+      <circle cx="14" cy="56" r="2.2" fill="#fbf2e4"/>
+    </svg>
+  </div>
   <div class="screen loading-screen" id="loadingScreen">
-    <div class="loading-mascot" aria-hidden="true">
+    <div class="loading-mascot" id="loadingMascot" aria-hidden="true">
       <svg viewBox="0 0 48 40">
         <ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>
         <line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>
@@ -32,7 +51,7 @@
   </div>
   <div class="screen menu-screen" id="menuScreen" hidden>
     <div class="menu-card">
-      <div class="menu-mascot" aria-hidden="true">
+      <div class="menu-mascot" id="menuMascot" aria-hidden="true">
         <svg viewBox="0 0 48 40">
           <ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>
           <line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>
@@ -51,7 +70,7 @@
       <h1 class="menu-title" id="menuTitle"></h1>
       <p class="menu-subtitle" id="menuSubtitle"></p>
       <div class="pill seeds-pill" id="menuSeedsPill">
-        <svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
+        <svg class="seed-icon" id="menuSeedsIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
         <span id="menuSeedsDisplay"></span>
       </div>
       <button class="menu-button menu-play-button" id="playButton" type="button"></button>
@@ -82,7 +101,7 @@
         <span id="scoreDisplay"></span>
       </div>
       <div class="pill seeds-pill" id="seedsPill">
-        <svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
+        <svg class="seed-icon" id="seedsPillIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
         <span id="seedsDisplay"></span>
       </div>
     </div>
@@ -145,7 +164,7 @@
   <div class="bed-tracker" id="bedTracker"></div>
   <div class="hint-row">
     <button class="hint-button" id="hintButton" type="button">
-      <span class="hint-mascot" aria-hidden="true">
+      <span class="hint-mascot" id="hintMascot" aria-hidden="true">
         <svg viewBox="0 0 48 40">
           <ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>
           <line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>
@@ -163,7 +182,7 @@
       </span>
       <span class="hint-text" id="hintButtonLabel"></span>
       <span class="hint-cost">
-        <svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
+        <svg class="seed-icon" id="hintCostIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
         <span id="hintCostAmount"></span>
       </span>
     </button>
@@ -178,7 +197,7 @@
       <h2 id="winTitle"></h2>
       <div class="stars" id="starsContainer"></div>
       <div class="seed-reward" id="seedReward" hidden>
-        <svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
+        <svg class="seed-icon" id="seedRewardIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
         <span id="seedRewardAmount"></span>
       </div>
       <p class="rank-title" id="rankTitle"></p>
@@ -230,7 +249,7 @@
       <p class="checkin-streak-line" id="checkinCurrentStreakText"></p>
       <p class="checkin-streak-line" id="checkinBestStreakText"></p>
       <div class="seed-reward" id="checkinClaimReward" hidden>
-        <svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
+        <svg class="seed-icon" id="checkinClaimRewardIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg>
         <span id="checkinClaimRewardAmount"></span>
       </div>
       <button id="checkinClaimButton" type="button"></button>
@@ -244,7 +263,7 @@
         <div class="tutorial-hand" id="tutorialHand" hidden></div>
       </div>
       <div class="tutorial-mascot-row">
-        <div class="tutorial-mascot" aria-hidden="true">
+        <div class="tutorial-mascot" id="tutorialMascot" aria-hidden="true">
           <svg viewBox="0 0 48 40">
             <ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>
             <line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>

@@ -20,6 +20,15 @@
 
   --pollen-color: #ffd866;
   --flower-center: #ffe17a;
+  /* Decoupled from --pollen-color so a theme can re-color the ambient-mote
+     glow, the currency icon, and the "Perfect!" text independently of the
+     mote's own fill - garden leaves all three pointed straight at
+     --pollen-color (today's exact look), a light theme can't. */
+  --particle-glow: var(--pollen-color);
+  --currency-icon-color: var(--pollen-color);
+  --result-perfect-color: var(--pollen-color);
+  --star-filled-fill: #f2b705;
+  --star-filled-stroke: #d99a2b;
 
   --overlay-scrim: rgba(7, 13, 9, 0.6);
   --board-frame: #0f1d14;
@@ -110,7 +119,7 @@ html, body {
   border-radius: 50%;
   background: var(--pollen-color);
   opacity: 0;
-  box-shadow: 0 0 6px var(--pollen-color);
+  box-shadow: 0 0 6px var(--particle-glow);
   animation: particle-float var(--dur, 18s) linear infinite;
   animation-delay: var(--delay, 0s);
 }
@@ -145,6 +154,66 @@ html.reduce-motion .ambient-particles {
   .ambient-particles {
     display: none;
   }
+}
+
+/* Winter-only decor: a snow drift along the bottom edge and two small fir
+   trees in the lower corners. Purely decorative (behind the UI, like
+   .ambient-particles above) and static markup in index.html - this block
+   just controls when it's visible. Hidden whenever vertical space is short
+   (landscape, or a generally short viewport) so it can never overlap the
+   board/controls or force extra scroll. */
+.winter-decor {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+  display: none;
+}
+
+html[data-theme="winter"] .winter-decor {
+  display: block;
+}
+
+/* Needs to match (not beat) the specificity of the "show for winter" rule
+   above, since it's meant to override it in this narrower case - a plain
+   `.winter-decor { display: none }` here would lose to that rule's
+   attribute-selector specificity regardless of source order. */
+@media (max-height: 700px), (orientation: landscape) {
+  html[data-theme="winter"] .winter-decor {
+    display: none;
+  }
+}
+
+.snow-drift {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -14px;
+  height: 46px;
+  opacity: 0.9;
+  background:
+    radial-gradient(circle at 8% 60%, var(--pollen-color) 0 24px, transparent 25px),
+    radial-gradient(circle at 28% 48%, var(--pollen-color) 0 28px, transparent 29px),
+    radial-gradient(circle at 50% 58%, var(--pollen-color) 0 22px, transparent 23px),
+    radial-gradient(circle at 72% 48%, var(--pollen-color) 0 28px, transparent 29px),
+    radial-gradient(circle at 92% 60%, var(--pollen-color) 0 24px, transparent 25px);
+}
+
+.fir-tree {
+  position: absolute;
+  bottom: 0;
+  width: 54px;
+  height: 80px;
+  opacity: 0.92;
+}
+
+.fir-tree-left {
+  left: 2px;
+}
+
+.fir-tree-right {
+  right: 2px;
 }
 
 .visually-hidden {
@@ -313,8 +382,11 @@ html.reduce-motion .loading-pulse span {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--pollen-color);
-  box-shadow: 0 0 5px var(--pollen-color);
+  /* Sits on the button's own --panel background, same reasoning as
+     --currency-icon-color: a near-white dot needs a tone that's actually
+     visible against a light panel, not just the snow-mote color. */
+  background: var(--currency-icon-color);
+  box-shadow: 0 0 5px var(--currency-icon-color);
 }
 
 .topbar {
@@ -402,7 +474,7 @@ html.reduce-motion .loading-pulse span {
 .seed-icon {
   width: 15px;
   height: 15px;
-  fill: var(--pollen-color);
+  fill: var(--currency-icon-color);
   flex-shrink: 0;
 }
 
@@ -869,7 +941,7 @@ html.reduce-motion .cell-mark.mark-bloom .piece-part {
   height: 6px;
   border-radius: 50%;
   background: var(--pollen-color);
-  box-shadow: 0 0 4px var(--pollen-color);
+  box-shadow: 0 0 4px var(--particle-glow);
   pointer-events: none;
   animation: sparkle-float 0.7s ease-out forwards;
   z-index: 5;
@@ -973,7 +1045,7 @@ html.reduce-motion .board.board-complete .cell-mark.mark-flower {
 }
 
 .result-text.result-perfect {
-  color: var(--pollen-color);
+  color: var(--result-perfect-color);
 }
 
 .result-text.result-done {
@@ -1003,8 +1075,8 @@ html.reduce-motion .board.board-complete .cell-mark.mark-flower {
 }
 
 .stars .star-filled {
-  fill: #f2b705;
-  stroke: #d99a2b;
+  fill: var(--star-filled-fill);
+  stroke: var(--star-filled-stroke);
   stroke-width: 1;
 }
 

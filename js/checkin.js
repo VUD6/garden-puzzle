@@ -112,7 +112,8 @@
   function createCheckinScreen(dom, handlers) {
     handlers = handlers || {};
     const I18n = root.Garden.i18n;
-    const flowerSvgFor = root.Garden.render.flowerSvgFor;
+    const Themes = root.Garden.themes;
+    const pieceSvgFor = root.Garden.render.pieceSvgFor;
     const triggerOneShotAnim = root.Garden.render.triggerOneShotAnim;
 
     dom.dailyCheckinLabel.textContent = I18n.t('dailyCheckinButtonLabel');
@@ -143,7 +144,7 @@
         const markEl = document.createElement('div');
         markEl.className = 'checkin-day-mark';
         if (isClaimed) {
-          markEl.innerHTML = flowerSvgFor(day - 1);
+          markEl.innerHTML = pieceSvgFor(day - 1);
         } else {
           markEl.textContent = String(day);
         }
@@ -153,10 +154,7 @@
         if (reward > 0) {
           const rewardEl = document.createElement('div');
           rewardEl.className = 'checkin-day-reward';
-          rewardEl.innerHTML =
-            '<svg class="seed-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C16 2 20 7 20 13C20 18 16.5 22 12 22C7.5 22 4 18 4 13C4 7 8 2 12 2Z"/></svg><span>' +
-            reward +
-            '</span>';
+          rewardEl.innerHTML = Themes.currencyIconSvg() + '<span>' + reward + '</span>';
           el.appendChild(rewardEl);
         }
 

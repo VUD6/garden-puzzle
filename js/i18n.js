@@ -59,7 +59,7 @@
       // Winter-theme variants of the piece-name-bearing rule/tutorial text
       // above; see I18n.setTheme() - looked up as "<key>_winter" first,
       // falling back to the plain (garden) key when no themed variant exists.
-      ruleBedText_winter: '1 пряник на клумбу',
+      ruleBedText_winter: '1 пряник на цвет',
       ruleRowColText_winter: '1 пряник в ряду и столбце',
       ruleTouchText_winter: 'Пряники не касаются друг друга',
       tutorialStep1_winter: 'Дважды коснитесь клетки, чтобы поставить пряник',
@@ -122,7 +122,7 @@
       themeSettingLabel: 'Theme',
       themeOptionWinter: 'Winter',
       themeOptionGarden: 'Garden',
-      ruleBedText_winter: '1 gingerbread per bed',
+      ruleBedText_winter: '1 gingerbread per color',
       ruleRowColText_winter: '1 gingerbread per row and column',
       ruleTouchText_winter: "Gingerbreads can't touch",
       tutorialStep1_winter: 'Double tap to place a gingerbread',
