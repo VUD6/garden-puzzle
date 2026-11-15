@@ -53,6 +53,19 @@
       checkinBestStreak: 'Лучшая серия: {count}',
       checkinClaimButton: 'Забрать',
       checkinClaimedButton: 'Награда получена',
+      themeSettingLabel: 'Тема',
+      themeOptionWinter: 'Зима',
+      themeOptionGarden: 'Сад',
+      // Winter-theme variants of the piece-name-bearing rule/tutorial text
+      // above; see I18n.setTheme() - looked up as "<key>_winter" first,
+      // falling back to the plain (garden) key when no themed variant exists.
+      ruleBedText_winter: '1 пряник на клумбу',
+      ruleRowColText_winter: '1 пряник в ряду и столбце',
+      ruleTouchText_winter: 'Пряники не касаются друг друга',
+      tutorialStep1_winter: 'Дважды коснитесь клетки, чтобы поставить пряник',
+      tutorialStep2_winter: 'На одной клумбе — один пряник',
+      tutorialStep3_winter: 'Один пряник в каждом ряду и столбце',
+      tutorialStep4_winter: 'Пряники не касаются друг друга, даже по диагонали',
     },
     en: {
       appTitle: 'Garden Bed',
@@ -106,10 +119,25 @@
       checkinBestStreak: 'Best streak: {count}',
       checkinClaimButton: 'Claim',
       checkinClaimedButton: 'Reward claimed',
+      themeSettingLabel: 'Theme',
+      themeOptionWinter: 'Winter',
+      themeOptionGarden: 'Garden',
+      ruleBedText_winter: '1 gingerbread per bed',
+      ruleRowColText_winter: '1 gingerbread per row and column',
+      ruleTouchText_winter: "Gingerbreads can't touch",
+      tutorialStep1_winter: 'Double tap to place a gingerbread',
+      tutorialStep2_winter: 'One gingerbread per bed',
+      tutorialStep3_winter: 'One gingerbread per row and column',
+      tutorialStep4_winter: "Gingerbreads can't touch, not even diagonally",
     },
   };
 
   let currentLang = 'ru';
+  // The active theme's id, used only to pick between "<key>_<theme>" string
+  // variants (see t() below) for the handful of strings that mention the
+  // piece's name (rule cards, tutorial) - mirrors Garden.themes.DEFAULT_THEME_ID
+  // as a default so a module that forgets to call setTheme() still behaves.
+  let currentTheme = 'winter';
 
   function setLang(lang) {
     if (STRINGS[lang]) currentLang = lang;
@@ -119,9 +147,14 @@
     return currentLang;
   }
 
+  function setTheme(themeId) {
+    currentTheme = themeId;
+  }
+
   function t(key, params) {
     const dict = STRINGS[currentLang] || STRINGS.ru;
-    let str = dict[key] || key;
+    const themedKey = key + '_' + currentTheme;
+    let str = Object.prototype.hasOwnProperty.call(dict, themedKey) ? dict[themedKey] : dict[key] || key;
     if (params) {
       for (const paramKey of Object.keys(params)) {
         str = str.replace('{' + paramKey + '}', params[paramKey]);
@@ -130,7 +163,7 @@
     return str;
   }
 
-  const I18n = { t, setLang, getLang };
+  const I18n = { t, setLang, getLang, setTheme };
 
   root.Garden = root.Garden || {};
   root.Garden.i18n = I18n;

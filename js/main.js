@@ -68,6 +68,9 @@
       retryButton: document.getElementById('retryButton'),
       settingsOverlay: document.getElementById('settingsOverlay'),
       settingsTitleText: document.getElementById('settingsTitleText'),
+      themeLabelText: document.getElementById('themeLabelText'),
+      themeWinterButton: document.getElementById('themeWinterButton'),
+      themeGardenButton: document.getElementById('themeGardenButton'),
       patternsToggleLabelText: document.getElementById('patternsToggleLabelText'),
       patternsToggle: document.getElementById('patternsToggle'),
       reduceMotionLabelText: document.getElementById('reduceMotionLabelText'),
@@ -91,6 +94,16 @@
     const platform = Garden.platform;
     const renderer = Garden.render.createRenderer(dom);
     const prefersReducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function applyThemeButtons(themeId) {
+      dom.themeWinterButton.classList.toggle('active', themeId === 'winter');
+      dom.themeGardenButton.classList.toggle('active', themeId === 'garden');
+    }
+
+    // Applied before the game is constructed below, so the very first board
+    // build already uses the right theme's bed colors/piece art instead of
+    // flashing the wrong theme for one frame.
+    applyThemeButtons(renderer.setTheme(platform.loadTheme()));
 
     const game = Garden.state.createGame({
       onChange: renderer.render,
@@ -147,6 +160,10 @@
       onToggleVibration: function (enabled) {
         platform.saveVibrationEnabled(enabled);
         renderer.setVibrationEnabled(enabled);
+      },
+      onSelectTheme: function (themeId) {
+        platform.saveTheme(themeId);
+        applyThemeButtons(renderer.setTheme(themeId));
       },
     });
 

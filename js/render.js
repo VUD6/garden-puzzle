@@ -8,88 +8,16 @@
   const I18n = root.Garden.i18n;
   const Platform = root.Garden.platform;
   const State = root.Garden.state;
+  const Themes = root.Garden.themes;
 
-  // Must stay in sync with --region-0..7 in css/style.css: the flower's
-  // own color is derived from the bed's hue at draw time (not a separate
-  // hardcoded token per region), so this is the one place that needs to
-  // know what a bed actually looks like.
-  const REGION_COLORS = ['#c97b84', '#6f9bc4', '#cdb15a', '#6fb08a', '#a888c9', '#cc8c5c', '#5cb3a8', '#c47bb0'];
-
-  // Rose-spiral layout: three rings of petals, each smaller and rotated a
-  // bit further than the last, opening outer-to-inner. Reused for every
-  // flower in the game (board, bed tracker, tutorial, win screen).
-  const ROSE_RINGS = [
-    { count: 6, angleOffset: 0, delayBase: 0, path: 'M12 5C13.8 7 14.2 9.4 12 12C9.8 9.4 10.2 7 12 5Z', shade: 'outer' },
-    { count: 5, angleOffset: 30, delayBase: 110, path: 'M12 7C13.3 8.4 13.6 10 12 12C10.4 10 10.7 8.4 12 7Z', shade: 'middle' },
-    { count: 4, angleOffset: 55, delayBase: 210, path: 'M12 9C12.9 9.8 13.1 10.6 12 12C10.9 10.6 11.1 9.8 12 9Z', shade: 'inner' },
-  ];
-  const RING_DELAY_STEP_MS = 20;
-
-  function clamp(value, lo, hi) {
-    return Math.max(lo, Math.min(hi, value));
-  }
-
-  function hexToHsl(hex) {
-    const r = parseInt(hex.slice(1, 3), 16) / 255;
-    const g = parseInt(hex.slice(3, 5), 16) / 255;
-    const b = parseInt(hex.slice(5, 7), 16) / 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const l = (max + min) / 2;
-    let h = 0;
-    let s = 0;
-    if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
-      else if (max === g) h = (b - r) / d + 2;
-      else h = (r - g) / d + 4;
-      h /= 6;
-    }
-    return { h: h * 360, s: s * 100, l: l * 100 };
-  }
-
-  function hsl(h, s, l) {
-    return 'hsl(' + h.toFixed(0) + ' ' + clamp(s, 0, 100).toFixed(0) + '% ' + clamp(l, 0, 100).toFixed(0) + '%)';
-  }
-
-  // Three shades for the rose's three rings, all pushed well away from
-  // the bed's own lightness (lighter bed -> darker flower, darker bed ->
-  // lighter flower) so the flower reads clearly at a glance even on a
-  // small 8x8 tile, then nudged a little further in that same direction
-  // ring by ring for some depth - each stage clamped on its own so the
-  // inner ring can never collapse to pure black/white.
-  function flowerPalette(region) {
-    const bed = hexToHsl(REGION_COLORS[(region || 0) % REGION_COLORS.length]);
-    const sign = bed.l > 52 ? -1 : 1;
-    const flowerL = clamp(bed.l + sign * 42, 12, 90);
-    const flowerS = clamp(bed.s + 20, 35, 95);
-    const step = sign * 7;
-    return {
-      outer: hsl(bed.h, flowerS, flowerL),
-      middle: hsl(bed.h, clamp(flowerS - 10, 30, 95), clamp(flowerL + step, 10, 92)),
-      inner: hsl(bed.h, clamp(flowerS - 18, 25, 95), clamp(flowerL + step * 2, 8, 94)),
-    };
-  }
-
-  // Single reusable "rose spiral" flower component: swapping the art
-  // style later only means changing this one function - markFor() and
-  // every caller (board, bed tracker, tutorial, win screen) just ask it
-  // for an SVG string.
-  function flowerSvgFor(region) {
-    const palette = flowerPalette(region);
-    let petals = '';
-    ROSE_RINGS.forEach(function (ring) {
-      for (let i = 0; i < ring.count; i++) {
-        const angle = ring.angleOffset + (360 / ring.count) * i;
-        const delay = ring.delayBase + i * RING_DELAY_STEP_MS;
-        petals +=
-          '<g transform="rotate(' + angle + ' 12 12)">' +
-          '<path class="petal" style="animation-delay:' + delay + 'ms" fill="' + palette[ring.shade] + '" d="' + ring.path + '"/>' +
-          '</g>';
-      }
-    });
-    return '<svg viewBox="0 0 24 24">' + petals + '<circle cx="12" cy="12" r="1.3" fill="var(--flower-center)"/></svg>';
+  // Single reusable piece-art lookup: swapping the active theme only means
+  // asking Themes for a different bed-color list and a different pieceArt
+  // function - markFor() and every caller (board, bed tracker, tutorial,
+  // win screen) just ask this for an SVG string.
+  function pieceSvgFor(region) {
+    const theme = Themes.getCurrentTheme();
+    const hex = theme.bedColors[(region || 0) % theme.bedColors.length];
+    return theme.pieceArt(hex);
   }
 
   const X_SVG =
@@ -125,7 +53,7 @@
   }
 
   function markFor(state, region) {
-    if (state === Grid.CellState.FLOWER) return flowerSvgFor(region || 0);
+    if (state === Grid.CellState.FLOWER) return pieceSvgFor(region || 0);
     if (state === Grid.CellState.X) return X_SVG;
     if (state === Grid.CellState.WRONG) return WRONG_SVG;
     return '';
@@ -181,6 +109,9 @@
       dom.backButton.setAttribute('aria-label', I18n.t('backButtonLabel'));
       dom.settingsButton.setAttribute('aria-label', I18n.t('settingsButtonLabel'));
       dom.settingsTitleText.textContent = I18n.t('settingsTitle');
+      dom.themeLabelText.textContent = I18n.t('themeSettingLabel');
+      dom.themeWinterButton.textContent = I18n.t('themeOptionWinter');
+      dom.themeGardenButton.textContent = I18n.t('themeOptionGarden');
       dom.patternsToggleLabelText.textContent = I18n.t('patternsToggleLabel');
       dom.reduceMotionLabelText.textContent = I18n.t('reduceMotionLabel');
       dom.vibrationLabelText.textContent = I18n.t('vibrationLabel');
@@ -367,7 +298,7 @@
 
         const mark = document.createElement('div');
         mark.className = 'bed-icon-mark';
-        mark.innerHTML = flowerSvgFor(region);
+        mark.innerHTML = pieceSvgFor(region);
 
         el.appendChild(mark);
         dom.bedTracker.appendChild(el);
@@ -487,7 +418,7 @@
     }
 
     function showWinOverlay(snapshot) {
-      dom.winFlower.innerHTML = flowerSvgFor(0);
+      dom.winFlower.innerHTML = pieceSvgFor(0);
       triggerOneShotAnim(dom.winFlower, 'mark-bloom');
 
       dom.winTitle.textContent = I18n.t(snapshot.perfect ? 'resultPerfect' : 'resultDone');
@@ -564,6 +495,25 @@
       dom.board.classList.toggle('patterns-on', enabled);
     }
 
+    // Resolves/applies the theme's CSS token overrides (Themes.applyTheme),
+    // switches the i18n piece-name axis to match, and refreshes everything
+    // already on screen that bakes theme-derived content into static
+    // strings: the rule/tutorial text and every already-drawn piece-art SVG
+    // (bed colors themselves update for free via the CSS custom properties,
+    // but a planted flower/gingerbread's own markup has its colors baked in
+    // at draw time, so it needs an explicit refresh). Returns the resolved
+    // theme id so the caller can reflect it in the settings UI.
+    function setTheme(themeId) {
+      const resolved = Themes.applyTheme(themeId);
+      I18n.setTheme(resolved);
+      renderStaticText();
+      if (renderedGrid) {
+        buildBedTracker(renderedGrid);
+        syncCells(renderedGrid);
+      }
+      return resolved;
+    }
+
     function setReducedMotion(enabled) {
       reducedMotion = enabled;
       document.documentElement.classList.toggle('reduce-motion', enabled);
@@ -603,6 +553,7 @@
       setPatternsEnabled,
       setReducedMotion,
       setVibrationEnabled,
+      setTheme,
       toggleRulesPopup,
       closeRulesPopup,
       openSettings,
@@ -611,5 +562,5 @@
   }
 
   root.Garden = root.Garden || {};
-  root.Garden.render = { createRenderer, markFor, flowerSvgFor, triggerOneShotAnim };
+  root.Garden.render = { createRenderer, markFor, pieceSvgFor, triggerOneShotAnim };
 })(typeof window !== 'undefined' ? window : globalThis);

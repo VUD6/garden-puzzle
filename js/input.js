@@ -141,6 +141,13 @@
     });
     wireBackdropDismiss(dom.rulesBar, renderer.closeRulesPopup);
 
+    dom.themeWinterButton.addEventListener('click', function () {
+      handlers.onSelectTheme('winter');
+    });
+    dom.themeGardenButton.addEventListener('click', function () {
+      handlers.onSelectTheme('garden');
+    });
+
     wireToggle(dom.patternsToggle, function (enabled) {
       handlers.onTogglePatterns(enabled);
     });

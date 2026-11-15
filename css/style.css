@@ -23,6 +23,9 @@
 
   --overlay-scrim: rgba(7, 13, 9, 0.6);
   --board-frame: #0f1d14;
+  /* The garden theme leaves this at the plain frame color; a theme can
+     override it with something fancier (e.g. the winter candy-cane rim). */
+  --board-frame-bg: var(--board-frame);
 
   --region-0: #c97b84;
   --region-1: #6f9bc4;
@@ -53,6 +56,9 @@
   --tile-shadow-pressed: 0 1px 2px rgba(0, 0, 0, 0.18);
   --tile-press-shift: 2px;
   --tile-lock-ring: inset 0 0 0 3px rgba(250, 245, 230, 0.4);
+  /* Extra translucent veneer layered over the tile - invisible (zero
+     spread) by default; a theme can override it (e.g. winter's icy sheen). */
+  --tile-sheen: inset 0 0 0 0 rgba(0, 0, 0, 0);
 
   --dur-fast: 0.1s;
   --dur-base: 0.25s;
@@ -114,6 +120,21 @@ html, body {
   10% { opacity: 0.8; }
   90% { opacity: 0.5; }
   100% { transform: translate(var(--drift, 20px), -110vh); opacity: 0; }
+}
+
+/* Winter reuses the exact same particle system/count/reduce-motion gating,
+   just falling instead of rising - snow motes instead of drifting pollen. */
+html[data-theme="winter"] .particle {
+  bottom: auto;
+  top: -5%;
+  animation-name: particle-float-down;
+}
+
+@keyframes particle-float-down {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.5; }
+  100% { transform: translate(var(--drift, 20px), 110vh); opacity: 0; }
 }
 
 html.reduce-motion .ambient-particles {
@@ -675,7 +696,7 @@ html.reduce-motion .loading-pulse span {
   width: min(92vmin, 560px);
   aspect-ratio: 1 / 1;
   gap: 6px;
-  background: var(--board-frame);
+  background: var(--board-frame-bg);
   border-radius: var(--radius-lg);
   padding: 6px;
   box-shadow: var(--shadow-md);
@@ -694,25 +715,25 @@ html.reduce-motion .loading-pulse span {
   transition: transform var(--dur-fast) var(--ease-spring), filter var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
   overflow: hidden;
-  box-shadow: var(--tile-highlight), var(--tile-edge), var(--tile-shadow);
+  box-shadow: var(--tile-highlight), var(--tile-edge), var(--tile-shadow), var(--tile-sheen);
 }
 
 .cell:active,
 .cell.cell-sinking {
   transform: translateY(var(--tile-press-shift)) scale(0.97);
   filter: brightness(0.94);
-  box-shadow: var(--tile-highlight), var(--tile-edge-pressed), var(--tile-shadow-pressed);
+  box-shadow: var(--tile-highlight), var(--tile-edge-pressed), var(--tile-shadow-pressed), var(--tile-sheen);
 }
 
 .cell.locked {
   cursor: default;
-  box-shadow: var(--tile-highlight), var(--tile-edge), var(--tile-shadow), var(--tile-lock-ring);
+  box-shadow: var(--tile-highlight), var(--tile-edge), var(--tile-shadow), var(--tile-lock-ring), var(--tile-sheen);
 }
 
 .cell.locked:active {
   transform: none;
   filter: none;
-  box-shadow: var(--tile-highlight), var(--tile-edge), var(--tile-shadow), var(--tile-lock-ring);
+  box-shadow: var(--tile-highlight), var(--tile-edge), var(--tile-shadow), var(--tile-lock-ring), var(--tile-sheen);
 }
 
 @keyframes cell-shake {
@@ -797,26 +818,30 @@ html.reduce-motion .loading-pulse span {
   animation: mark-pop var(--dur-base) var(--ease-spring) both;
 }
 
-.cell-mark .petal {
+/* Generic "piece part" - any theme's piece art (rose petals, gingerbread
+   body/icing pieces, ...) tags its pieces with this class to opt into the
+   same staggered open/bloom animation below, each with its own
+   animation-delay (set inline per piece by themes.js). */
+.cell-mark .piece-part {
   transform-box: fill-box;
   transform-origin: 50% 100%;
 }
 
-@keyframes rose-petal-open {
+@keyframes piece-part-open {
   0% { transform: scale(0.1) rotate(-18deg); opacity: 0; }
   65% { transform: scale(1.12) rotate(4deg); opacity: 1; }
   85% { transform: scale(0.95) rotate(-2deg); }
   100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
-.cell-mark.mark-bloom .petal {
-  animation-name: rose-petal-open;
+.cell-mark.mark-bloom .piece-part {
+  animation-name: piece-part-open;
   animation-duration: var(--dur-base);
   animation-timing-function: var(--ease-spring);
   animation-fill-mode: both;
 }
 
-html.reduce-motion .cell-mark.mark-bloom .petal {
+html.reduce-motion .cell-mark.mark-bloom .piece-part {
   animation: none;
 }
 
@@ -1051,7 +1076,7 @@ html.reduce-motion .seed-reward.seed-pop {
   color: var(--ink-soft);
 }
 
-.overlay-card button:not(.overlay-close-button) {
+.overlay-card button:not(.overlay-close-button):not(.theme-option) {
   border: none;
   background: var(--accent);
   color: var(--accent-ink);
@@ -1245,6 +1270,31 @@ html.reduce-motion .seed-reward.seed-pop {
 .toggle-switch:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.theme-switch {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.theme-option {
+  border: 1px solid var(--panel-border);
+  background: var(--panel-soft);
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 32px;
+}
+
+.theme-option.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
 .tutorial-overlay {

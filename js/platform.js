@@ -12,6 +12,7 @@
   const VIBRATION_KEY = 'garden.vibrationEnabled';
   const SEEDS_KEY = 'garden.seeds';
   const CHECKIN_KEY = 'garden.checkin';
+  const THEME_KEY = 'garden.theme';
 
   // Granted once, on first-ever launch (see loadSeeds below) - never
   // re-granted just because the balance later drops to 0.
@@ -43,6 +44,20 @@
     if (!hasStorage()) return false;
     const raw = localStorage.getItem(PATTERNS_KEY);
     return raw === null ? false : raw === '1';
+  }
+
+  function saveTheme(id) {
+    if (!hasStorage()) return;
+    localStorage.setItem(THEME_KEY, String(id));
+  }
+
+  // Returns the raw stored value (or null if nothing stored) and does no
+  // validation of its own - Garden.themes.applyTheme() is what resolves a
+  // missing/unknown/corrupted value to DEFAULT_THEME_ID, since that registry
+  // is the one place that knows which ids are actually valid.
+  function loadTheme() {
+    if (!hasStorage()) return null;
+    return localStorage.getItem(THEME_KEY);
   }
 
   function saveTotalScore(score) {
@@ -211,6 +226,8 @@
     loadProgress,
     savePatternsEnabled,
     loadPatternsEnabled,
+    saveTheme,
+    loadTheme,
     saveTotalScore,
     loadTotalScore,
     saveBoard,

@@ -198,6 +198,13 @@
     <div class="overlay-card settings-card">
       <h2 id="settingsTitleText"></h2>
       <div class="settings-row">
+        <span class="settings-row-label" id="themeLabelText"></span>
+        <div class="theme-switch" id="themeSwitch" role="group">
+          <button class="theme-option" id="themeWinterButton" type="button" data-theme-id="winter"></button>
+          <button class="theme-option" id="themeGardenButton" type="button" data-theme-id="garden"></button>
+        </div>
+      </div>
+      <div class="settings-row">
         <span class="settings-row-label" id="patternsToggleLabelText"></span>
         <button class="toggle-switch" id="patternsToggle" type="button" aria-pressed="false"><span class="toggle-knob"></span></button>
       </div>
@@ -265,6 +272,7 @@
 </div>
 <script src="js/i18n.js"></script>
 <script src="js/platform.js"></script>
+<script src="js/themes.js"></script>
 <script src="js/rng.js"></script>
 <script src="js/grid.js"></script>
 <script src="js/rules.js"></script>
