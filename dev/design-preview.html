@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Клумба — зимнее превью</title>
+<style>
+/* Winter values copied from js/themes.js. Preview extensions follow below. */
+:root {
+  --bg-top:#fdf0ea; --bg-bottom:#f7e3d0; --ink:#4a3220; --ink-soft:#8a7260;
+  --panel:#fff8f0; --panel-soft:#f6e9d8; --panel-border:#e6d2b8; --accent:#3e8f57;
+  --region-0:#4fb892; --region-1:#e24b64; --region-2:#e8c23a; --region-3:#8a5fc2; --region-4:#4f7fd1; --region-5:#e8863f; --region-6:#8cc43f; --region-7:#c94a9e;
+  --board-frame-bg:repeating-linear-gradient(45deg,#b8413f 0px 10px,#fbf2e4 10px 20px);
+  --tile-highlight:inset 0 2px 0 rgba(255,250,240,.45);
+  --tile-edge:inset 0 -3px 0 rgba(90,110,140,.28);
+  --tile-sheen:inset 0 0 0 100px rgba(255,250,240,.14);
+  --tile-lock-ring:inset 0 0 0 3px rgba(255,250,240,.55);
+  --notification-dot-color:#3f6fc0; --drop-empty:#9c7f5e; --drop-color:#5fc2e0; --mark-wrong:#e0574f;
+  --snow:#f7f0e7; --snow-shadow:#e9ded5; --cookie:#ce8a52; --crust:#804623;
+  --berry:#b8413f; --pine:#35684f; --mint:#639781; --blue:#325c83; --gold:#e8b55d;
+  --desk:#eae0d6; --rim:#674b3b; --shadow:0 3px 0 #e6d2b8,0 7px 14px #674b3b16;
+  --frame-shadow:0 14px 36px #674b3b26; --frame-width:390px; --frame-height:844px;
+  --rim-size:1px; --gap:8px; --space:16px; --pad:20px; --radius:18px; --round:999px;
+  --touch:44px; --helper:56px; --icon:24px; --badge:21px; --tile-gap:4px; --board-pad:9px; --dense-width:282px;
+  --title:clamp(2.6rem,12vw,3.8rem); --small:.78rem; --body:1rem; --label:.68rem;
+  --large-chef:132px; --small-chef:56px; --hero-art:246px; --helper-icon:32px; --diagram:33px; --sample-title:1.8rem; --landscape-art:164px;
+  --nav-gap:24px; --tray:113px; --tree-offset:0; --press:2px;
+  --face-ui:'Comfortaa','Century Gothic','Segoe UI',sans-serif;
+}
+* {box-sizing:border-box}
+body {margin:0;background:var(--desk);color:var(--ink);font:var(--body)/1.4 var(--face-ui)}
+h1,h2,h3,p {margin:0}
+header {text-align:center;padding:var(--nav-gap) var(--gap)}
+.gallery > header {flex-basis:100%}
+header p, figcaption {color:var(--ink)}
+.gallery {display:flex;flex-wrap:wrap;justify-content:center;gap:var(--nav-gap);padding:0 var(--gap) var(--nav-gap)}
+figure {margin:0;width:min(100%,var(--frame-width))}
+figcaption {margin-block-end:var(--gap);font-weight:800;text-align:center}
+.phone {width:100%;height:var(--frame-height);border:var(--rim-size) solid var(--rim);border-radius:var(--radius);overflow:auto;position:relative;isolation:isolate;background:linear-gradient(155deg,var(--bg-top),var(--bg-bottom));box-shadow:var(--frame-shadow)}
+.menu,.game,.samples {padding:var(--pad);display:flex;flex-direction:column;gap:var(--space);text-align:center}
+.menu {align-items:center;overflow:hidden}
+.menu > :not(.landscape) {z-index:1}
+.menu h2 {font-size:var(--title);letter-spacing:-.045em;line-height:1;color:var(--pine)}
+.menu .subtitle {font-weight:700}
+button {font-family:inherit}
+.menu .heading {margin-block-start:var(--nav-gap)}
+.artwork {display:block;width:min(100%,var(--hero-art));height:var(--hero-art)}
+.landscape {position:absolute;inset:auto var(--tree-offset) 0;width:100%;height:var(--landscape-art);pointer-events:none}
+.actions {width:100%;display:grid;gap:var(--gap)}
+button {font:inherit;color:inherit;border:0;cursor:pointer}
+button:disabled {cursor:default}
+button:focus-visible {outline:var(--press) solid var(--blue);outline-offset:var(--press)}
+.control {position:relative;display:inline-flex;align-items:center;justify-content:center;gap:var(--gap);min-height:var(--touch);border:var(--rim-size) solid var(--panel-border);border-radius:var(--radius);background:var(--panel);box-shadow:var(--shadow);padding-inline:var(--space);font-weight:800}
+.primary {background:linear-gradient(var(--panel),var(--panel-soft));min-height:var(--helper);overflow:hidden;color:var(--pine)}
+.primary::before {content:"";position:absolute;inset:auto 0 0;height:var(--tile-gap);background:var(--board-frame-bg);opacity:.58}
+.pressed,.control:active:not(:disabled) {transform:translateY(var(--press));box-shadow:var(--tile-edge)}
+.muted,.locked {background:var(--panel-soft);color:var(--ink-soft);box-shadow:none}
+.locked {border-style:dashed}
+.round {width:var(--touch);padding:0;border-radius:var(--round)}
+.ico {display:block;width:var(--icon);height:var(--icon);flex:none}
+.dot {position:absolute;inset:var(--gap) var(--gap) auto auto;width:var(--gap);aspect-ratio:1;border-radius:var(--round);background:var(--notification-dot-color)}
+.card {background:var(--panel);border:var(--rim-size) solid var(--panel-border);border-radius:var(--radius);padding:var(--gap)}
+.samples {gap:var(--gap)}
+.samples h3 {font-size:var(--body)}
+.control-grid {display:flex;flex-wrap:wrap;justify-content:center;gap:var(--gap)}
+.chef-pair,.tutorial {display:flex;align-items:center;justify-content:center;gap:var(--gap)}
+.chef-large {width:var(--large-chef);height:var(--large-chef);display:block}
+.chef-small {width:var(--small-chef);height:var(--small-chef);flex:none}
+.chef-pair figcaption {font-size:var(--small)}
+.chef-pair > div {display:grid;justify-items:center}
+.bubble {text-align:left;position:relative;font-size:var(--small)}
+.bubble::before {content:"";position:absolute;inset:40% auto auto calc(-1 * var(--tile-gap));width:var(--gap);aspect-ratio:1;background:var(--panel);transform:rotate(45deg);border-left:var(--rim-size) solid var(--panel-border);border-bottom:var(--rim-size) solid var(--panel-border)}
+.helpers {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap);justify-items:center}
+.helper-item {display:grid;justify-items:center;gap:var(--tile-gap);font-size:var(--small);font-weight:800}
+.helper {width:var(--helper);min-height:var(--helper);padding:0;border-radius:var(--round)}
+.helper .ico {width:var(--helper-icon);height:var(--helper-icon)}
+.charge {position:absolute;inset:calc(-1 * var(--tile-gap)) calc(-1 * var(--tile-gap)) auto auto;min-width:var(--badge);height:var(--badge);display:grid;place-items:center;background:var(--pine);color:var(--panel);border:var(--press) solid var(--panel);border-radius:var(--round);font-size:var(--label)}
+.muted .charge {background:var(--ink-soft)}
+.lock-caption {font-weight:800;font-size:var(--label)}
+.topbar {display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:var(--gap)}
+.topbar .round:last-child {justify-self:end}
+.level {font-weight:900}
+.lives {display:flex;justify-content:center;gap:var(--tile-gap);color:var(--drop-color)}
+.lives .spent {color:var(--drop-empty);opacity:.55}
+.rules {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--tile-gap)}
+.rule {font-size:var(--label);font-weight:800;line-height:1.2;display:grid;justify-items:center;gap:var(--tile-gap)}
+.rule svg {width:var(--diagram);height:var(--diagram)}
+.tracker {display:flex;justify-content:center;align-items:center;gap:var(--gap);font-weight:800;font-size:var(--small)}
+.swatch {width:var(--icon);height:var(--icon);border-radius:var(--gap);background:var(--bed);box-shadow:var(--tile-highlight),var(--tile-edge)}
+.r0 {--bed:var(--region-0)} .r1 {--bed:var(--region-1)} .r2 {--bed:var(--region-2)} .r3 {--bed:var(--region-3)} .r4 {--bed:var(--region-4)}
+.board {position:relative;display:grid;grid-template-columns:repeat(var(--columns,5),minmax(0,1fr));gap:var(--tile-gap);padding:var(--board-pad);border-radius:var(--radius)}
+.board::before {content:"";position:absolute;inset:0;padding:var(--board-pad);border-radius:inherit;background:var(--board-frame-bg);mask:linear-gradient(var(--panel) 0 0) content-box,linear-gradient(var(--panel) 0 0);mask-composite:exclude;pointer-events:none}
+.board.dense {--columns:8;width:min(100%,var(--dense-width));margin-inline:auto}
+.subtitle-choices {display:grid;gap:var(--gap)}
+.menu-heading {display:grid;gap:var(--tile-gap);padding:var(--space)}
+.menu-heading strong {color:var(--pine);font-size:var(--sample-title)}
+.r5 {--bed:var(--region-5)} .r6 {--bed:var(--region-6)} .r7 {--bed:var(--region-7)}
+.tile {aspect-ratio:1;display:grid;place-items:center;background:var(--bed);border-radius:var(--gap);box-shadow:var(--tile-highlight),var(--tile-edge),var(--tile-sheen);color:var(--panel)}
+.tile.fixed {box-shadow:var(--tile-lock-ring),var(--tile-highlight),var(--tile-edge),var(--tile-sheen)}
+.tile.wrong {color:var(--berry)}
+.tile svg {width:65%;height:65%}
+.game .helpers {margin-block-start:var(--gap)}
+.game .tutorial {margin-block-start:auto}
+.symbols {position:absolute;width:0;height:0;overflow:hidden}
+@media (prefers-reduced-motion:reduce) {.control:active:not(:disabled){transform:none}}
+</style>
+<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="cross" viewBox="0 0 32 32"><path d="m10 10 12 12m0-12L10 22" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></symbol>
+  <symbol id="lock" viewBox="0 0 32 32"><path d="M11 14v-3a5 5 0 0 1 10 0v3m-5 6v3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><rect x="7" y="14" width="18" height="13" rx="4" fill="none" stroke="currentColor" stroke-width="2.5"/></symbol>
+  <symbol id="gift" viewBox="0 0 32 32"><path d="M16 12C5 12 6 2 11 5c2 1 4 4 5 7 2-4 3-6 6-7 5-1 4 7-6 7" fill="none" stroke="var(--pine)" stroke-width="2.4"/><rect x="6" y="14" width="20" height="13" rx="3" fill="var(--berry)"/><rect x="4" y="11" width="24" height="6" rx="2" fill="var(--cookie)"/><path d="M16 12v15" stroke="var(--panel)" stroke-width="3"/></symbol>
+  <symbol id="settings" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 9h22M5 16h22M5 23h22"/><path d="M11 6v6m10 1v6m-8 1v6" stroke="var(--pine)" stroke-width="4"/></g></symbol>
+  <symbol id="back" viewBox="0 0 32 32"><path d="m17 7-9 9 9 9m-7-9h15" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="drop" viewBox="0 0 32 32"><path d="M16 4C13 10 7 15 7 21a9 9 0 0 0 18 0c0-6-6-11-9-17Z" fill="currentColor"/><path d="M11 21q0 3 3 4" fill="none" stroke="var(--panel)" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="piece" viewBox="0 0 48 48">
+    <path d="M18 19a9 9 0 1 1 12 0l9 3a4 4 0 0 1-3 7l-6-2 4 12a4 4 0 0 1-7 3l-3-7-3 7a4 4 0 0 1-7-3l4-12-6 2a4 4 0 0 1-3-7Z" fill="var(--cookie)" stroke="var(--crust)" stroke-width="2.6"/>
+    <path d="M20 12h.1m8 0h.1m-7 4q3 3 6 0m-3 10h.1m0 5h.1" fill="none" stroke="var(--panel)" stroke-width="2.3" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="finder-a" viewBox="0 0 32 32"><circle cx="13.5" cy="13.5" r="8.6" fill="var(--snow)" stroke="var(--blue)" stroke-width="3"/><path d="m20 20 7 7" stroke="var(--blue)" stroke-width="4" stroke-linecap="round"/><path d="M14 8q0 5 5 6-5 0-5 5-1-5-6-5 5-1 6-6" fill="var(--gold)"/></symbol>
+  <symbol id="random-a" viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="6" transform="rotate(-12 16 16)" fill="var(--berry)"/><path d="M10 10h.1M22 10h.1M16 16h.1M10 22h.1M22 22h.1" stroke="var(--panel)" stroke-width="3.4" stroke-linecap="round"/></symbol>
+  <symbol id="snowman-a" viewBox="0 0 32 32"><g stroke="var(--pine)" stroke-width="1.8"><circle cx="16" cy="22" r="8" fill="var(--snow)"/><circle cx="16" cy="11" r="6" fill="var(--snow)"/></g><path d="M9 7h14M13 6V2h6v4" stroke="var(--pine)" stroke-width="2.6" stroke-linecap="round"/><path d="M10 16h12l-2 5" fill="none" stroke="var(--berry)" stroke-width="2.5"/><path d="M14 11h.1m4 0h.1" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="chef-face" viewBox="0 0 160 160">
+    <path d="M36 69Q33 43 79 42q45 0 45 34v13q0 34-44 34-44 0-44-33Z" fill="var(--cookie)" stroke="var(--crust)" stroke-width="3"/>
+    <path d="M43 62l-2-17c-18-7-10-29 6-29 5 0 9 2 12 5 5-18 34-19 43 0 16-8 34 3 30 16-2 6-7 11-15 12l-3 13q-36-9-71 0Z" fill="var(--panel)" stroke="var(--crust)" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M45 51q36-8 70 0m-49-4-3-10m25 8 2-10" fill="none" stroke="var(--panel-border)" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="61" cy="79" rx="3.7" ry="5" fill="var(--ink)"/><ellipse cx="99" cy="79" rx="3.7" ry="5" fill="var(--ink)"/>
+    <path d="M71 91q9 13 18 0" fill="none" stroke="var(--crust)" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="52" cy="91" rx="7" ry="4" fill="var(--berry)" opacity=".46"/><ellipse cx="108" cy="91" rx="7" ry="4" fill="var(--berry)" opacity=".46"/>
+  </symbol>
+  <symbol id="chef-b" viewBox="0 0 160 160">
+    <ellipse cx="80" cy="148" rx="55" ry="8" fill="var(--snow-shadow)"/>
+    <path d="M51 111q-21 10-26 22-1 10 12 9l15-7v10q28 10 56 0v-10l15 7q13 1 12-9-5-12-26-22" fill="var(--cookie)" stroke="var(--crust)" stroke-width="3"/>
+    <use href="#chef-face" width="160" height="160" transform="rotate(-7 80 110)"/>
+    <path d="M54 117q23 8 50-2l3 10q-12 8-26 7l-4 14-14-3 4-13-15-4Z" fill="var(--berry)"/>
+    <path d="M61 122q21 5 36-1m-27 18 8 2" fill="none" stroke="var(--panel)" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="m124 137 12-34" stroke="var(--crust)" stroke-width="4" stroke-linecap="round"/><ellipse cx="138" cy="97" rx="6" ry="9" transform="rotate(19 138 97)" fill="var(--gold)" stroke="var(--crust)" stroke-width="2"/>
+  </symbol>
+  <symbol id="fir" viewBox="0 0 90 126">
+    <path d="M39 104h13v19H39Z" fill="var(--crust)"/>
+    <path d="M45 2q5 0 9 11l17 28q5 9-7 9l15 23q5 8-6 8l14 21q5 12-11 14H14q-16-2-11-14l14-21Q6 81 11 73l15-23q-12 0-7-9l17-28q4-11 9-11Z" fill="var(--pine)"/>
+    <path d="M39 15q7-15 14 0l12 21q-7 3-15-3-6-5-13 1-7 5-12 3Zm-19 49q11 6 23-1t27 1l5 9q-12 1-22-3-7-2-14 3-13 6-24 1Zm-7 30q14 5 28-1 12-6 23-3 8 3 14 3l6 11q-10 1-21-4-8-3-18 1-21 9-36 2Z" fill="var(--snow)"/>
+  </symbol>
+</svg>
+<header><h1>Клумба</h1><p>Зимний дизайн · превью для согласования</p></header>
+<main class="gallery">
+  <figure><figcaption>Главное меню</figcaption>
+    <section class="phone menu" aria-label="Главное меню">
+      <div class="heading"><h2>Клумба</h2><p class="subtitle">Уютная головоломка</p></div>
+      <svg class="artwork" viewBox="0 0 246 246" aria-label="Пряничный повар" role="img">
+        <circle cx="123" cy="125" r="91" fill="var(--panel)" stroke="var(--panel-border)"/>
+        <circle cx="123" cy="125" r="101" fill="none" stroke="var(--panel)" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round"/>
+        <path d="M123 14q1 10 11 11-10 1-11 11-1-10-11-11 10-1 11-11Zm91 44q1 7 8 8-7 1-8 8-1-7-8-8 7-1 8-8ZM31 153q1 7 8 8-7 1-8 8-1-7-8-8 7-1 8-8Z" fill="var(--gold)"/>
+        <use href="#chef-b" x="25" y="37" width="196" height="196"/>
+      </svg>
+      <div class="actions">
+        <button class="control primary">Продолжить · уровень 5</button>
+        <button class="control">Как играть</button>
+        <button class="control"><svg class="ico" aria-hidden="true"><use href="#settings"/></svg>Настройки</button>
+        <button class="control"><svg class="ico" aria-hidden="true"><use href="#gift"/></svg>Ежедневная награда<span class="dot" aria-label="Доступна"></span></button>
+        <button class="control locked" disabled><svg class="ico" aria-hidden="true"><use href="#lock"/></svg>Испытание дня</button>
+      </div>
+      <svg class="landscape" viewBox="0 0 390 164" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <path d="M0 102Q70 74 148 115t242-20v69H0Z" fill="var(--snow-shadow)"/>
+        <use href="#fir" x="8" y="20" width="84" height="117"/>
+        <use href="#fir" x="303" y="5" width="73" height="114"/>
+        <path d="M0 135q86-26 179 0t211-13v42H0Z" fill="var(--snow)"/>
+      </svg>
+    </section>
+  </figure>
+  <figure><figcaption>Игровой экран</figcaption>
+    <section class="phone game" aria-label="Игровой экран">
+      <div class="topbar">
+        <button class="control round" aria-label="Назад"><svg class="ico" aria-hidden="true"><use href="#back"/></svg></button>
+        <div><div class="level">Уровень 5</div><div class="lives" aria-label="2 из 3 жизней"><svg class="ico" aria-hidden="true"><use href="#drop"/></svg><svg class="ico" aria-hidden="true"><use href="#drop"/></svg><svg class="ico spent" aria-hidden="true"><use href="#drop"/></svg></div></div>
+        <button class="control round" aria-label="Настройки"><svg class="ico" aria-hidden="true"><use href="#settings"/></svg></button>
+      </div>
+      <p><strong>120</strong> очков</p>
+      <div class="rules">
+        <div class="card rule"><svg viewBox="0 0 33 33" aria-hidden="true"><rect x="0" y="0" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="1" y="1" width="8" height="8"/><rect x="11" y="0" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="12" y="1" width="8" height="8"/><rect x="22" y="0" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="23" y="1" width="8" height="8"/><rect x="0" y="11" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="1" y="12" width="8" height="8"/><rect x="11" y="11" width="10" height="10" rx="2" fill="var(--accent)"/><circle cx="16" cy="16" r="2.7" fill="var(--panel)"/><rect x="22" y="11" width="10" height="10" rx="2" fill="var(--panel-soft)"/><rect x="0" y="22" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="1" y="23" width="8" height="8"/><rect x="11" y="22" width="10" height="10" rx="2" fill="var(--panel-soft)"/><rect x="22" y="22" width="10" height="10" rx="2" fill="var(--panel-soft)"/></svg>Один на клумбу</div>
+        <div class="card rule"><svg viewBox="0 0 33 33" aria-hidden="true"><rect x="0" y="0" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="1" y="1" width="8" height="8"/><rect x="11" y="0" width="10" height="10" rx="2" fill="var(--accent)"/><circle cx="16" cy="5" r="2.7" fill="var(--panel)"/><rect x="22" y="0" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="23" y="1" width="8" height="8"/><rect x="0" y="11" width="10" height="10" rx="2" fill="var(--panel-soft)"/><rect x="11" y="11" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="12" y="12" width="8" height="8"/><rect x="22" y="11" width="10" height="10" rx="2" fill="var(--panel-soft)"/><rect x="0" y="22" width="10" height="10" rx="2" fill="var(--panel-soft)"/><rect x="11" y="22" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="12" y="23" width="8" height="8"/><rect x="22" y="22" width="10" height="10" rx="2" fill="var(--panel-soft)"/></svg>Один в ряд и столбец</div>
+        <div class="card rule"><svg viewBox="0 0 33 33" aria-hidden="true"><rect x="0" y="0" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="1" y="1" width="8" height="8"/><rect x="11" y="0" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="12" y="1" width="8" height="8"/><rect x="22" y="0" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="23" y="1" width="8" height="8"/><rect x="0" y="11" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="1" y="12" width="8" height="8"/><rect x="11" y="11" width="10" height="10" rx="2" fill="var(--accent)"/><circle cx="16" cy="16" r="2.7" fill="var(--panel)"/><rect x="22" y="11" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="23" y="12" width="8" height="8"/><rect x="0" y="22" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="1" y="23" width="8" height="8"/><rect x="11" y="22" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="12" y="23" width="8" height="8"/><rect x="22" y="22" width="10" height="10" rx="2" fill="var(--panel-border)"/><use href="#cross" x="23" y="23" width="8" height="8"/></svg>Не касаются</div>
+      </div>
+      <div class="tracker" aria-label="Заполнено 2 из 5 клумб"><span class="swatch r0"></span><span class="swatch r1"><svg class="ico" aria-hidden="true"><use href="#piece"/></svg></span><span class="swatch r2"></span><span class="swatch r3"><svg class="ico" aria-hidden="true"><use href="#piece"/></svg></span><span class="swatch r4"></span>2 / 5</div>
+      <div class="board" role="img" aria-label="Пример поля 5 на 5 с двумя пряниками, обычными и ошибочными крестиками">
+        <span class="tile r2"></span><span class="tile r1"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span><span class="tile r1"></span><span class="tile r1"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span><span class="tile r0"></span>
+        <span class="tile r2"></span><span class="tile r1"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span><span class="tile r1 fixed"><svg class="ico" aria-hidden="true"><use href="#piece"/></svg></span><span class="tile r1"></span><span class="tile r1"></span>
+        <span class="tile r2"></span><span class="tile r2"></span><span class="tile r2"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span><span class="tile r3"></span><span class="tile r3"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span>
+        <span class="tile r2"></span><span class="tile r2"></span><span class="tile r3"></span><span class="tile r3 fixed"><svg class="ico" aria-hidden="true"><use href="#piece"/></svg></span><span class="tile r3"></span>
+        <span class="tile r2 wrong"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span><span class="tile r4"></span><span class="tile r3"></span><span class="tile r3"></span><span class="tile r3"></span>
+      </div>
+      <div class="helpers">
+          <div class="helper-item"><button class="control helper" aria-label="Поиск, зарядов: 3"><svg class="ico" aria-hidden="true"><use href="#finder-a"/></svg><span class="charge">3</span></button>Поиск</div>
+          <div class="helper-item"><button class="control helper" aria-label="Случай, зарядов: 2"><svg class="ico" aria-hidden="true"><use href="#random-a"/></svg><span class="charge">2</span></button>Случай</div>
+          <div class="helper-item"><button class="control helper muted" aria-label="Снеговик, с уровня 10" disabled><svg class="ico" aria-hidden="true"><use href="#lock"/></svg></button><span class="lock-caption">Lv.10</span></div>
+        </div>
+    </section>
+  </figure>
+  <figure><figcaption>Подзаголовки и кнопки</figcaption>
+    <section class="phone samples" aria-label="Компоненты">
+      <div class="subtitle-choices">
+        <div class="card menu-heading"><strong>Клумба</strong><p>Логическая головоломка</p></div>
+        <div class="card menu-heading"><strong>Клумба</strong><p>Уютная головоломка</p></div>
+        <div class="card menu-heading"><strong>Клумба</strong><p>Головоломка для уютных вечеров</p></div>
+        <div class="card menu-heading"><strong>Клумба</strong><p>Один пряник на каждую клумбу</p></div>
+      </div>
+      <h3>Кнопки</h3>
+      <div class="control-grid">
+        <button class="control primary">Играть</button><button class="control">Как играть</button>
+        <button class="control round" aria-label="Настройки"><svg class="ico" aria-hidden="true"><use href="#settings"/></svg></button>
+        <button class="control muted" disabled>Недоступно</button><button class="control pressed">Нажато</button>
+      </div>
+      <h3>Пряничный повар</h3>
+      <div class="chef-pair"><svg class="chef-large" aria-hidden="true"><use href="#chef-b"/></svg><svg class="chef-small" aria-hidden="true"><use href="#chef-b"/></svg></div>
+      <div class="tutorial"><svg class="chef-small" aria-hidden="true"><use href="#chef-b"/></svg><p class="bubble card">Коснись пустой клетки дважды, чтобы поставить пряник.</p></div>
+    </section>
+  </figure>
+  <figure><figcaption>Помощники</figcaption>
+    <section class="phone samples" aria-label="Варианты иконок помощников">
+      <div class="card"><h3>Иконки помощников</h3><p>Лупа · кубик · снеговик</p><br><div class="helpers">
+          <div class="helper-item"><button class="control helper" aria-label="Поиск, зарядов: 3"><svg class="ico" aria-hidden="true"><use href="#finder-a"/></svg><span class="charge">3</span></button>Поиск</div>
+          <div class="helper-item"><button class="control helper" aria-label="Случай, зарядов: 2"><svg class="ico" aria-hidden="true"><use href="#random-a"/></svg><span class="charge">2</span></button>Случай</div>
+          <div class="helper-item"><button class="control helper" aria-label="Снеговик, зарядов: 5"><svg class="ico" aria-hidden="true"><use href="#snowman-a"/></svg><span class="charge">5</span></button>Снеговик</div>
+        </div></div>
+      <div class="card"><h3>Состояния</h3><br><div class="helpers">
+          <div class="helper-item"><button class="control helper muted" aria-label="Поиск, зарядов: 0" disabled><svg class="ico" aria-hidden="true"><use href="#finder-a"/></svg><span class="charge">0</span></button>Поиск</div>
+          <div class="helper-item"><button class="control helper" aria-label="Случай, зарядов: 2"><svg class="ico" aria-hidden="true"><use href="#random-a"/></svg><span class="charge">2</span></button>Случай</div>
+          <div class="helper-item"><button class="control helper muted" aria-label="Снеговик, с уровня 10" disabled><svg class="ico" aria-hidden="true"><use href="#lock"/></svg></button><span class="lock-caption">Lv.10</span></div>
+        </div></div>
+      <div class="card tutorial"><svg class="ico" aria-hidden="true"><use href="#piece"/></svg><p>Игровой пряник для сравнения</p></div>
+      <h3>Поле 8 × 8</h3>
+      <div class="board dense" role="img" aria-label="Поле 8 на 8">
+        <span class="tile r0"></span><span class="tile r0"></span><span class="tile r0"></span><span class="tile r0 fixed"><svg class="ico" aria-hidden="true"><use href="#piece"/></svg></span><span class="tile r1"></span><span class="tile r1"></span><span class="tile r1"></span><span class="tile r1"></span>
+        <span class="tile r0"></span><span class="tile r0"></span><span class="tile r0"></span><span class="tile r1"></span><span class="tile r1"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span><span class="tile r2"></span><span class="tile r1"></span><span class="tile r1"></span>
+        <span class="tile r0"></span><span class="tile r0"></span><span class="tile r3"></span><span class="tile r3"></span><span class="tile r2"></span><span class="tile r2"></span><span class="tile r2"></span><span class="tile r1"></span>
+        <span class="tile r0"></span><span class="tile r3"></span><span class="tile r3"></span><span class="tile r3"></span><span class="tile r2"></span><span class="tile r2 fixed"><svg class="ico" aria-hidden="true"><use href="#piece"/></svg></span><span class="tile r2"></span><span class="tile r5"></span>
+        <span class="tile r6"></span><span class="tile r3"></span><span class="tile r3"></span><span class="tile r4"></span><span class="tile r4"></span><span class="tile r4"></span><span class="tile r5"></span><span class="tile r5"></span>
+        <span class="tile r6"></span><span class="tile r6"></span><span class="tile r3"></span><span class="tile r4"></span><span class="tile r4"></span><span class="tile r4"></span><span class="tile r5"></span><span class="tile r5"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span>
+        <span class="tile r6"></span><span class="tile r6"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r4"></span><span class="tile r4"></span><span class="tile r5"></span><span class="tile r5 wrong"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span>
+        <span class="tile r6"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r5"></span><span class="tile r5"></span>
+      </div>
+    </section>
+  </figure>
+</main>
+</html>
+
