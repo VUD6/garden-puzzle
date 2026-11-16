@@ -118,59 +118,22 @@
     return '<svg viewBox="0 0 24 24">' + petals + '<circle cx="12" cy="12" r="1.3" fill="var(--flower-center)"/></svg>';
   }
 
-  // --- Winter piece art: a gingerbread person with a FIXED warm-brown body
-  // and cream icing (not hue-derived like the flower) - a fixed palette
-  // reads reliably on every one of the 8 winter bed colors, including the
-  // lighter yellow/orange ones, which tests/themes.test.js verifies via
-  // contrastRatio(). A few icing details (bow, buttons, smile) keep it
-  // readable as a face/figure rather than a flat blob. ---
-  const GINGERBREAD_BODY = '#4f2f18';
-  const GINGERBREAD_OUTLINE = '#fbf2e4';
-  const GINGERBREAD_BOW = '#c0433f';
+  // Winter variant A: one continuous silhouette, then face and buttons.
+  const GINGERBREAD_BODY = '#63361f';
+  const GINGERBREAD_OUTLINE = '#fff0d9';
+  const GINGERBREAD_SILHOUETTE =
+    'M12 2a4 4 0 0 1 3 6.6l5.4 2a2 2 0 0 1-1.5 3.7l-3-1.1v2l2.1 4.4a2 2 0 0 1-3.6 1.7L12 17l-2.4 4.3A2 2 0 0 1 6 19.6l2.1-4.4v-2l-3 1.1a2 2 0 0 1-1.5-3.7l5.4-2A4 4 0 0 1 12 2Z';
 
-  const GINGERBREAD_PARTS = [
-    { tag: 'circle', fill: 'body', delay: 0, outline: true, attrs: { cx: 12, cy: 5.6, r: 2.8 } },
-    { tag: 'rect', fill: 'body', delay: 10, outline: true, attrs: { x: 8.4, y: 7.8, width: 7.2, height: 9.2, rx: 3 } },
-    { tag: 'rect', fill: 'body', delay: 20, outline: true, attrs: { x: 3.6, y: 9.8, width: 5.8, height: 2.8, rx: 1.4, transform: 'rotate(-28 6.1 11.2)' } },
-    { tag: 'rect', fill: 'body', delay: 20, outline: true, attrs: { x: 14.6, y: 9.8, width: 5.8, height: 2.8, rx: 1.4, transform: 'rotate(28 17.9 11.2)' } },
-    { tag: 'rect', fill: 'body', delay: 30, outline: true, attrs: { x: 7.8, y: 15.2, width: 3, height: 6.8, rx: 1.5, transform: 'rotate(14 9.3 19)' } },
-    { tag: 'rect', fill: 'body', delay: 30, outline: true, attrs: { x: 13.2, y: 15.2, width: 3, height: 6.8, rx: 1.5, transform: 'rotate(-14 14.7 19)' } },
-    { tag: 'path', fill: 'bow', delay: 70, attrs: { d: 'M10.5 8.5 L12 9.9 L10.5 10.7 Z' } },
-    { tag: 'path', fill: 'bow', delay: 70, attrs: { d: 'M13.5 8.5 L12 9.9 L13.5 10.7 Z' } },
-    { tag: 'circle', fill: 'bow', delay: 75, attrs: { cx: 12, cy: 9.9, r: 0.55 } },
-    { tag: 'circle', fill: 'outline', delay: 90, attrs: { cx: 10.9, cy: 5.2, r: 0.9 } },
-    { tag: 'circle', fill: 'outline', delay: 90, attrs: { cx: 13.1, cy: 5.2, r: 0.9 } },
-    { tag: 'circle', fill: 'outline', delay: 100, attrs: { cx: 12, cy: 12.5, r: 0.9 } },
-    { tag: 'circle', fill: 'outline', delay: 110, attrs: { cx: 12, cy: 14.8, r: 0.9 } },
-  ];
-
-  function attrsToString(attrs) {
-    return Object.keys(attrs)
-      .map(function (key) { return key + '="' + attrs[key] + '"'; })
-      .join(' ');
-  }
-
-  const GINGERBREAD_FILL_BY_KEY = { body: GINGERBREAD_BODY, bow: GINGERBREAD_BOW, outline: GINGERBREAD_OUTLINE };
-
-  // hex is accepted for API parity with flowerArt(hex)/pieceArt(hex) but
-  // unused - the gingerbread's palette is intentionally fixed so it reads
-  // the same, reliably contrasting figure on every bed color.
-  function gingerbreadArt(hex) { // eslint-disable-line no-unused-vars
-    let parts = '';
-    GINGERBREAD_PARTS.forEach(function (part) {
-      const outline = part.outline ? ' stroke="' + GINGERBREAD_OUTLINE + '" stroke-width="0.4"' : '';
-      const { transform, ...geometry } = part.attrs;
-      const shape = '<' + part.tag + ' fill="' + GINGERBREAD_FILL_BY_KEY[part.fill] + '"' +
-        outline + ' ' + attrsToString(geometry) + '/>';
-      // Keep SVG placement on the outer group and animation on the inner one.
-      parts += (transform ? '<g transform="' + transform + '">' : '') +
-        '<g class="piece-part" style="animation-delay:' + part.delay + 'ms">' + shape + '</g>' +
-        (transform ? '</g>' : '');
-    });
-    parts +=
-      '<path class="piece-part" style="animation-delay:120ms" stroke="' + GINGERBREAD_OUTLINE +
-      '" stroke-width="0.8" stroke-linecap="round" fill="none" d="M10.4 7 Q12 8.1 13.6 7"/>';
-    return '<svg viewBox="0 0 24 24">' + parts + '</svg>';
+  function gingerbreadArt() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" class="winter-piece" viewBox="0 0 24 24" aria-hidden="true">' +
+      '<path class="piece-part" d="' + GINGERBREAD_SILHOUETTE + '" fill="' + GINGERBREAD_BODY +
+      '" stroke="' + GINGERBREAD_OUTLINE + '" stroke-width=".8" stroke-linejoin="round"/>' +
+      '<g class="piece-part" style="animation-delay:45ms" fill="' + GINGERBREAD_OUTLINE + '">' +
+      '<circle cx="10.3" cy="5.8" r=".85"/><circle cx="13.7" cy="5.8" r=".85"/>' +
+      '<path d="M10.5 7.5q1.5 1.6 3 0" fill="none" stroke="' + GINGERBREAD_OUTLINE +
+      '" stroke-width=".85" stroke-linecap="round"/></g>' +
+      '<g class="piece-part" style="animation-delay:75ms" fill="' + GINGERBREAD_OUTLINE + '">' +
+      '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="15.2" r="1"/></g></svg>';
   }
 
   // --- Shared mascot: a ladybug, optionally wearing a small Santa hat
@@ -230,6 +193,7 @@
     '--panel-soft': '#f6e9d8',
     '--panel-border': '#e6d2b8',
     '--mark-ink': '#4a3220',
+    '--winter-rule-piece': 'url("data:image/svg+xml,' + encodeURIComponent(gingerbreadArt()) + '")',
     '--drop-empty': '#9c7f5e',
     '--overlay-scrim': 'rgba(74, 50, 34, 0.32)',
     // A cozier, slightly deeper pine green than garden's accent, chosen so

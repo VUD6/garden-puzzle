@@ -1714,3 +1714,20 @@ html[data-theme="winter"] .game-screen .rules-bar:not(.popup-mode) .rule-text {
     align-self: stretch;
   }
 }
+
+/* Bloom the unified cookie from its center; icing layers follow it. */
+.winter-piece .piece-part {
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+html.reduce-motion .cell-mark.mark-bloom .winter-piece {
+  animation: helper-plant-fade-in var(--dur-fast) ease-out both;
+}
+
+html[data-theme="winter"] .rule-cell.flower .dot {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: var(--winter-rule-piece) center / contain no-repeat;
+}
