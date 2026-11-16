@@ -1,5 +1,46 @@
 // Bootstraps the game: wires DOM refs to state.js, render.js, and input.js.
 (function (root) {
+  const ZoomGuard = root.Garden.zoomGuard;
+
+  // iOS double-tap-zoom bug fix, part 1 of 2 (see css/style.css's
+  // touch-action block for the CSS half, and js/zoomguard.js for the pure
+  // guard logic itself - this just wires it to real document-level
+  // listeners). Pinch guard: registered non-passive so preventDefault()
+  // actually takes effect.
+  const handleGesture = ZoomGuard.createPinchGuard();
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (type) {
+    document.addEventListener(type, handleGesture, { passive: false });
+  });
+
+  // Part 2: the double-tap guard. Registered at document level, in the
+  // CAPTURE phase, non-passive, so it always runs before any other
+  // handler (anywhere in the tree) could call stopPropagation() and keep
+  // it from ever seeing the event.
+  const handleTouchEnd = ZoomGuard.createDoubleTapZoomGuard();
+  document.addEventListener('touchend', handleTouchEnd, { passive: false, capture: true });
+
+  // Both guards are registered before DOMContentLoaded (rather than
+  // waiting on a specific element) since they're independent of the DOM
+  // build below and need to be live as early as possible.
+
+  // Safe pinch-zoom reset (no visible UI): if the page is still visually
+  // zoomed in from a pinch inside a popup (visualViewport.scale > 1),
+  // nudge iOS Safari back to its initial scale on every screen transition.
+  // Re-setting the viewport meta's content attribute - even to the
+  // identical string - still runs the UA's "attribute changed" steps per
+  // the DOM spec (setAttribute never skips those just because the value
+  // is unchanged), which is what actually nudges WebKit's zoom back; a
+  // plain property read with no re-assignment would not. Harmless/no-op
+  // everywhere else (feature-detected; most browsers have no
+  // visualViewport.scale != 1 concept to begin with).
+  function resetZoomIfStuck() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (!window.visualViewport || window.visualViewport.scale <= 1) return;
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) meta.setAttribute('content', meta.getAttribute('content'));
+    window.scrollTo(0, 0);
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     const Garden = root.Garden;
 
@@ -127,6 +168,7 @@
 
     function enterGame() {
       router.showScreen('game');
+      resetZoomIfStuck();
       // The board was last sized while the game screen was hidden (clientWidth/
       // Height both 0 then), so it needs a fresh render now that it's visible.
       renderer.render(game.getSnapshot());
@@ -136,6 +178,7 @@
       menuScreen.render();
       checkinScreen.render();
       router.showScreen('menu');
+      resetZoomIfStuck();
     }
 
     const checkinScreen = Garden.checkin.createCheckinScreen(dom, {
@@ -210,5 +253,6 @@
     checkinScreen.render();
     platform.gameReady();
     router.leaveLoading();
+    resetZoomIfStuck();
   });
 })(typeof window !== 'undefined' ? window : globalThis);
