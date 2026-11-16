@@ -293,7 +293,7 @@
       pieceColors: { body: GINGERBREAD_BODY, outline: GINGERBREAD_OUTLINE },
       // TODO(design): fill in real per-helper SVG art for winter; falls
       // back to render.js's plain-letter glyph until then.
-      helperIconSvg: noHelperIconSvg,
+      helperIconSvg: winterHelperIconSvg,
     },
   };
 
@@ -347,6 +347,19 @@
   // helperIconFor() falls back to its plain-letter glyph. A theme can
   // override this with its own function(id) -> SVG string (or null for any
   // id it doesn't have art for yet) without touching render.js.
+  function winterHelperIconSvg(id) {
+    switch (id) {
+      case 'finder':
+        return '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="13.5" cy="13.5" r="8.6" fill="var(--winter-icon-snow)" stroke="var(--winter-icon-blue)" stroke-width="3"/><path d="m20 20 7 7" stroke="var(--winter-icon-blue)" stroke-width="4" stroke-linecap="round"/><path d="M14 8q0 5 5 6-5 0-5 5-1-5-6-5 5-1 6-6" fill="var(--winter-icon-gold)"/></svg>';
+      case 'random':
+        return '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="24" height="24" rx="6" transform="rotate(-12 16 16)" fill="var(--winter-icon-berry)"/><path d="M10 10h.1M22 10h.1M16 16h.1M10 22h.1M22 22h.1" stroke="var(--panel)" stroke-width="3.4" stroke-linecap="round"/></svg>';
+      case 'snowman':
+        return '<svg viewBox="0 0 32 32" aria-hidden="true"><g stroke="var(--winter-icon-pine)" stroke-width="1.8"><circle cx="16" cy="22" r="8" fill="var(--winter-icon-snow)"/><circle cx="16" cy="11" r="6" fill="var(--winter-icon-snow)"/></g><path d="M9 7h14M13 6V2h6v4" stroke="var(--winter-icon-pine)" stroke-width="2.6" stroke-linecap="round"/><path d="M10 16h12l-2 5" fill="none" stroke="var(--winter-icon-berry)" stroke-width="2.5"/><path d="M14 11h.1m4 0h.1" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>';
+      default:
+        return null;
+    }
+  }
+
   function noHelperIconSvg(id) { // eslint-disable-line no-unused-vars
     return null;
   }
