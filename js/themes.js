@@ -279,6 +279,7 @@
       // override here, which is what keeps "garden theme: exactly today's
       // look" true for free.
       tokens: {},
+      helperIconSvg: noHelperIconSvg,
     },
     winter: {
       id: 'winter',
@@ -290,6 +291,9 @@
       // Exposed for tests/themes.test.js's contrast checks (the gingerbread
       // ignores its hex argument and always draws in these two colors).
       pieceColors: { body: GINGERBREAD_BODY, outline: GINGERBREAD_OUTLINE },
+      // TODO(design): fill in real per-helper SVG art for winter; falls
+      // back to render.js's plain-letter glyph until then.
+      helperIconSvg: noHelperIconSvg,
     },
   };
 
@@ -337,6 +341,14 @@
 
   function getCurrentTheme() {
     return THEMES[currentId];
+  }
+
+  // Default helper-icon hook: no themed art yet, so render.js's
+  // helperIconFor() falls back to its plain-letter glyph. A theme can
+  // override this with its own function(id) -> SVG string (or null for any
+  // id it doesn't have art for yet) without touching render.js.
+  function noHelperIconSvg(id) { // eslint-disable-line no-unused-vars
+    return null;
   }
 
   const Themes = {

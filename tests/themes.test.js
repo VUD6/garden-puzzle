@@ -23,6 +23,9 @@ globalThis.localStorage = makeMemoryStorage();
 require('../js/platform.js');
 require('../js/themes.js');
 require('../js/state.js');
+require('../js/i18n.js');
+require('../js/helpers.js');
+require('../js/render.js');
 
 const { platform: Platform, themes: Themes, state: State } = globalThis.Garden;
 
@@ -150,6 +153,56 @@ assert(
   minGingerbreadContrast >= MIN_CONTRAST_RATIO,
   `the gingerbread's body or outline clears a ${MIN_CONTRAST_RATIO}:1 contrast ratio against every winter bed color (worst: ${minGingerbreadContrast.toFixed(2)}:1)`
 );
+
+// --- helperIconFor(id): themed art with a placeholder-glyph fallback ---
+
+const Render = globalThis.Garden.render;
+
+const originalGardenHelperIconSvg = Themes.THEMES.garden.helperIconSvg;
+const originalWinterHelperIconSvg = Themes.THEMES.winter.helperIconSvg;
+
+try {
+  Themes.applyTheme('garden');
+  const fallbackForRandom = Render.helperIconFor('random');
+  assert(
+    typeof fallbackForRandom === 'string' && fallbackForRandom.length > 0,
+    'with no themed art (default helperIconSvg returns null), helperIconFor still returns a fallback glyph SVG'
+  );
+
+  const THEMED_FINDER_SVG = '<svg data-test-themed-finder="1"></svg>';
+  Themes.THEMES.garden.helperIconSvg = function (id) {
+    return id === 'finder' ? THEMED_FINDER_SVG : null;
+  };
+
+  assert(
+    Render.helperIconFor('finder') === THEMED_FINDER_SVG,
+    'when the active theme\'s helperIconSvg(id) returns an SVG string, helperIconFor returns it as-is'
+  );
+  assert(
+    Render.helperIconFor('random') === fallbackForRandom,
+    'when the active theme\'s helperIconSvg(id) returns null for an id, helperIconFor falls back to the placeholder glyph'
+  );
+
+  // --- icons track the active theme: switching to winter (whose
+  // helperIconSvg still returns null) loses the themed art even though
+  // garden's override is still in place, and switching back to garden
+  // regains it - there's no stale caching across a theme switch.
+  Themes.applyTheme('winter');
+  const fallbackForFinderUnthemed = Render.helperIconFor('finder');
+  assert(
+    fallbackForFinderUnthemed !== THEMED_FINDER_SVG,
+    'switching to a theme with no themed art for this id drops the previously active theme\'s SVG'
+  );
+
+  Themes.applyTheme('garden');
+  assert(
+    Render.helperIconFor('finder') === THEMED_FINDER_SVG,
+    'switching back to the theme with themed art returns it again'
+  );
+} finally {
+  Themes.THEMES.garden.helperIconSvg = originalGardenHelperIconSvg;
+  Themes.THEMES.winter.helperIconSvg = originalWinterHelperIconSvg;
+}
 
 console.log(`${checks} checks run, ${failures} failed.`);
 process.exit(failures === 0 ? 0 : 1);
