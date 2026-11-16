@@ -18,38 +18,6 @@
     }, SINK_MS);
   }
 
-  const DOUBLE_TAP_WINDOW_MS = root.Garden.state.DOUBLE_TAP_WINDOW_MS;
-
-  // iOS double-tap-zoom guard: iOS Safari-engine browsers can still trigger
-  // their native double-tap-to-zoom gesture on a fast double-tap even with
-  // touch-action: none/manipulation set (a long-standing WebKit quirk,
-  // worse still in third-party WKWebView wrappers like Yandex Browser on
-  // iOS - see css/style.css's touch-action block and js/main.js's
-  // gesturestart guard for the rest of the fix). Since planting a piece IS
-  // a deliberate double-tap, this cancels just the *second* touchend's
-  // default when it lands on the same cell within the same window
-  // state.js's own double-tap promotion uses, which stops the zoom without
-  // touching the pointer-event-driven tap/drag logic below - that logic
-  // already finished reacting to the gesture by the time touchend fires,
-  // and this listener only ever calls preventDefault(), never game logic.
-  // Exported so js/tutorial.js's own board can reuse it instead of
-  // duplicating it.
-  function attachDoubleTapZoomGuard(boardEl) {
-    let lastTouchEnd = null; // { cellEl, time }
-    boardEl.addEventListener(
-      'touchend',
-      function (event) {
-        const hit = cellFromElement(event.target);
-        const now = Date.now();
-        if (hit && lastTouchEnd && lastTouchEnd.cellEl === hit.el && now - lastTouchEnd.time <= DOUBLE_TAP_WINDOW_MS) {
-          event.preventDefault();
-        }
-        lastTouchEnd = hit ? { cellEl: hit.el, time: now } : null;
-      },
-      { passive: false }
-    );
-  }
-
   function wireToggle(buttonEl, onChange) {
     buttonEl.addEventListener('click', function () {
       const next = buttonEl.getAttribute('aria-pressed') !== 'true';
@@ -66,8 +34,6 @@
 
   function attach(dom, game, renderer, handlers) {
     let drag = null; // { pointerId, startRow, startCol, mode, moved, visited }
-
-    attachDoubleTapZoomGuard(dom.board);
 
     function applyDragAction(row, col, el) {
       if (drag.mode === 'mark') game.markCellX(row, col);
@@ -204,5 +170,5 @@
   }
 
   root.Garden = root.Garden || {};
-  root.Garden.input = { attach, attachDoubleTapZoomGuard };
+  root.Garden.input = { attach };
 })(typeof window !== 'undefined' ? window : globalThis);
