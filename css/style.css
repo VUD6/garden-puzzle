@@ -1785,3 +1785,241 @@ html[data-theme="winter"] .rule-cell.flower .dot {
   border-radius: 0;
   background: var(--winter-rule-piece) center / contain no-repeat;
 }
+
+
+:root {
+  --cookie: #ce8a52;
+  --crust: #804623;
+  --berry: #b8413f;
+  --pine: #35684f;
+  --gold: #e8b55d;
+  --snow: #f7f0e7;
+  --snow-shadow: #e9ded5;
+  --winter-rule-sand: #e9d5b9;
+  --winter-tutorial-scrim: rgba(55, 34, 23, 0.72);
+  --winter-tutorial-text: 0.8125rem;
+  --winter-tutorial-padding: 12px;
+  --winter-tutorial-board: 320px;
+  --winter-tutorial-chef: 52px;
+  --winter-menu-width: 340px;
+  --winter-menu-art: 212px;
+  --winter-menu-art-short: 112px;
+  --winter-menu-title: clamp(2rem, 9vw, 3.25rem);
+  --winter-menu-decor: 440px;
+  --winter-menu-icon: 24px;
+}
+
+html[data-theme="winter"] .rules-bar:not(.popup-mode) .rule-cell {
+  background: var(--panel);
+}
+
+html[data-theme="winter"] .rules-bar:not(.popup-mode) .rule-cell.bed {
+  background: var(--winter-rule-sand);
+  box-shadow: inset 0 0 0 1px var(--panel-border);
+}
+
+html[data-theme="winter"] .rules-bar:not(.popup-mode) .rule-cell .mark-x::before,
+html[data-theme="winter"] .rules-bar:not(.popup-mode) .rule-cell .mark-x::after {
+  background: var(--ink-soft);
+}
+
+/* Keep the outgoing loader from taking a flex share of the next screen. */
+html[data-theme="winter"] .loading-screen.screen-fade-out {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+html[data-theme="winter"] .loading-screen {
+  background: linear-gradient(var(--bg-top), var(--bg-bottom));
+}
+
+html[data-theme="winter"] .loading-mascot,
+html[data-theme="winter"] .menu-mascot {
+  width: min(var(--winter-menu-art), 30dvh);
+  height: min(var(--winter-menu-art), 30dvh);
+}
+
+html[data-theme="winter"] :is(.loading-title, .menu-title) {
+  color: var(--pine);
+  font-size: var(--winter-menu-title);
+}
+
+.winter-menu-landscape,
+.winter-menu-gift {
+  display: none;
+}
+
+html[data-theme="winter"] .menu-screen {
+  position: relative;
+  isolation: isolate;
+  overflow-y: auto;
+  justify-content: safe center;
+}
+
+html[data-theme="winter"] .winter-menu-landscape {
+  display: block;
+  position: absolute;
+  inset: auto 0 0;
+  width: min(100%, var(--winter-menu-decor));
+  margin-inline: auto;
+  z-index: -1;
+  pointer-events: none;
+}
+
+html[data-theme="winter"] #app:has(.menu-screen:not([hidden])) > .winter-decor {
+  visibility: hidden;
+}
+
+html[data-theme="winter"] .menu-card {
+  flex: none;
+  max-width: var(--winter-menu-width);
+  padding: var(--winter-tutorial-padding);
+  gap: var(--winter-ui-gap);
+  text-align: center;
+}
+
+html[data-theme="winter"] .menu-mascot {
+  order: 1;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle, var(--panel) 60%, transparent 61%);
+}
+
+html[data-theme="winter"] .menu-card > button {
+  order: 2;
+  border-radius: var(--radius-lg);
+  padding: var(--winter-ui-gap) var(--winter-tutorial-padding);
+}
+
+html[data-theme="winter"] .menu-play-button {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(var(--panel), var(--panel-soft));
+  color: var(--pine);
+  min-height: var(--winter-helper-size);
+}
+
+html[data-theme="winter"] .menu-play-button::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--winter-ui-gap);
+  background: var(--board-frame-bg);
+  opacity: 0.58;
+}
+
+html[data-theme="winter"] .checkin-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--winter-ui-gap);
+}
+
+html[data-theme="winter"] .winter-menu-gift {
+  display: block;
+  width: var(--winter-menu-icon);
+  height: var(--winter-menu-icon);
+  flex: none;
+}
+
+html[data-theme="winter"] .menu-secondary-button {
+  box-shadow: var(--winter-control-shadow);
+}
+
+html[data-theme="winter"] .menu-button:active:not(:disabled) {
+  box-shadow: var(--shadow-inset);
+}
+
+html[data-theme="winter"] .tutorial-overlay:has(#tutorialPlay:not([hidden])) {
+  background: var(--winter-tutorial-scrim);
+  overflow-y: auto;
+  justify-content: safe center;
+}
+
+html[data-theme="winter"] #app:has(.tutorial-overlay:not([hidden]) #tutorialPlay:not([hidden]))
+  > :is(.game-screen, .menu-screen) {
+  visibility: hidden;
+}
+
+html[data-theme="winter"] .tutorial-card {
+  flex: none;
+  padding: var(--winter-tutorial-padding);
+  border-radius: var(--radius-lg);
+  background: var(--bg-top);
+}
+
+html[data-theme="winter"] .tutorial-board {
+  width: min(100%, var(--winter-tutorial-board), 56dvh);
+  gap: var(--winter-compact-gap);
+}
+
+html[data-theme="winter"] .tutorial-board .cell.tutorial-dim {
+  opacity: 1;
+}
+
+html[data-theme="winter"] .tutorial-board .cell.tutorial-active {
+  z-index: 1;
+}
+
+html[data-theme="winter"] .tutorial-hand {
+  z-index: 2;
+}
+
+html[data-theme="winter"] .tutorial-mascot-row {
+  order: -1;
+  align-items: center;
+}
+
+html[data-theme="winter"] .tutorial-mascot {
+  width: var(--winter-tutorial-chef);
+  height: var(--winter-tutorial-chef);
+}
+
+html[data-theme="winter"] .tutorial-bubble {
+  font-size: var(--winter-tutorial-text);
+  padding: var(--winter-ui-gap) var(--winter-tutorial-padding);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-theme="winter"] .menu-mascot {
+    width: var(--winter-menu-art-short);
+    height: var(--winter-menu-art-short);
+  }
+
+  html[data-theme="winter"] .menu-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-flow: row dense;
+    max-width: var(--winter-game-column);
+    justify-items: center;
+  }
+
+  html[data-theme="winter"] .menu-card > :is(.menu-title, .menu-subtitle, .menu-mascot) {
+    grid-column: 1;
+  }
+
+  html[data-theme="winter"] .menu-card > button {
+    grid-column: 2;
+  }
+
+  html[data-theme="winter"] .tutorial-card {
+    flex-direction: row;
+    max-width: var(--winter-game-column);
+  }
+
+  html[data-theme="winter"] .tutorial-mascot-row {
+    flex: 1;
+  }
+
+  html[data-theme="winter"] .tutorial-board-wrap {
+    width: min(100%, var(--winter-tutorial-board), 56dvh);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="winter"] .loading-pulse span {
+    animation: none;
+    opacity: 0.8;
+  }
+}

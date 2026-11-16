@@ -136,9 +136,7 @@
       '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="15.2" r="1"/></g></svg>';
   }
 
-  // --- Shared mascot: a ladybug, optionally wearing a small Santa hat
-  // overlay. One component used by the loading screen, menu, and tutorial
-  // bubble. ---
+  // Mascot art for the loading screen, menu, and tutorial.
   const LADYBUG_BODY_SVG =
     '<ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>' +
     '<line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>' +
@@ -153,15 +151,20 @@
     '<path d="M16 2 Q12 -2 10 2" stroke="#2a1f1c" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
     '<path d="M32 2 Q36 -2 38 2" stroke="#2a1f1c" stroke-width="1.5" fill="none" stroke-linecap="round"/>';
 
-  // Kept entirely within y >= 0 (the shared 0 0 48 40 viewBox) so it's never
-  // clipped, and reused unscaled across every mascot slot.
-  const SANTA_HAT_SVG =
-    '<ellipse cx="22" cy="4.6" rx="10" ry="2.6" fill="#fbf2e4"/>' +
-    '<path d="M15 4.2 Q21 0.3 31 3.6 Q25 1.8 18 4.6 Z" fill="#c0433f"/>' +
-    '<circle cx="30.5" cy="3.3" r="2.3" fill="#fbf2e4"/>';
+  const WINTER_CHEF_SVG = `<svg viewBox="0 0 160 160" aria-hidden="true"><ellipse cx="80" cy="148" rx="55" ry="8" fill="var(--snow-shadow)"/>
+    <path d="M51 111q-21 10-26 22-1 10 12 9l15-7v10q28 10 56 0v-10l15 7q13 1 12-9-5-12-26-22" fill="var(--cookie)" stroke="var(--crust)" stroke-width="3"/>
+    <g transform="rotate(-7 80 110)"><path d="M36 69Q33 43 79 42q45 0 45 34v13q0 34-44 34-44 0-44-33Z" fill="var(--cookie)" stroke="var(--crust)" stroke-width="3"/>
+    <path d="M43 62l-2-17c-18-7-10-29 6-29 5 0 9 2 12 5 5-18 34-19 43 0 16-8 34 3 30 16-2 6-7 11-15 12l-3 13q-36-9-71 0Z" fill="var(--panel)" stroke="var(--crust)" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M45 51q36-8 70 0m-49-4-3-10m25 8 2-10" fill="none" stroke="var(--panel-border)" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="61" cy="79" rx="3.7" ry="5" fill="var(--ink)"/><ellipse cx="99" cy="79" rx="3.7" ry="5" fill="var(--ink)"/>
+    <path d="M71 91q9 13 18 0" fill="none" stroke="var(--crust)" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="52" cy="91" rx="7" ry="4" fill="var(--berry)" opacity=".46"/><ellipse cx="108" cy="91" rx="7" ry="4" fill="var(--berry)" opacity=".46"/></g>
+    <path d="M54 117q23 8 50-2l3 10q-12 8-26 7l-4 14-14-3 4-13-15-4Z" fill="var(--berry)"/>
+    <path d="M61 122q21 5 36-1m-27 18 8 2" fill="none" stroke="var(--panel)" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="m124 137 12-34" stroke="var(--crust)" stroke-width="4" stroke-linecap="round"/><ellipse cx="138" cy="97" rx="6" ry="9" transform="rotate(19 138 97)" fill="var(--gold)" stroke="var(--crust)" stroke-width="2"/></svg>`;
 
-  function mascotSvg(withHat) {
-    return '<svg viewBox="0 0 48 40">' + LADYBUG_BODY_SVG + (withHat ? SANTA_HAT_SVG : '') + '</svg>';
+  function mascotSvg(winter) {
+    return winter ? WINTER_CHEF_SVG : '<svg viewBox="0 0 48 40">' + LADYBUG_BODY_SVG + '</svg>';
   }
 
   // Must stay in sync with the garden :root defaults in css/style.css

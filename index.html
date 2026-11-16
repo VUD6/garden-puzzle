@@ -50,6 +50,15 @@
     <p class="visually-hidden" id="loadingStatusText"></p>
   </div>
   <div class="screen menu-screen" id="menuScreen" hidden>
+    <svg class="winter-menu-landscape" viewBox="0 0 390 164" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+        <defs><symbol id="winter-menu-fir" viewBox="0 0 90 126"><path d="M39 104h13v19H39Z" fill="var(--crust)"/>
+    <path d="M45 2q5 0 9 11l17 28q5 9-7 9l15 23q5 8-6 8l14 21q5 12-11 14H14q-16-2-11-14l14-21Q6 81 11 73l15-23q-12 0-7-9l17-28q4-11 9-11Z" fill="var(--pine)"/>
+    <path d="M39 15q7-15 14 0l12 21q-7 3-15-3-6-5-13 1-7 5-12 3Zm-19 49q11 6 23-1t27 1l5 9q-12 1-22-3-7-2-14 3-13 6-24 1Zm-7 30q14 5 28-1 12-6 23-3 8 3 14 3l6 11q-10 1-21-4-8-3-18 1-21 9-36 2Z" fill="var(--snow)"/></symbol></defs>
+        <path d="M0 102Q70 74 148 115t242-20v69H0Z" fill="var(--snow-shadow)"/>
+        <use href="#winter-menu-fir" x="8" y="20" width="84" height="117"/>
+        <use href="#winter-menu-fir" x="303" y="5" width="73" height="114"/>
+        <path d="M0 135q86-26 179 0t211-13v42H0Z" fill="var(--snow)"/>
+      </svg>
     <div class="menu-card">
       <div class="menu-mascot" id="menuMascot" aria-hidden="true">
         <svg viewBox="0 0 48 40">
@@ -73,6 +82,7 @@
       <button class="menu-button menu-secondary-button" id="howToPlayButton" type="button"></button>
       <button class="menu-button menu-secondary-button" id="menuSettingsButton" type="button"></button>
       <button class="menu-button menu-secondary-button checkin-menu-button" id="dailyCheckinButton" type="button">
+        <svg class="winter-menu-gift" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 12C5 12 6 2 11 5c2 1 4 4 5 7 2-4 3-6 6-7 5-1 4 7-6 7" fill="none" stroke="var(--pine)" stroke-width="2.4"/><rect x="6" y="14" width="20" height="13" rx="3" fill="var(--berry)"/><rect x="4" y="11" width="24" height="6" rx="2" fill="var(--cookie)"/><path d="M16 12v15" stroke="var(--panel)" stroke-width="3"/></svg>
         <span id="dailyCheckinLabel"></span>
         <span class="checkin-dot-badge" id="checkinBadge" hidden></span>
       </button>
