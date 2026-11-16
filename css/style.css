@@ -1,4 +1,13 @@
+@font-face {
+  font-family: 'Comfortaa';
+  src: url('../fonts/Comfortaa.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+}
+
 :root {
+  --font-ui: 'Segoe UI', 'Trebuchet MS', sans-serif;
   --bg-top: #16271c;
   --bg-bottom: #0a140e;
   --ink: #e9f1e7;
@@ -90,8 +99,16 @@ html, body {
   overflow: hidden;
   background: linear-gradient(160deg, var(--bg-top) 0%, var(--bg-bottom) 70%);
   color: var(--ink);
-  font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+  font-family: var(--font-ui);
   overscroll-behavior: contain;
+}
+
+html[data-theme="winter"] {
+  --font-ui: 'Comfortaa', 'Segoe UI', 'Trebuchet MS', sans-serif;
+}
+
+html[data-theme="winter"] button {
+  font-family: var(--font-ui);
 }
 
 #app {
