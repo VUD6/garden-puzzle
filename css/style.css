@@ -1596,31 +1596,42 @@ html.reduce-motion .tutorial-hand {
   --winter-board-gutter: 2px;
   --winter-board-inset: 10px;
   --winter-board-max: 560px;
-  --winter-board-landscape-min: 386px;
-  --winter-landscape-fit: 85dvh;
+  --winter-landscape-breakout: 50vw;
+  --winter-rule-label-size: 11px;
+  --winter-rule-padding: 4px;
+  --winter-caption-line: 14px;
   --winter-touch: 44px;
   --winter-helper-size: 56px;
   --winter-tracker-size: 24px;
 }
 
+html[data-theme="winter"] .game-screen {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 html[data-theme="winter"] .game-screen .board-wrap {
+  min-height: 0;
   padding: var(--winter-board-gutter);
+  container-type: size;
 }
 
 html[data-theme="winter"] .game-screen .board {
-  position: relative;
   /* The shared renderer sets inline dimensions and gaps for Garden. */
-  --winter-board-size: min(calc(100vw - 2 * var(--winter-board-gutter)), var(--winter-board-max));
+  --winter-board-size: min(100cqw, 100cqh, var(--winter-board-max));
   width: var(--winter-board-size) !important;
   height: var(--winter-board-size) !important;
   flex-shrink: 0;
   gap: var(--winter-compact-gap) !important;
+}
+
+html[data-theme="winter"] :is(.game-screen .board, .tutorial-board) {
+  position: relative;
   padding: var(--winter-board-inset);
   background: transparent;
   box-shadow: none;
 }
 
-html[data-theme="winter"] .game-screen .board::before {
+html[data-theme="winter"] :is(.game-screen .board, .tutorial-board)::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1663,30 +1674,43 @@ html[data-theme="winter"] .game-screen .rules-bar:not(.popup-mode) .rule-card {
   box-shadow: var(--winter-control-shadow);
 }
 
-@media (orientation: landscape) {
-  html[data-theme="winter"] .game-screen {
-    overflow-y: auto;
-  }
+html[data-theme="winter"] .game-screen .helper-lock-caption {
+  min-height: var(--winter-caption-line);
+  line-height: var(--winter-caption-line);
+}
 
-  html[data-theme="winter"] .game-screen .board-wrap {
-    flex: 1 0 auto;
-  }
+html[data-theme="winter"] .game-screen .helpers-row {
+  align-items: flex-start;
+  padding-bottom: var(--winter-ui-gap);
+}
 
-  html[data-theme="winter"] .game-screen .board {
-    --winter-board-size: min(calc(100vw - 2 * var(--winter-board-gutter)), var(--winter-board-max), max(var(--winter-board-landscape-min), var(--winter-landscape-fit)));
-  }
+html[data-theme="winter"] .game-screen .rules-bar:not(.popup-mode) .rule-card {
+  flex-direction: column;
+  gap: var(--winter-compact-gap);
+  padding: var(--winter-rule-padding);
+  text-align: center;
+}
+
+html[data-theme="winter"] .game-screen .rules-bar:not(.popup-mode) .rule-text {
+  width: 100%;
+  font-size: var(--winter-rule-label-size);
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
 }
 
 @media (orientation: landscape) and (min-width: 690px) {
   html[data-theme="winter"] .game-screen:not([hidden]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-auto-rows: min-content;
-    align-content: start;
+    grid-template-rows: repeat(3, auto) minmax(0, 1fr);
+    align-items: start;
   }
 
   html[data-theme="winter"] .game-screen .board-wrap {
     grid-column: 2;
     grid-row: 1 / span 4;
+    width: min(var(--winter-landscape-breakout), 100dvh, var(--winter-board-max));
+    align-self: stretch;
   }
 }

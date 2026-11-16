@@ -130,11 +130,11 @@
 
   const GINGERBREAD_PARTS = [
     { tag: 'circle', fill: 'body', delay: 0, outline: true, attrs: { cx: 12, cy: 5.6, r: 2.8 } },
-    { tag: 'rect', fill: 'body', delay: 10, outline: true, attrs: { x: 8.4, y: 8.6, width: 7.2, height: 8, rx: 3 } },
-    { tag: 'rect', fill: 'body', delay: 20, outline: true, attrs: { x: 3.6, y: 9.8, width: 5, height: 2.8, rx: 1.4, transform: 'rotate(-28 6.1 11.2)' } },
-    { tag: 'rect', fill: 'body', delay: 20, outline: true, attrs: { x: 15.4, y: 9.8, width: 5, height: 2.8, rx: 1.4, transform: 'rotate(28 17.9 11.2)' } },
-    { tag: 'rect', fill: 'body', delay: 30, outline: true, attrs: { x: 7.8, y: 16, width: 3, height: 6, rx: 1.5, transform: 'rotate(14 9.3 19)' } },
-    { tag: 'rect', fill: 'body', delay: 30, outline: true, attrs: { x: 13.2, y: 16, width: 3, height: 6, rx: 1.5, transform: 'rotate(-14 14.7 19)' } },
+    { tag: 'rect', fill: 'body', delay: 10, outline: true, attrs: { x: 8.4, y: 7.8, width: 7.2, height: 9.2, rx: 3 } },
+    { tag: 'rect', fill: 'body', delay: 20, outline: true, attrs: { x: 3.6, y: 9.8, width: 5.8, height: 2.8, rx: 1.4, transform: 'rotate(-28 6.1 11.2)' } },
+    { tag: 'rect', fill: 'body', delay: 20, outline: true, attrs: { x: 14.6, y: 9.8, width: 5.8, height: 2.8, rx: 1.4, transform: 'rotate(28 17.9 11.2)' } },
+    { tag: 'rect', fill: 'body', delay: 30, outline: true, attrs: { x: 7.8, y: 15.2, width: 3, height: 6.8, rx: 1.5, transform: 'rotate(14 9.3 19)' } },
+    { tag: 'rect', fill: 'body', delay: 30, outline: true, attrs: { x: 13.2, y: 15.2, width: 3, height: 6.8, rx: 1.5, transform: 'rotate(-14 14.7 19)' } },
     { tag: 'path', fill: 'bow', delay: 70, attrs: { d: 'M10.5 8.5 L12 9.9 L10.5 10.7 Z' } },
     { tag: 'path', fill: 'bow', delay: 70, attrs: { d: 'M13.5 8.5 L12 9.9 L13.5 10.7 Z' } },
     { tag: 'circle', fill: 'bow', delay: 75, attrs: { cx: 12, cy: 9.9, r: 0.55 } },
@@ -159,9 +159,13 @@
     let parts = '';
     GINGERBREAD_PARTS.forEach(function (part) {
       const outline = part.outline ? ' stroke="' + GINGERBREAD_OUTLINE + '" stroke-width="0.4"' : '';
-      parts +=
-        '<' + part.tag + ' class="piece-part" style="animation-delay:' + part.delay + 'ms" fill="' +
-        GINGERBREAD_FILL_BY_KEY[part.fill] + '"' + outline + ' ' + attrsToString(part.attrs) + '/>';
+      const { transform, ...geometry } = part.attrs;
+      const shape = '<' + part.tag + ' fill="' + GINGERBREAD_FILL_BY_KEY[part.fill] + '"' +
+        outline + ' ' + attrsToString(geometry) + '/>';
+      // Keep SVG placement on the outer group and animation on the inner one.
+      parts += (transform ? '<g transform="' + transform + '">' : '') +
+        '<g class="piece-part" style="animation-delay:' + part.delay + 'ms">' + shape + '</g>' +
+        (transform ? '</g>' : '');
     });
     parts +=
       '<path class="piece-part" style="animation-delay:120ms" stroke="' + GINGERBREAD_OUTLINE +
