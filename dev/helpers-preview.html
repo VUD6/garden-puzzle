@@ -1,0 +1,907 @@
+<!doctype html>
+<!--
+  Dev-only, standalone icon preview for the "Helpers" step. Not linked from
+  index.html, loads none of js/ - per CLAUDE.md this never ships (excluded
+  from the build archive along with the rest of /dev and /tests).
+
+  Shows 2 candidate SVG icon designs per helper (Finder, Random, Snowman),
+  each rendered in both themes, using the exact token values currently in
+  css/style.css (garden) and js/themes.js (winter) so colors here match the
+  real game - not just a vague approximation of them.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Helpers icon preview</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 2rem 1.5rem 4rem;
+    font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+    background: #111;
+    color: #eee;
+  }
+
+  h1 {
+    margin: 0 0 0.3rem;
+    font-size: 1.4rem;
+  }
+
+  .page-note {
+    color: #aaa;
+    font-size: 0.9rem;
+    margin: 0 0 2rem;
+    max-width: 60em;
+  }
+
+  /* --- Theme scopes: token values copied verbatim from css/style.css's
+     :root (garden defaults) and js/themes.js's WINTER_TOKENS/WINTER_BED_COLORS,
+     so every swatch/button below is colored exactly like the real game. --- */
+  .theme-block {
+    border-radius: 18px;
+    padding: 1.5rem 1.25rem 2rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .theme-garden {
+    background: linear-gradient(160deg, #16271c 0%, #0a140e 70%);
+    --panel: #1d3426;
+    --panel-soft: #28422f;
+    --panel-border: #34503c;
+    --ink: #e9f1e7;
+    --ink-soft: #9db3a1;
+    --accent: #4caf6e;
+    --accent-ink: #11271a;
+    --mark-ink: #233226;
+    --tile-highlight: inset 0 2px 0 rgba(250, 245, 230, 0.18);
+    --tile-edge: inset 0 -3px 0 rgba(0, 0, 0, 0.24);
+    --tile-shadow: 0 2px 4px rgba(0, 0, 0, 0.22);
+    --region-0: #c97b84; --region-1: #6f9bc4; --region-2: #cdb15a; --region-3: #6fb08a;
+    --region-4: #a888c9; --region-5: #cc8c5c; --region-6: #5cb3a8; --region-7: #c47bb0;
+  }
+
+  .theme-winter {
+    background: linear-gradient(160deg, #fdf0ea 0%, #f7e3d0 70%);
+    --panel: #fff8f0;
+    --panel-soft: #f6e9d8;
+    --panel-border: #e6d2b8;
+    --ink: #4a3220;
+    --ink-soft: #8a7260;
+    --accent: #3e8f57;
+    --accent-ink: #0d1f14;
+    --mark-ink: #4a3220;
+    --tile-highlight: inset 0 2px 0 rgba(255, 250, 240, 0.45);
+    --tile-edge: inset 0 -3px 0 rgba(90, 110, 140, 0.28);
+    --tile-shadow: 0 2px 4px rgba(60, 50, 30, 0.22);
+    --region-0: #4fb892; --region-1: #e24b64; --region-2: #e8c23a; --region-3: #8a5fc2;
+    --region-4: #4f7fd1; --region-5: #e8863f; --region-6: #8cc43f; --region-7: #c94a9e;
+  }
+
+  .theme-block h2 {
+    margin: 0 0 0.9rem;
+    color: var(--ink);
+    font-size: 1.15rem;
+  }
+
+  .bed-swatch-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 1.6rem;
+  }
+
+  .bed-swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 24%;
+    box-shadow: var(--tile-highlight), var(--tile-edge), var(--tile-shadow);
+  }
+  .bed-swatch.r0 { background: var(--region-0); } .bed-swatch.r1 { background: var(--region-1); }
+  .bed-swatch.r2 { background: var(--region-2); } .bed-swatch.r3 { background: var(--region-3); }
+  .bed-swatch.r4 { background: var(--region-4); } .bed-swatch.r5 { background: var(--region-5); }
+  .bed-swatch.r6 { background: var(--region-6); } .bed-swatch.r7 { background: var(--region-7); }
+
+  .helper-section {
+    margin-bottom: 1.6rem;
+  }
+
+  .helper-section h3 {
+    margin: 0 0 0.6rem;
+    color: var(--ink);
+    font-size: 1rem;
+    opacity: 0.9;
+  }
+
+  .candidate-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .candidate-card {
+    background: var(--panel-soft);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 0.9rem;
+  }
+
+  .candidate-card .label {
+    color: var(--ink);
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+  }
+
+  .states-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.7rem;
+  }
+
+  .state-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .state-caption {
+    font-size: 0.65rem;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+
+  /* --- The helper button itself: a round >=44px touch target (shown here
+     at the spec's ~56px), charge badge in the corner. --- */
+  .helper-btn {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+
+  .helper-btn svg {
+    width: 62%;
+    height: 62%;
+  }
+
+  .helper-btn .charge-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 3px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 0.68rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--panel-soft);
+  }
+
+  .helper-btn.is-disabled {
+    opacity: 0.42;
+  }
+
+  .helper-btn.is-disabled .charge-badge {
+    background: var(--panel-border);
+    color: var(--ink-soft);
+  }
+
+  .helper-btn.is-locked {
+    filter: grayscale(0.7);
+    opacity: 0.55;
+  }
+
+  .helper-btn.is-locked .charge-badge {
+    background: var(--ink-soft);
+    color: var(--panel);
+  }
+
+  .lock-level-caption {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+
+  /* --- Smaller "on tile" swatches: same icon drawn sitting on every one of
+     the theme's 8 real bed colors, to sanity-check it stays legible against
+     every hue, not just the button's own panel background. --- */
+  .on-tiles-row {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .on-tile {
+    width: 34px;
+    height: 34px;
+    border-radius: 24%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--tile-highlight), var(--tile-edge), var(--tile-shadow);
+  }
+
+  .on-tile svg {
+    width: 68%;
+    height: 68%;
+  }
+</style>
+</head>
+<body>
+
+<h1>Helpers icon preview</h1>
+<p class="page-note">
+  Two candidate SVG icon designs per helper, rendered in both themes on the real
+  panel/bed colors (copied from css/style.css + js/themes.js). Each candidate shows:
+  the plain button, 0-charge disabled, locked (Snowman, "Lv.10"), a charge badge, and
+  a row of the icon sitting on all 8 real bed tiles. Dev-only — not linked from
+  index.html, loads none of js/.
+</p>
+
+<!-- =================== WINTER =================== -->
+<section class="theme-block theme-winter">
+  <h2>Winter theme</h2>
+  <div class="bed-swatch-row">
+    <div class="bed-swatch r0"></div><div class="bed-swatch r1"></div><div class="bed-swatch r2"></div><div class="bed-swatch r3"></div>
+    <div class="bed-swatch r4"></div><div class="bed-swatch r5"></div><div class="bed-swatch r6"></div><div class="bed-swatch r7"></div>
+  </div>
+
+  <!-- ---------- Finder ---------- -->
+  <div class="helper-section">
+    <h3>1. Finder</h3>
+    <div class="candidate-grid">
+
+      <div class="candidate-card">
+        <div class="label">Candidate A — candy cane + magnifier</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <defs><pattern id="w-fa-stripe" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                  <rect width="5" height="5" fill="#fbf2e4"/><rect width="2.5" height="5" fill="#c0433f"/>
+                </pattern></defs>
+                <path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="url(#w-fa-stripe)" stroke-width="3.6" stroke-linecap="round"/>
+                <circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/>
+                <line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <defs><pattern id="w-fa-stripe-d" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                  <rect width="5" height="5" fill="#fbf2e4"/><rect width="2.5" height="5" fill="#c0433f"/>
+                </pattern></defs>
+                <path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="url(#w-fa-stripe-d)" stroke-width="3.6" stroke-linecap="round"/>
+                <circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/>
+                <line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="#fbf2e4" stroke-width="3.6" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/><line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="#fbf2e4" stroke-width="3.6" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/><line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="#fbf2e4" stroke-width="3.6" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/><line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="#fbf2e4" stroke-width="3.6" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/><line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="#fbf2e4" stroke-width="3.6" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/><line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="#fbf2e4" stroke-width="3.6" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/><line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="#fbf2e4" stroke-width="3.6" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/><line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><path d="M8 21 L8 11 Q8 4 14 4 Q18 4 18 8 Q18 11 14 11 Q11.5 11 11.5 8.5" fill="none" stroke="#fbf2e4" stroke-width="3.6" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="#4a3220" stroke-width="1.6"/><line x1="20.1" y1="19.1" x2="22.5" y2="21.5" stroke="#4a3220" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        </div>
+      </div>
+
+      <div class="candidate-card">
+        <div class="label">Candidate B — gingerbread bust + magnifier</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/>
+                <rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/>
+                <circle cx="8.9" cy="6.6" r="0.8" fill="#fbf2e4"/>
+                <circle cx="11.1" cy="6.6" r="0.8" fill="#fbf2e4"/>
+                <path d="M8.6 8.4 Q10 9.4 11.4 8.4" stroke="#fbf2e4" stroke-width="0.7" stroke-linecap="round" fill="none"/>
+                <circle cx="10" cy="13.5" r="0.8" fill="#fbf2e4"/>
+                <circle cx="10" cy="16" r="0.8" fill="#fbf2e4"/>
+                <circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/>
+                <line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/>
+                <rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/>
+                <circle cx="8.9" cy="6.6" r="0.8" fill="#fbf2e4"/>
+                <circle cx="11.1" cy="6.6" r="0.8" fill="#fbf2e4"/>
+                <path d="M8.6 8.4 Q10 9.4 11.4 8.4" stroke="#fbf2e4" stroke-width="0.7" stroke-linecap="round" fill="none"/>
+                <circle cx="10" cy="13.5" r="0.8" fill="#fbf2e4"/>
+                <circle cx="10" cy="16" r="0.8" fill="#fbf2e4"/>
+                <circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/>
+                <line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/><line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/><line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/><line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/><line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/><line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/><line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/><line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="3.4" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><rect x="6.2" y="10.6" width="7.6" height="8.4" rx="3" fill="#4f2f18" stroke="#fbf2e4" stroke-width="0.5"/><circle cx="17.5" cy="16.5" r="3.3" fill="none" stroke="#4a3220" stroke-width="1.7"/><line x1="19.8" y1="18.8" x2="22.3" y2="21.3" stroke="#4a3220" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ---------- Random helper ---------- -->
+  <div class="helper-section">
+    <h3>2. Random helper</h3>
+    <div class="candidate-grid">
+
+      <div class="candidate-card">
+        <div class="label">Candidate A — gift box with "?"</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/>
+                <rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/>
+                <rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/>
+                <path d="M8 7 Q6 3 9 2 Q12 1.5 10.5 7 Z" fill="#fbf2e4"/>
+                <path d="M16 7 Q18 3 15 2 Q12 1.5 13.5 7 Z" fill="#fbf2e4"/>
+                <text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/>
+                <rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/>
+                <rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/>
+                <path d="M8 7 Q6 3 9 2 Q12 1.5 10.5 7 Z" fill="#fbf2e4"/>
+                <path d="M16 7 Q18 3 15 2 Q12 1.5 13.5 7 Z" fill="#fbf2e4"/>
+                <text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/><rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/><rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/><text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/><rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/><rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/><text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/><rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/><rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/><text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/><rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/><rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/><text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/><rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/><rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/><text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/><rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/><rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/><text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/><rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/><rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/><text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#c0433f"/><rect x="4" y="7" width="16" height="4" rx="1" fill="#e24b64"/><rect x="10.5" y="7" width="3" height="13" fill="#fbf2e4"/><text x="12" y="18" font-size="7" font-weight="700" text-anchor="middle" fill="#fbf2e4" font-family="sans-serif">?</text></svg></div>
+        </div>
+      </div>
+
+      <div class="candidate-card">
+        <div class="label">Candidate B — sparkling star</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/>
+                <circle cx="19" cy="4" r="1.1" fill="#fbf2e4"/>
+                <circle cx="4" cy="16" r="1.4" fill="#fbf2e4"/>
+                <circle cx="20" cy="15" r="0.9" fill="#fbf2e4"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/>
+                <circle cx="19" cy="4" r="1.1" fill="#fbf2e4"/>
+                <circle cx="4" cy="16" r="1.4" fill="#fbf2e4"/>
+                <circle cx="20" cy="15" r="0.9" fill="#fbf2e4"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><path d="M12 2 L14.2 9 L21 9 L15.5 13.2 L17.6 20 L12 15.8 L6.4 20 L8.5 13.2 L3 9 L9.8 9 Z" fill="#e8c23a" stroke="#b8701a" stroke-width="0.8"/></svg></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ---------- Snowman ---------- -->
+  <div class="helper-section">
+    <h3>3. Snowman (3 crosses)</h3>
+    <div class="candidate-grid">
+
+      <div class="candidate-card">
+        <div class="label">Candidate A — classic 2-ball snowman</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/>
+                <rect x="8" y="6.1" width="8" height="1.6" fill="#4a3220"/>
+                <circle cx="10.2" cy="9" r="0.5" fill="#2a1f1c"/>
+                <circle cx="13.8" cy="9" r="0.5" fill="#2a1f1c"/>
+                <path d="M12 9.8 L15 10.4 L12 11 Z" fill="#e8863f"/>
+                <circle cx="12" cy="15" r="0.5" fill="#2a1f1c"/>
+                <circle cx="12" cy="17.2" r="0.5" fill="#2a1f1c"/>
+                <circle cx="12" cy="19.4" r="0.5" fill="#2a1f1c"/>
+                <path d="M7.5 15 L4.5 13" stroke="#6b4a33" stroke-width="1" stroke-linecap="round"/>
+                <path d="M16.5 15 L19.5 13" stroke="#6b4a33" stroke-width="1" stroke-linecap="round"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/>
+                <rect x="8" y="6.1" width="8" height="1.6" fill="#4a3220"/>
+                <circle cx="12" cy="15" r="0.5" fill="#2a1f1c"/>
+                <circle cx="12" cy="17.2" r="0.5" fill="#2a1f1c"/>
+                <circle cx="12" cy="19.4" r="0.5" fill="#2a1f1c"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-locked">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/>
+                <rect x="8" y="6.1" width="8" height="1.6" fill="#4a3220"/>
+              </svg>
+              <div class="charge-badge">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              </div>
+            </div>
+            <div class="state-caption">locked</div>
+            <div class="lock-level-caption">Lv.10</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><circle cx="12" cy="17" r="5.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="9.5" r="3.8" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M8.6 7.6 Q12 5.6 15.4 7.6 L15.4 6.2 Q12 4.4 8.6 6.2 Z" fill="#4a3220"/></svg></div>
+        </div>
+      </div>
+
+      <div class="candidate-card">
+        <div class="label">Candidate B — chubby 2-ball snowman + scarf</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/>
+                <circle cx="10" cy="5.8" r="0.5" fill="#2a1f1c"/>
+                <circle cx="13.6" cy="5.8" r="0.5" fill="#2a1f1c"/>
+                <path d="M12 6.6 L14.4 7.1 L12 7.6 Z" fill="#e8863f"/>
+                <circle cx="12" cy="12.2" r="0.55" fill="#2a1f1c"/>
+                <circle cx="12" cy="15" r="0.55" fill="#2a1f1c"/>
+                <circle cx="12" cy="17.8" r="0.55" fill="#2a1f1c"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-locked">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/>
+                <path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/>
+              </svg>
+              <div class="charge-badge">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              </div>
+            </div>
+            <div class="state-caption">locked</div>
+            <div class="lock-level-caption">Lv.10</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.2" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><circle cx="12" cy="6.5" r="3.6" fill="#fbf2e4" stroke="#cfe3f5" stroke-width="0.6"/><path d="M9 11 Q12 13 15 11 L15.6 13.4 Q12 15.6 8.4 13.4 Z" fill="#c0433f"/></svg></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- =================== GARDEN =================== -->
+<section class="theme-block theme-garden">
+  <h2>Garden theme</h2>
+  <div class="bed-swatch-row">
+    <div class="bed-swatch r0"></div><div class="bed-swatch r1"></div><div class="bed-swatch r2"></div><div class="bed-swatch r3"></div>
+    <div class="bed-swatch r4"></div><div class="bed-swatch r5"></div><div class="bed-swatch r6"></div><div class="bed-swatch r7"></div>
+  </div>
+
+  <!-- ---------- Finder ---------- -->
+  <div class="helper-section">
+    <h3>1. Finder</h3>
+    <div class="candidate-grid">
+
+      <div class="candidate-card">
+        <div class="label">Candidate A — plain ladybug</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 48 40">
+                <ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>
+                <line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>
+                <circle cx="16" cy="18" r="3" fill="#2a1f1c"/><circle cx="32" cy="18" r="3" fill="#2a1f1c"/>
+                <circle cx="16" cy="29" r="3" fill="#2a1f1c"/><circle cx="32" cy="29" r="3" fill="#2a1f1c"/>
+                <circle cx="24" cy="24" r="3" fill="#2a1f1c"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/>
+                <circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/>
+                <path d="M16 2 Q12 -2 10 2" stroke="#2a1f1c" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                <path d="M32 2 Q36 -2 38 2" stroke="#2a1f1c" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 48 40">
+                <ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/>
+                <line x1="24" y1="11" x2="24" y2="37" stroke="#2a1f1c" stroke-width="2"/>
+                <circle cx="16" cy="18" r="3" fill="#2a1f1c"/><circle cx="32" cy="18" r="3" fill="#2a1f1c"/>
+                <circle cx="16" cy="29" r="3" fill="#2a1f1c"/><circle cx="32" cy="29" r="3" fill="#2a1f1c"/>
+                <circle cx="24" cy="24" r="3" fill="#2a1f1c"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/>
+                <circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 48 40"><ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/><circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 48 40"><ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/><circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 48 40"><ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/><circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 48 40"><ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/><circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 48 40"><ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/><circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 48 40"><ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/><circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 48 40"><ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/><circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 48 40"><ellipse cx="24" cy="24" rx="18" ry="14" fill="#e0544f"/><circle cx="24" cy="10" r="9" fill="#2a1f1c"/><circle cx="20" cy="8" r="1.6" fill="#fdf6ee"/><circle cx="28" cy="8" r="1.6" fill="#fdf6ee"/></svg></div>
+        </div>
+      </div>
+
+      <div class="candidate-card">
+        <div class="label">Candidate B — ladybug + magnifier</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 48 40">
+                <ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/>
+                <line x1="22" y1="12" x2="22" y2="36" stroke="#2a1f1c" stroke-width="1.8"/>
+                <circle cx="15" cy="19" r="2.7" fill="#2a1f1c"/><circle cx="29" cy="19" r="2.7" fill="#2a1f1c"/>
+                <circle cx="15" cy="29" r="2.7" fill="#2a1f1c"/><circle cx="29" cy="29" r="2.7" fill="#2a1f1c"/>
+                <circle cx="22" cy="24" r="2.7" fill="#2a1f1c"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/>
+                <circle cx="18.5" cy="9" r="1.4" fill="#fdf6ee"/><circle cx="25.5" cy="9" r="1.4" fill="#fdf6ee"/>
+                <circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/>
+                <line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 48 40">
+                <ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/>
+                <circle cx="22" cy="11" r="8" fill="#2a1f1c"/>
+                <circle cx="18.5" cy="9" r="1.4" fill="#fdf6ee"/><circle cx="25.5" cy="9" r="1.4" fill="#fdf6ee"/>
+                <circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/>
+                <line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 48 40"><ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/><circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/><line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 48 40"><ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/><circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/><line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 48 40"><ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/><circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/><line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 48 40"><ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/><circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/><line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 48 40"><ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/><circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/><line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 48 40"><ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/><circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/><line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 48 40"><ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/><circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/><line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 48 40"><ellipse cx="22" cy="24" rx="16" ry="13" fill="#e0544f"/><circle cx="22" cy="11" r="8" fill="#2a1f1c"/><circle cx="38" cy="30" r="6" fill="none" stroke="#2a1f1c" stroke-width="2.6"/><line x1="42.2" y1="34.2" x2="47" y2="39" stroke="#2a1f1c" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ---------- Random helper ---------- -->
+  <div class="helper-section">
+    <h3>2. Random helper</h3>
+    <div class="candidate-grid">
+
+      <div class="candidate-card">
+        <div class="label">Candidate A — plain butterfly</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <line x1="12" y1="6" x2="12" y2="18" stroke="#4a3220" stroke-width="1.4"/>
+                <path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/>
+                <path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/>
+                <path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/>
+                <path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/>
+                <circle cx="12" cy="6" r="1" fill="#4a3220"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <line x1="12" y1="6" x2="12" y2="18" stroke="#4a3220" stroke-width="1.4"/>
+                <path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/>
+                <path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/>
+                <path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/>
+                <path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/><path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/><path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/><path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/><path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/><path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/><path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/><path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/><path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/></svg></div>
+        </div>
+      </div>
+
+      <div class="candidate-card">
+        <div class="label">Candidate B — butterfly + sparkles</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <line x1="12" y1="6" x2="12" y2="18" stroke="#4a3220" stroke-width="1.4"/>
+                <path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/>
+                <path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/>
+                <path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/>
+                <path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/>
+                <circle cx="12" cy="6" r="1" fill="#4a3220"/>
+                <circle cx="20" cy="4" r="1.1" fill="#ffe17a"/>
+                <circle cx="3" cy="15" r="1.3" fill="#ffe17a"/>
+                <circle cx="21" cy="17" r="0.9" fill="#ffe17a"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <line x1="12" y1="6" x2="12" y2="18" stroke="#4a3220" stroke-width="1.4"/>
+                <path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/>
+                <path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/>
+                <path d="M12 10 C7 9 4 13 6 17 C8 20 11 17 12 13 Z" fill="#6f9bc4"/>
+                <path d="M12 10 C17 9 20 13 18 17 C16 20 13 17 12 13 Z" fill="#cdb15a"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><circle cx="20" cy="4" r="1.1" fill="#ffe17a"/><circle cx="3" cy="15" r="1.3" fill="#ffe17a"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><circle cx="20" cy="4" r="1.1" fill="#ffe17a"/><circle cx="3" cy="15" r="1.3" fill="#ffe17a"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><circle cx="20" cy="4" r="1.1" fill="#ffe17a"/><circle cx="3" cy="15" r="1.3" fill="#ffe17a"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><circle cx="20" cy="4" r="1.1" fill="#ffe17a"/><circle cx="3" cy="15" r="1.3" fill="#ffe17a"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><circle cx="20" cy="4" r="1.1" fill="#ffe17a"/><circle cx="3" cy="15" r="1.3" fill="#ffe17a"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><circle cx="20" cy="4" r="1.1" fill="#ffe17a"/><circle cx="3" cy="15" r="1.3" fill="#ffe17a"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><circle cx="20" cy="4" r="1.1" fill="#ffe17a"/><circle cx="3" cy="15" r="1.3" fill="#ffe17a"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><path d="M12 7 C6 2 2 6 4 11 C6 15 11 12 12 9 Z" fill="#a888c9"/><path d="M12 7 C18 2 22 6 20 11 C18 15 13 12 12 9 Z" fill="#c47bb0"/><circle cx="20" cy="4" r="1.1" fill="#ffe17a"/><circle cx="3" cy="15" r="1.3" fill="#ffe17a"/></svg></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ---------- Snowman / Hedgehog ---------- -->
+  <div class="helper-section">
+    <h3>3. Snowman slot (3 crosses) — hedgehog</h3>
+    <div class="candidate-grid">
+
+      <div class="candidate-card">
+        <div class="label">Candidate A — curled-up spiky hedgehog</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/>
+                <path d="M9 9 L7 6 M11 8 L10 4.5 M13 8 L14 4.5 M15 9 L17.5 6.5 M16.5 11 L19.5 9.5 M17 14 L20 14" stroke="#a9693a" stroke-width="1" stroke-linecap="round"/>
+                <circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/>
+                <circle cx="5.8" cy="15.5" r="0.5" fill="#3a2a18"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/>
+                <circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-locked">
+              <svg viewBox="0 0 24 24">
+                <path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/>
+                <circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/>
+              </svg>
+              <div class="charge-badge">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              </div>
+            </div>
+            <div class="state-caption">locked</div>
+            <div class="lock-level-caption">Lv.10</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/><circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/><circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/><circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/><circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/><circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/><circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/><circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><path d="M5 16 Q4 10 10 8 L9 5 L11.5 7.5 L13 5.5 L13.5 8 L16 6 L15 9 Q20 11 19 16 Q19 20 13 20 Q6 20 5 16 Z" fill="#cc8c5c"/><circle cx="7.3" cy="13.5" r="0.6" fill="#2a1f1c"/></svg></div>
+        </div>
+      </div>
+
+      <div class="candidate-card">
+        <div class="label">Candidate B — round ball hedgehog</div>
+        <div class="states-row">
+          <div class="state-cell">
+            <div class="helper-btn">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="13" r="8" fill="#cc8c5c"/>
+                <path d="M6 9 L4 6 M8 6.5 L6.5 3 M11 5.5 L10.5 2 M13 5.5 L13.5 2 M16 6.5 L17.5 3 M18 9 L20 6 M19.5 12 L22 11 M19.5 16 L22 17" stroke="#a9693a" stroke-width="1" stroke-linecap="round"/>
+                <circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/>
+                <circle cx="7" cy="14.5" r="0.5" fill="#3a2a18"/>
+              </svg>
+              <div class="charge-badge">3</div>
+            </div>
+            <div class="state-caption">normal, 3 charges</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-disabled">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="13" r="8" fill="#cc8c5c"/>
+                <circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/>
+              </svg>
+              <div class="charge-badge">0</div>
+            </div>
+            <div class="state-caption">0 charges (disabled)</div>
+          </div>
+          <div class="state-cell">
+            <div class="helper-btn is-locked">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="13" r="8" fill="#cc8c5c"/>
+                <circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/>
+              </svg>
+              <div class="charge-badge">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              </div>
+            </div>
+            <div class="state-caption">locked</div>
+            <div class="lock-level-caption">Lv.10</div>
+          </div>
+        </div>
+        <div class="on-tiles-row">
+          <div class="on-tile r0"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="#cc8c5c"/><circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r1"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="#cc8c5c"/><circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r2"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="#cc8c5c"/><circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r3"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="#cc8c5c"/><circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r4"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="#cc8c5c"/><circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r5"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="#cc8c5c"/><circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r6"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="#cc8c5c"/><circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/></svg></div>
+          <div class="on-tile r7"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="#cc8c5c"/><circle cx="8.5" cy="12.5" r="0.6" fill="#2a1f1c"/></svg></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

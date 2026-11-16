@@ -1,4 +1,13 @@
+@font-face {
+  font-family: 'Comfortaa';
+  src: url('../fonts/Comfortaa.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+}
+
 :root {
+  --font-ui: 'Segoe UI', 'Trebuchet MS', sans-serif;
   --bg-top: #16271c;
   --bg-bottom: #0a140e;
   --ink: #e9f1e7;
@@ -90,8 +99,16 @@ html, body {
   overflow: hidden;
   background: linear-gradient(160deg, var(--bg-top) 0%, var(--bg-bottom) 70%);
   color: var(--ink);
-  font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+  font-family: var(--font-ui);
   overscroll-behavior: contain;
+}
+
+html[data-theme="winter"] {
+  --font-ui: 'Comfortaa', 'Segoe UI', 'Trebuchet MS', sans-serif;
+}
+
+html[data-theme="winter"] button {
+  font-family: var(--font-ui);
 }
 
 #app {
@@ -1562,5 +1579,114 @@ html.reduce-motion .tutorial-hand {
   .bed-icon {
     width: 28px;
     height: 28px;
+  }
+}
+
+/* Winter game screen */
+:root {
+  --winter-icon-snow: #f7f0e7;
+  --winter-icon-blue: #325c83;
+  --winter-icon-gold: #e8b55d;
+  --winter-icon-berry: #b8413f;
+  --winter-icon-pine: #35684f;
+  --winter-control-shadow: 0 2px 5px rgba(112, 69, 42, 0.16);
+  --winter-compact-gap: 2px;
+  --winter-ui-gap: 6px;
+  --winter-frame-width: 9px;
+  --winter-board-gutter: 2px;
+  --winter-board-inset: 10px;
+  --winter-board-max: 560px;
+  --winter-board-landscape-min: 386px;
+  --winter-landscape-fit: 85dvh;
+  --winter-touch: 44px;
+  --winter-helper-size: 56px;
+  --winter-tracker-size: 24px;
+}
+
+html[data-theme="winter"] .game-screen .board-wrap {
+  padding: var(--winter-board-gutter);
+}
+
+html[data-theme="winter"] .game-screen .board {
+  position: relative;
+  /* The shared renderer sets inline dimensions and gaps for Garden. */
+  --winter-board-size: min(calc(100vw - 2 * var(--winter-board-gutter)), var(--winter-board-max));
+  width: var(--winter-board-size) !important;
+  height: var(--winter-board-size) !important;
+  flex-shrink: 0;
+  gap: var(--winter-compact-gap) !important;
+  padding: var(--winter-board-inset);
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme="winter"] .game-screen .board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: var(--winter-frame-width);
+  border-radius: inherit;
+  background: var(--board-frame-bg);
+  mask: linear-gradient(var(--panel) 0 0) content-box, linear-gradient(var(--panel) 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+html[data-theme="winter"] .game-screen :is(.icon-button, .rules-help-button, .helper-button) {
+  min-width: var(--winter-touch);
+  min-height: var(--winter-touch);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(var(--panel), var(--panel-soft));
+  box-shadow: var(--winter-control-shadow);
+}
+
+html[data-theme="winter"] .game-screen :is(.icon-button, .rules-help-button, .helper-button):active:not(:disabled) {
+  box-shadow: var(--shadow-inset);
+}
+
+html[data-theme="winter"] .game-screen .helper-button {
+  width: var(--winter-helper-size);
+  height: var(--winter-helper-size);
+}
+
+html[data-theme="winter"] .game-screen .topbar {
+  gap: var(--winter-ui-gap);
+}
+
+html[data-theme="winter"] .game-screen .bed-icon {
+  width: var(--winter-tracker-size);
+  height: var(--winter-tracker-size);
+}
+
+html[data-theme="winter"] .game-screen .rules-bar:not(.popup-mode) .rule-card {
+  background: linear-gradient(var(--panel), var(--panel-soft));
+  box-shadow: var(--winter-control-shadow);
+}
+
+@media (orientation: landscape) {
+  html[data-theme="winter"] .game-screen {
+    overflow-y: auto;
+  }
+
+  html[data-theme="winter"] .game-screen .board-wrap {
+    flex: 1 0 auto;
+  }
+
+  html[data-theme="winter"] .game-screen .board {
+    --winter-board-size: min(calc(100vw - 2 * var(--winter-board-gutter)), var(--winter-board-max), max(var(--winter-board-landscape-min), var(--winter-landscape-fit)));
+  }
+}
+
+@media (orientation: landscape) and (min-width: 690px) {
+  html[data-theme="winter"] .game-screen:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-auto-rows: min-content;
+    align-content: start;
+  }
+
+  html[data-theme="winter"] .game-screen .board-wrap {
+    grid-column: 2;
+    grid-row: 1 / span 4;
   }
 }
