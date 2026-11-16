@@ -16,6 +16,12 @@
   const SNOWMAN_CROSS_COUNT = 3;
   const RANDOM_CROSS_COUNT_OPTIONS = [4, 5];
 
+  // Charges of EACH helper granted on a milestone level's first-ever
+  // completion (see finishLevel) - reuses the exact same loadBestTime-based
+  // "already completed" guard that protects the total score, so a replay
+  // never re-grants it.
+  const MILESTONE_HELPER_REWARD = 1;
+
   // Grid size by level: 1-2 -> 4x4, 3-5 -> 5x5, 6-9 -> 6x6, 10-14 -> 7x7, 15+ -> 8x8.
   const SIZE_THRESHOLDS = [
     { minLevel: 1, size: 4 },
@@ -45,15 +51,26 @@
   }
 
   // Pure, deterministic level construction: level N always produces the exact
-  // same regions, solution, and pre-placed flower, for every player and every
-  // reload, because it is derived entirely from a PRNG seeded by the level
-  // number (never Math.random).
+  // same regions and solution, for every player and every reload, because
+  // it is derived entirely from a PRNG seeded by the level number (never
+  // Math.random). The start set (which cells begin pre-placed) is decided
+  // separately by Garden.levelstart.buildLevelStart, from its own dedicated
+  // RNG stream that never touches - and so can never perturb - the
+  // generation draws above (see js/levelstart.js).
   function buildLevel(levelNumber) {
     const size = gridSizeForLevel(levelNumber);
     const rng = root.Garden.rng.createRng(levelNumber);
     const generated = root.Garden.generator.generateLevel(size, rng);
-    const givenIndex = Math.floor(rng() * generated.solution.length);
-    return { size, regionOf: generated.regionOf, solution: generated.solution, givenIndex };
+    const start = root.Garden.levelstart.buildLevelStart(levelNumber, generated.solution, size);
+    return {
+      size,
+      regionOf: generated.regionOf,
+      solution: generated.solution,
+      startType: start.type,
+      levelKind: start.kind,
+      givenFlowers: start.givenFlowers,
+      crossCells: start.crossCells,
+    };
   }
 
   // A seed for Random's own PRNG stream - deliberately separate from the
@@ -112,6 +129,8 @@
     let randomUseCount = 0;
     let awardedCells = new Set(); // 'row,col' already scored this attempt - safeguard against double-awarding
     let levelStartTime = Date.now();
+    let startType = root.Garden.levelstart.START_TYPES.GIFT; // this level's start type ('gift'|'none'|'rich'|'notes')
+    let levelKindValue = 'normal'; // 'normal'|'milestone' - see Garden.levelstart.levelKind
 
     function cellKey(row, col) {
       return row + ',' + col;
@@ -144,6 +163,8 @@
         totalScore: status === 'won' ? committedScore : committedScore + levelScore,
         perfect: lives === MAX_LIVES,
         helpers: buildHelperSnapshot(),
+        startType,
+        levelKind: levelKindValue,
       };
     }
 
@@ -179,11 +200,25 @@
       grid = gridModule.createGrid(built.size, built.regionOf);
       solutionKeys = new Set(built.solution.map((pos) => cellKey(pos.row, pos.col)));
       solutionList = built.solution;
+      startType = built.startType;
+      levelKindValue = built.levelKind;
 
-      const given = built.solution[built.givenIndex];
-      const givenCell = grid.cells[given.row][given.col];
-      givenCell.state = CellState.FLOWER;
-      givenCell.locked = true;
+      // Pre-placed pieces/crosses: locked, earn no points, and (like the old
+      // single pre-placed flower) never added to awardedCells. `given` is
+      // purely a rendering hook (see render.js's data-given attribute) - no
+      // game-rule logic ever reads it.
+      built.givenFlowers.forEach(function (pos) {
+        const cell = grid.cells[pos.row][pos.col];
+        cell.state = CellState.FLOWER;
+        cell.locked = true;
+        cell.given = true;
+      });
+      built.crossCells.forEach(function (pos) {
+        const cell = grid.cells[pos.row][pos.col];
+        cell.state = CellState.X;
+        cell.locked = true;
+        cell.given = true;
+      });
 
       const saved = platform.loadBoard(levelNumber);
       if (saved && Array.isArray(saved.cells) && saved.cells.length === built.size) {
@@ -259,9 +294,20 @@
         platform.saveTotalScore(committedScore);
       }
 
+      // Milestone reward: +1 charge of EACH helper, granted only on a
+      // milestone level's first-ever completion - same loadBestTime-based
+      // guard as the total score above, so a replay never re-grants it, and
+      // always credited through Garden.helpers.addCharges (which persists
+      // immediately), never a direct storage write.
+      let milestoneReward = null;
+      if (!alreadyCompletedBefore && levelKindValue === 'milestone') {
+        Helpers.HELPER_IDS.forEach(function (id) { Helpers.addCharges(id, MILESTONE_HELPER_REWARD); });
+        milestoneReward = { amount: MILESTONE_HELPER_REWARD };
+      }
+
       status = 'won';
       platform.clearBoard(level);
-      emit({ scoreGain, winFill, rating, elapsedSeconds, bestTimeSeconds, helperPlant: helperPlant || null });
+      emit({ scoreGain, winFill, rating, elapsedSeconds, bestTimeSeconds, helperPlant: helperPlant || null, milestoneReward });
     }
 
     function attemptFlower(row, col, cell) {
@@ -515,6 +561,7 @@
     HELPER_LOCK_MS,
     SNOWMAN_CROSS_COUNT,
     RANDOM_CROSS_COUNT_OPTIONS,
+    MILESTONE_HELPER_REWARD,
   };
 
   root.Garden = root.Garden || {};

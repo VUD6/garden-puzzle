@@ -15,7 +15,7 @@
     for (let row = 0; row < size; row++) {
       const rowCells = [];
       for (let col = 0; col < size; col++) {
-        rowCells.push({ row, col, region: regionOf[row][col], state: CellState.EMPTY, locked: false });
+        rowCells.push({ row, col, region: regionOf[row][col], state: CellState.EMPTY, locked: false, given: false });
       }
       cells.push(rowCells);
     }

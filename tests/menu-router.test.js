@@ -78,6 +78,20 @@ async function main() {
   withPlayerFlower.awardedCells = ['3,0'];
   assert(Menu.hasProgress(withPlayerFlower) === true, 'a player-planted (awarded) flower counts as progress');
 
+  // --- A "notes"-type level's pre-placed crosses (js/levelstart.js) are
+  // locked, unlike a player's own X - they must never register as progress.
+  const onlyGivenCross = emptyBoard(4);
+  onlyGivenCross.cells[1][1] = { state: Grid.CellState.X, locked: true };
+  onlyGivenCross.cells[2][3] = { state: Grid.CellState.X, locked: true };
+  assert(Menu.hasProgress(onlyGivenCross) === false, 'only pre-placed (locked) crosses -> no progress');
+
+  // --- A "rich"-type level's multiple pre-placed flowers, same as the
+  // single pre-placed flower case: none of them are in awardedCells.
+  const onlyGivenRich = emptyBoard(4);
+  onlyGivenRich.cells[0][1] = { state: Grid.CellState.FLOWER, locked: true };
+  onlyGivenRich.cells[2][3] = { state: Grid.CellState.FLOWER, locked: true };
+  assert(Menu.hasProgress(onlyGivenRich) === false, 'only multiple pre-placed flowers (rich start) -> no progress');
+
   // --- Menu: shouldShowDailyLock() ---
   assert(Menu.shouldShowDailyLock(1) === true, 'daily lock shows before level 15 (level 1)');
   assert(Menu.shouldShowDailyLock(14) === true, 'daily lock shows just before unlock (level 14)');

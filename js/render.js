@@ -157,6 +157,8 @@
       dom.vibrationUnsupportedNote.textContent = I18n.t('vibrationUnsupportedNote');
       dom.settingsCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
       dom.replayTutorialButton.textContent = I18n.t('replayTutorialButton');
+      dom.milestoneBannerTitle.textContent = I18n.t('milestoneBannerTitle');
+      dom.milestoneBannerCaption.textContent = I18n.t('milestoneBannerCaption');
     }
 
     // Refreshes every themed icon that's baked as static innerHTML rather
@@ -224,6 +226,9 @@
           const el = document.createElement('div');
           el.dataset.row = String(row);
           el.dataset.col = String(col);
+          // Hook for the design agent's styling of pre-placed cells (pieces
+          // and crosses, see js/levelstart.js) - never read by game logic.
+          if (cell.given) el.dataset.given = 'true';
 
           const patternEl = document.createElement('div');
           patternEl.className = 'cell-pattern pattern-' + patternIdx;
@@ -514,6 +519,20 @@
       dom.winMessage.textContent = I18n.t('scoreEarnedLabel', { amount: snapshot.levelScore });
       dom.bestTimeLine.textContent = I18n.t('bestTimeLabel', { time: formatTime(snapshot.bestTimeSeconds) });
 
+      // Milestone reward: +1 charge of each helper, shown only on the
+      // milestone level's first-ever completion (see state.js's
+      // finishLevel) - same reward-badge/reward-pop markup and animation
+      // the daily check-in's reward already uses, so Reduce Motion is
+      // honored for free via the existing html.reduce-motion CSS override.
+      if (snapshot.milestoneReward) {
+        dom.milestoneRewardIcons.innerHTML = Helpers.HELPER_IDS.map(helperIconFor).join('');
+        dom.milestoneRewardAmount.textContent = '+' + snapshot.milestoneReward.amount;
+        dom.milestoneRewardBadge.hidden = false;
+        triggerOneShotAnim(dom.milestoneRewardBadge, 'reward-pop');
+      } else {
+        dom.milestoneRewardBadge.hidden = true;
+      }
+
       dom.winOverlay.hidden = false;
     }
 
@@ -527,12 +546,20 @@
       if (!dropEls) buildLives(snapshot.maxLives);
       syncLives(snapshot.lives, snapshot.maxLives, snapshot.mistake ? snapshot.mistake.lostLifeIndex : null);
 
+      // Styling hooks for the design agent (js/levelstart.js's start type/
+      // level kind) - never read by game logic, so safe to set unconditionally.
+      dom.boardWrap.dataset.startType = snapshot.startType;
+      dom.boardWrap.dataset.levelKind = snapshot.levelKind;
+
       if (snapshot.grid !== renderedGrid) {
         buildBoard(snapshot.grid);
         buildBedTracker(snapshot.grid);
         renderedGrid = snapshot.grid;
         rulesPopupOpen = false;
         applyRulesMode(snapshot.level);
+        // Shown for the whole time a milestone level is open, hidden
+        // otherwise - toggled only on actually entering a (new) level.
+        dom.milestoneBanner.hidden = snapshot.levelKind !== 'milestone';
       } else {
         syncCells(snapshot.grid, snapshot.helperPlant);
         syncBedTracker(snapshot.grid);

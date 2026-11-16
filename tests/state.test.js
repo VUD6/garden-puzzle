@@ -6,6 +6,7 @@ require('../js/grid.js');
 require('../js/rules.js');
 require('../js/solver.js');
 require('../js/generator.js');
+require('../js/levelstart.js');
 
 function makeMemoryStorage() {
   const map = new Map();

@@ -5,9 +5,13 @@
   const DAILY_CHALLENGE_UNLOCK_LEVEL = 15;
 
   // True once the saved board holds at least one player move beyond the
-  // pre-placed starting flower: an X, a red X, or a flower the player
-  // actually planted (tracked via awardedCells - the pre-placed flower is
-  // never added there, see state.js).
+  // level's pre-placed starting set (any number of given flowers/crosses,
+  // see js/levelstart.js): an X, a red X, or a flower the player actually
+  // planted (tracked via awardedCells - a given flower is never added
+  // there, see state.js). A plain X is only ever locked when it's a
+  // pre-placed cross (state.js's startLevel) - a player's own X mark is
+  // always unlocked - so the locked check is what keeps a "notes"-type
+  // level's pre-placed crosses from counting as progress.
   function hasProgress(saved) {
     if (!saved || !Array.isArray(saved.cells)) return false;
     const awarded = new Set(Array.isArray(saved.awardedCells) ? saved.awardedCells : []);
@@ -17,7 +21,8 @@
       for (let col = 0; col < rowCells.length; col++) {
         const cell = rowCells[col];
         if (!cell) continue;
-        if (cell.state === CellState.X || cell.state === CellState.WRONG) return true;
+        if (cell.state === CellState.X && !cell.locked) return true;
+        if (cell.state === CellState.WRONG) return true;
         if (cell.state === CellState.FLOWER && awarded.has(row + ',' + col)) return true;
       }
     }

@@ -104,6 +104,10 @@
       </button>
     </div>
   </header>
+  <div class="milestone-banner" id="milestoneBanner" hidden>
+    <span class="milestone-banner-title" id="milestoneBannerTitle"></span>
+    <span class="milestone-banner-caption" id="milestoneBannerCaption"></span>
+  </div>
   <div class="rules-area" id="rulesArea">
     <button class="rules-help-button" id="rulesHelpButton" type="button" hidden>?</button>
     <section class="rules-bar" id="rulesBar">
@@ -189,6 +193,10 @@
       <p class="rank-title" id="rankTitle"></p>
       <p id="winMessage"></p>
       <p class="best-time" id="bestTimeLine"></p>
+      <div class="reward-badge" id="milestoneRewardBadge" hidden>
+        <span class="helper-reward-icons" id="milestoneRewardIcons"></span>
+        <span id="milestoneRewardAmount"></span>
+      </div>
       <button id="nextLevelButton" type="button"></button>
     </div>
   </div>
@@ -283,6 +291,7 @@
 <script src="js/rules.js"></script>
 <script src="js/solver.js"></script>
 <script src="js/generator.js"></script>
+<script src="js/levelstart.js"></script>
 <script src="js/helpers.js"></script>
 <script src="js/state.js"></script>
 <script src="js/menu.js"></script>

@@ -9,6 +9,7 @@ require('../js/grid.js');
 require('../js/rules.js');
 require('../js/solver.js');
 require('../js/generator.js');
+require('../js/levelstart.js');
 
 function makeMemoryStorage() {
   const map = new Map();
@@ -82,7 +83,15 @@ for (const level of LEVELS) {
     JSON.stringify(underWinter.solution) === JSON.stringify(underGarden.solution),
     `level ${level}: solution identical regardless of active theme`
   );
-  assert(underWinter.givenIndex === underGarden.givenIndex, `level ${level}: pre-placed flower index identical regardless of active theme`);
+  assert(underWinter.startType === underGarden.startType, `level ${level}: start type identical regardless of active theme`);
+  assert(
+    JSON.stringify(underWinter.givenFlowers) === JSON.stringify(underGarden.givenFlowers),
+    `level ${level}: pre-placed flowers identical regardless of active theme`
+  );
+  assert(
+    JSON.stringify(underWinter.crossCells) === JSON.stringify(underGarden.crossCells),
+    `level ${level}: pre-placed crosses identical regardless of active theme`
+  );
 }
 
 // --- garden theme stays exactly today's look ---

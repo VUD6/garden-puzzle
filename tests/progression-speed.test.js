@@ -5,6 +5,7 @@ require('../js/grid.js');
 require('../js/rules.js');
 require('../js/solver.js');
 require('../js/generator.js');
+require('../js/levelstart.js');
 
 function makeMemoryStorage() {
   const map = new Map();
@@ -47,10 +48,15 @@ for (const level of Object.keys(EXPECTED)) {
   assert(actualSize === expectedSize, `level ${level}: grid size is ${expectedSize} (got ${actualSize})`);
 }
 
-// --- Exactly one pre-placed locked flower at every size in the progression ---
+// --- Every size in the progression gets a valid start descriptor ---
+const VALID_START_TYPES = new Set(Object.values(globalThis.Garden.levelstart.START_TYPES));
 for (const level of [1, 3, 6, 10, 15]) {
   const built = State.buildLevel(level);
-  assert(built.givenIndex >= 0 && built.givenIndex < built.solution.length, `level ${level}: has a valid pre-placed flower index`);
+  assert(VALID_START_TYPES.has(built.startType), `level ${level}: has a valid start type (got ${built.startType})`);
+  assert(
+    built.givenFlowers.every((pos) => pos.row >= 0 && pos.row < built.size && pos.col >= 0 && pos.col < built.size),
+    `level ${level}: every pre-placed flower is within bounds`
+  );
 }
 
 // --- 8x8 generation must be fast (well under 1 second), across many real seeds ---

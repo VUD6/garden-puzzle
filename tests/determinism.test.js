@@ -7,6 +7,7 @@ require('../js/grid.js');
 require('../js/rules.js');
 require('../js/solver.js');
 require('../js/generator.js');
+require('../js/levelstart.js');
 require('../js/platform.js');
 require('../js/state.js');
 
@@ -43,7 +44,9 @@ for (const level of LEVELS) {
   assert(a.size === b.size, `level ${level}: size identical across two builds`);
   assert(regionsEqual(a.regionOf, b.regionOf), `level ${level}: regionOf (beds/colors) identical across two builds`);
   assert(JSON.stringify(a.solution) === JSON.stringify(b.solution), `level ${level}: solution identical across two builds`);
-  assert(a.givenIndex === b.givenIndex, `level ${level}: pre-placed flower index identical across two builds`);
+  assert(a.startType === b.startType, `level ${level}: start type identical across two builds`);
+  assert(JSON.stringify(a.givenFlowers) === JSON.stringify(b.givenFlowers), `level ${level}: pre-placed flowers identical across two builds`);
+  assert(JSON.stringify(a.crossCells) === JSON.stringify(b.crossCells), `level ${level}: pre-placed crosses identical across two builds`);
 }
 
 // Sanity: different levels should (almost always) differ from each other -
