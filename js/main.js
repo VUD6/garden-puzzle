@@ -1,5 +1,32 @@
 // Bootstraps the game: wires DOM refs to state.js, render.js, and input.js.
 (function (root) {
+  // iOS/WebKit pinch-zoom guard (part of the double-tap-zoom bug fix - see
+  // css/style.css's touch-action block and js/input.js's/js/tutorial.js's
+  // touchend guard for the rest of it). 'gesturestart'/'gesturechange'/
+  // 'gestureend' are WebKit-only, non-standard events (they simply never
+  // fire on Chrome/Firefox/Android, so no feature-detection is needed);
+  // preventDefault()-ing them is the one reliable way to block a pinch
+  // gesture on iOS regardless of the viewport meta tag (iOS has ignored
+  // user-scalable=no for pinch since iOS 10). Scoped to the game screen and
+  // the tutorial overlay only, where pinch would break the board's fixed
+  // layout - deliberately NOT applied to settings/check-in/win/fail
+  // overlays, so a low-vision player can still pinch-zoom that text.
+  // Registered at document level before DOMContentLoaded (rather than
+  // waiting on a specific element) since it's independent of the DOM build
+  // below and needs to be live as early as possible.
+  function isPinchGuardedTarget(target) {
+    return !!(target && target.closest && target.closest('.game-screen, .tutorial-overlay'));
+  }
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (type) {
+    document.addEventListener(
+      type,
+      function (event) {
+        if (isPinchGuardedTarget(event.target)) event.preventDefault();
+      },
+      { passive: false }
+    );
+  });
+
   document.addEventListener('DOMContentLoaded', function () {
     const Garden = root.Garden;
 

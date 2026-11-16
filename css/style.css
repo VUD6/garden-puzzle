@@ -103,6 +103,29 @@ html, body {
   overscroll-behavior: contain;
 }
 
+/* --- iOS/WebKit double-tap-zoom bug fix (isolated block; see js/main.js's
+   gesturestart/gesturechange/gestureend guard and js/input.js's/
+   js/tutorial.js's touchend guard for the rest of it - CSS alone is not
+   reliable enough on iOS Safari-engine browsers, worse still in
+   third-party WKWebView wrappers like Yandex Browser on iOS).
+   touch-action: manipulation disables the native double-tap-to-zoom
+   gesture and the legacy ~300ms tap delay; set on html/body it becomes the
+   effective minimum for every element via the CSS touch-action
+   ancestor-intersection rule (a descendant can only restrict further,
+   never loosen it), so this alone already covers the board's own frame/
+   gap padding, the rules bar, helper buttons, and every overlay - not just
+   .board/.cell below, which keep their own stronger touch-action: none.
+   -webkit-touch-callout/-webkit-user-select stop the long-press "callout"
+   menu and stray text selection on the board and buttons. */
+html, body, button {
+  touch-action: manipulation;
+}
+
+.board, .cell, button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+
 html[data-theme="winter"] {
   --font-ui: 'Comfortaa', 'Segoe UI', 'Trebuchet MS', sans-serif;
 }

@@ -40,6 +40,10 @@
 
   function createTutorial(dom) {
     const markFor = root.Garden.render.markFor;
+    // Same iOS double-tap-zoom guard the game board uses (js/input.js) -
+    // the tutorial's own first step teaches exactly the double-tap-to-plant
+    // gesture that triggers it, so it needs the same fix.
+    root.Garden.input.attachDoubleTapZoomGuard(dom.tutorialBoard);
 
     let cellEls = null; // [row][col] -> { el, markEl }
     let cellStates = null; // [row][col] -> { state, locked }
