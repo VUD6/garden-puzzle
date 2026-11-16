@@ -36,15 +36,15 @@
 
   const RANK_KEY_BY_RATING = { 1: 'rankGardener', 2: 'rankSkilledGardener', 3: 'rankMasterGardener' };
 
-  // --- Helper icons: TEMPORARY placeholders (a plain letter glyph per
-  // helper) routed through this one function, so a later design pass can
-  // drop in real art for all three just by rewriting its body - no other
-  // call site (checkin.js's reward preview, this file's own render loop)
-  // needs to change. Theme-neutral on purpose: unlike the piece art, these
-  // aren't meant to be part of the final design either way. ---
+  // --- Helper icons: ask the active theme for real art first (Themes.
+  // getCurrentTheme().helperIconSvg(id)); if the theme has none (returns
+  // null/undefined) or doesn't implement it, fall back to a plain letter
+  // glyph per helper, routed through this one function so no other call
+  // site (checkin.js's reward preview, this file's own render loop) needs
+  // to change once a theme fills in real art. ---
   const HELPER_GLYPH_BY_ID = { finder: 'F', random: '?', snowman: 'S' };
 
-  function helperIconFor(id) {
+  function helperFallbackGlyph(id) {
     const glyph = HELPER_GLYPH_BY_ID[id] || '?';
     return (
       '<svg viewBox="0 0 24 24" aria-hidden="true">' +
@@ -52,6 +52,12 @@
       glyph +
       '</text></svg>'
     );
+  }
+
+  function helperIconFor(id) {
+    const theme = Themes.getCurrentTheme();
+    const themed = theme.helperIconSvg && theme.helperIconSvg(id);
+    return themed || helperFallbackGlyph(id);
   }
 
   // Shared lock glyph - identical to the one already used on the main
@@ -154,16 +160,23 @@
     }
 
     // Refreshes every themed icon that's baked as static innerHTML rather
-    // than recomputed on every render: just the 3 mascot slots (loading
-    // screen, menu, tutorial bubble). The helper buttons' icons are
-    // deliberately theme-neutral placeholders (see helperIconFor above), so
-    // they don't need a themed refresh here.
+    // than recomputed on every render: the 3 mascot slots (loading screen,
+    // menu, tutorial bubble) plus each unlocked helper button's icon (see
+    // helperIconFor above). Locked buttons keep HELPER_LOCK_SVG - that one
+    // isn't theme-derived - so they're skipped here and left for
+    // renderHelperButton to redraw once unlocked.
     function refreshThemedIcons() {
       const theme = Themes.getCurrentTheme();
       const mascot = Themes.mascotSvg(theme.wantsSantaHat);
       dom.loadingMascot.innerHTML = mascot;
       dom.menuMascot.innerHTML = mascot;
       dom.tutorialMascot.innerHTML = mascot;
+      Object.keys(helperEls).forEach(function (id) {
+        const els = helperEls[id];
+        if (!els.button.classList.contains('is-locked')) {
+          els.icon.innerHTML = helperIconFor(id);
+        }
+      });
     }
 
     function renderHelperButton(id, info) {
