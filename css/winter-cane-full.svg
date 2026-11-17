@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <pattern id="stripes" patternUnits="userSpaceOnUse" width="9" height="9" patternTransform="rotate(40)">
+      <rect width="9" height="9" fill="#fbf2e4"/>
+      <rect width="4.5" height="9" fill="#b8413f"/>
+    </pattern>
+  </defs>
+  <g fill="none" stroke-linecap="round" transform="rotate(15 17 17)">
+    <path d="M10 27V12a7 7 0 0 1 14 0v2" stroke="#573421" stroke-width="9"/>
+    <path d="M10 27V12a7 7 0 0 1 14 0v2" stroke="url(#stripes)" stroke-width="6"/>
+  </g>
+</svg>

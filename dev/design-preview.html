@@ -102,6 +102,9 @@ button:focus-visible {outline:var(--press) solid var(--blue);outline-offset:var(
 .game .tutorial {margin-block-start:auto}
 .symbols {position:absolute;width:0;height:0;overflow:hidden}
 @media (prefers-reduced-motion:reduce) {.control:active:not(:disabled){transform:none}}
+.lives-zoom {
+  --winter-candy-size: calc(32px * var(--winter-candy-preview-scale));
+}
 </style>
 <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <symbol id="cross" viewBox="0 0 32 32"><path d="m10 10 12 12m0-12L10 22" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></symbol>
@@ -168,7 +171,7 @@ button:focus-visible {outline:var(--press) solid var(--blue);outline-offset:var(
     <section class="phone game" aria-label="Игровой экран">
       <div class="topbar">
         <button class="control round" aria-label="Назад"><svg class="ico" aria-hidden="true"><use href="#back"/></svg></button>
-        <div><div class="level">Уровень 5</div><div class="lives" aria-label="2 из 3 жизней"><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"><path/></svg><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"><path/></svg><svg class="ico drop-empty" viewBox="0 0 24 24" aria-hidden="true"><path/></svg></div></div>
+        <div><div class="level">Уровень 5</div><div class="lives" aria-label="2 из 3 жизней"><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-empty" viewBox="0 0 24 24" aria-hidden="true"></svg></div></div>
         <button class="control round" aria-label="Настройки"><svg class="ico" aria-hidden="true"><use href="#settings"/></svg></button>
       </div>
       <div class="milestone-banner"><span class="milestone-banner-title">Праздничный уровень!</span></div>
@@ -236,6 +239,14 @@ button:focus-visible {outline:var(--press) solid var(--blue);outline-offset:var(
         <span class="tile r6"></span><span class="tile r6"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r4"></span><span class="tile r4"></span><span class="tile r5"></span><span class="tile r5 wrong"><svg class="ico" aria-hidden="true"><use href="#cross"/></svg></span>
         <span class="tile r6"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r7"></span><span class="tile r5"></span><span class="tile r5"></span>
       </div>
+    </section>
+  </figure>
+  <figure><figcaption>Жизни · увеличение 3×</figcaption>
+    <section class="phone samples lives-zoom" aria-label="Состояния жизней">
+      <div class="card"><p>3 из 3</p><div class="lives"><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"></svg></div></div>
+      <div class="card"><p>2 из 3</p><div class="lives"><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-empty" viewBox="0 0 24 24" aria-hidden="true"></svg></div></div>
+      <div class="card"><p>1 из 3</p><div class="lives"><svg class="ico drop-filled" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-empty" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-empty" viewBox="0 0 24 24" aria-hidden="true"></svg></div></div>
+      <div class="card"><p>0 из 3</p><div class="lives"><svg class="ico drop-empty" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-empty" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ico drop-empty" viewBox="0 0 24 24" aria-hidden="true"></svg></div></div>
     </section>
   </figure>
 </main>
