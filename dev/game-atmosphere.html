@@ -131,11 +131,11 @@ const cross = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" s
 for(let i = 0; i < 64; i++) {
  const cell = document.createElement('div');
  cell.className = 'cell region-' + (Math.floor(i / 8) % 8);
- const given = i === 0;
+ const given = i % 8 === 0;
  if(given) { cell.dataset.given = 'true'; cell.classList.add('locked'); }
  const mark = document.createElement('div');
  mark.className = 'cell-mark';
- if(i === 0 || i === 1) mark.innerHTML = cross;
+ if(i % 8 === 0 || i % 8 === 1) mark.innerHTML = cross;
  cell.setAttribute('aria-label', given ? 'Подаренный крестик' : i === 1 ? 'Обычный крестик' : 'Клетка');
  cell.appendChild(mark);
  board.appendChild(cell);

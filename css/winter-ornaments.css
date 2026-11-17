@@ -154,3 +154,78 @@ html[data-theme="winter"] .game-screen .cell[data-given="true"]:has(> .cell-mark
   border-radius: var(--radius-pill);
   pointer-events: none;
 }
+
+/* Evening revision: viewport scene, readable labels, and cookie hint crosses. */
+:root {
+  --winter-evening-top: #70584c;
+  --winter-evening-bottom: #a0876d;
+  --winter-evening-snow: #fbf2e4;
+  --winter-evening-firs-height: 150px;
+  --winter-evening-flake-duration: 30s;
+  --winter-gift-cross-art: url("winter-gift-cross.svg");
+  --winter-garland-bow: url("winter-milestone-bow.svg");
+  --winter-garland-height: 26px;
+  --winter-garland-rise: 18px;
+  --winter-garland-bow-width: 44px;
+  --winter-caption-padding: 6px;
+  --winter-game-top-inset: 8px;
+}
+html[data-theme="winter"] #app:has(.game-screen:not([hidden])) {
+  isolation: isolate;
+}
+html[data-theme="winter"] #app:has(.game-screen:not([hidden]))::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    var(--winter-game-firs-art) bottom / auto var(--winter-evening-firs-height) repeat-x,
+    var(--winter-game-snow-art) bottom / 100% 100% no-repeat,
+    linear-gradient(var(--winter-evening-top), var(--winter-evening-bottom));
+}
+html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .game-screen {
+  isolation: auto;
+}
+html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .game-screen::before {
+  content: none;
+}
+html[data-theme="winter"] .game-screen .topbar {
+  padding-top: max(var(--winter-game-top-inset), env(safe-area-inset-top));
+}
+html[data-theme="winter"] .game-screen .helper-lock-caption:not([hidden]) {
+  color: var(--ink);
+  background: var(--panel);
+  padding-inline: var(--winter-caption-padding);
+  border-radius: var(--radius-pill);
+}
+html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .particle {
+  background: var(--winter-evening-snow);
+  animation-duration: var(--winter-evening-flake-duration);
+}
+html[data-theme="winter"] .game-screen:has(#milestoneBanner:not([hidden])) .board::after {
+  top: calc(-1 * var(--winter-garland-rise));
+  left: 0;
+  right: 0;
+  height: var(--winter-garland-height);
+  background:
+    var(--winter-garland-bow) center / var(--winter-garland-bow-width) 100% no-repeat,
+    var(--winter-garland-art) center bottom / auto 100% repeat-x;
+}
+html[data-theme="winter"] .game-screen .cell[data-given="true"]:has(> .cell-mark > svg > line)::after {
+  content: none;
+}
+html[data-theme="winter"] .game-screen .cell[data-given="true"] > .cell-mark:has(> svg > line) {
+  background: var(--winter-gift-cross-art) center / contain no-repeat;
+}
+html[data-theme="winter"] .game-screen .cell[data-given="true"] > .cell-mark > svg:has(> line) {
+  visibility: hidden;
+}
+
+:root { --winter-garland-tracker-lift: -8px; --winter-firs-repeat-width: 560px; }
+html[data-theme="winter"] .game-screen:has(#milestoneBanner:not([hidden])) .bed-tracker {
+  transform: translateY(var(--winter-garland-tracker-lift));
+}
+html[data-theme="winter"] #app:has(.game-screen:not([hidden]))::before {
+  background-size: var(--winter-firs-repeat-width) var(--winter-evening-firs-height), 100% 100%, 100% 100%;
+}

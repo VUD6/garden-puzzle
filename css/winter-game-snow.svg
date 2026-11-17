@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 800" preserveAspectRatio="none">
-<g fill="#fbf2e4" opacity=".65">
-<path d="M0 0h400v15q-50-13-100 2T200 13 100 20 0 14Z"/>
-<path d="M0 0h12q-10 90 0 180t-4 210 3 210L0 800Z"/>
-<path d="M400 0h-12q10 90 0 180t4 210-3 210l11 200Z"/>
-</g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" preserveAspectRatio="none">
+<path d="M0 770Q190 650 400 773T800 758 1200 730V900H0Z" fill="#c3b29d"/>
+<path d="M0 828Q210 734 440 832T850 818 1200 785V900H0Z" fill="#e4d5c1"/>
+<path d="M0 880Q210 812 450 879T850 875 1200 855V900H0Z" fill="#fbf2e4"/>
+</svg>
