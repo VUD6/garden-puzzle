@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Клумба — варианты настроек</title>
+<style>
+@font-face {
+  font-family: Comfortaa;
+  src: url("../fonts/Comfortaa.ttf") format("truetype");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --page: #efe3d4;
+  --ink: #4a3220;
+  --cream: #fff8f0;
+  --sand: #f6e9d8;
+  --edge: #cfb99f;
+  --pine: #285641;
+  --pine-deep: #183d2d;
+  --pine-soft: #38604d;
+  --berry: #b8413f;
+  --stripe-cream: #fbf2e4;
+  --switch-off: #796655;
+  --fog: rgba(42, 32, 27, .55);
+  --shadow: 0 12px 32px rgba(55, 35, 24, .28);
+  --touch: 44px;
+  --frame-width: 430px;
+  --frame-max-height: 740px;
+  --frame-radius: 26px;
+  --card-radius: 24px;
+  --gap: 8px;
+  --pad: 16px;
+  --board-size: 320px;
+  --stripe: 8px;
+  --paper-rim: 5px;
+  --paper-inset: 3px;
+  --focus-size: 2px;
+  --thin: 1px;
+  --pill: 999px;
+  --knob: 20px;
+  --track-width: 42px;
+  --track-height: 26px;
+  --track-inset: 3px;
+  --switch-travel: 16px;
+  --text: .875rem;
+  --title: 1.25rem;
+  --bed-a: #e67c8a;
+  --bed-b: #85beaa;
+  --bed-c: #eabf59;
+  --bed-d: #86a9d8;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: var(--gap);
+  background: var(--page);
+  color: var(--ink);
+  font: 700 var(--text)/1.45 Comfortaa, system-ui, sans-serif;
+}
+main { max-width: var(--frame-width); margin-inline: auto; }
+h1, h2 { margin: 0; font-size: var(--title); }
+.nav { display: flex; flex-wrap: wrap; gap: var(--gap); margin-block: var(--gap); }
+a, button, .segment label {
+  display: inline-flex;
+  min-width: var(--touch);
+  min-height: var(--touch);
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav a {
+  flex: 1;
+  padding-inline: var(--gap);
+  border: var(--thin) solid var(--edge);
+  border-radius: var(--pill);
+  background: var(--cream);
+  text-align: center;
+}
+body:not(:has(.nav :target)) #cream,
+.nav a:target {
+  color: var(--cream);
+  background: var(--pine);
+}
+
+.phone {
+  position: relative;
+  isolation: isolate;
+  height: min(var(--frame-max-height), calc(100dvh - 7rem));
+  min-height: calc(var(--touch) * 3);
+  border-radius: var(--frame-radius);
+  overflow: hidden;
+  background: linear-gradient(var(--cream), var(--sand));
+}
+.board-scene {
+  display: grid;
+  justify-content: center;
+  justify-items: center;
+  gap: var(--pad);
+  padding: var(--pad);
+}
+.board {
+  width: min(100%, var(--board-size));
+  border-radius: var(--card-radius);
+}
+.shade {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--gap);
+  background: var(--fog);
+}
+.phone:target .shade { display: none; }
+
+.popup {
+  --card: var(--cream);
+  --label-ink: var(--ink);
+  --control: var(--sand);
+  --line: var(--edge);
+  --action: var(--pine);
+  --action-ink: var(--cream);
+  --focus: var(--pine-deep);
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: var(--thin) solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--card);
+  color: var(--label-ink);
+  box-shadow: var(--shadow);
+}
+body:has(#pine:target) .popup {
+  --card: var(--pine-deep);
+  --label-ink: var(--cream);
+  --control: var(--pine-soft);
+  --line: var(--pine-soft);
+  --action: var(--cream);
+  --action-ink: var(--pine-deep);
+  --focus: var(--cream);
+}
+body:has(#paper:target) .popup {
+  --card: var(--sand);
+  --control: var(--cream);
+  border: var(--paper-rim) solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    repeating-linear-gradient(45deg, var(--berry) 0 var(--stripe),
+      var(--stripe-cream) var(--stripe) calc(2 * var(--stripe))) border-box;
+}
+.popup-body {
+  display: grid;
+  gap: var(--gap);
+  padding: var(--pad);
+}
+body:has(#paper:target) .popup-body {
+  margin: var(--paper-inset);
+  border: var(--thin) solid var(--line);
+  border-radius: calc(var(--card-radius) - var(--paper-rim));
+}
+.popup header, .setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  min-height: var(--touch);
+}
+.close, .secondary {
+  background: var(--control);
+  border: var(--thin) solid var(--line);
+}
+.close { border-radius: var(--pill); font-size: var(--title); }
+.setting {
+  border-bottom: var(--thin) solid var(--line);
+  padding-block: var(--gap);
+}
+.setting > span { min-width: 0; }
+.segment {
+  position: relative;
+  display: flex;
+  flex: none;
+  border-radius: var(--pill);
+  background: var(--control);
+}
+.segment input, .toggle input {
+  position: absolute;
+  width: var(--thin);
+  height: var(--thin);
+  opacity: 0;
+}
+.segment label {
+  padding-inline: var(--gap);
+  border-radius: var(--pill);
+}
+.segment input:checked + label, .primary {
+  background: var(--action);
+  color: var(--action-ink);
+}
+.toggle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: var(--touch);
+  min-height: var(--touch);
+  flex: none;
+  border-radius: var(--pill);
+  cursor: pointer;
+}
+.track {
+  display: block;
+  width: var(--track-width);
+  height: var(--track-height);
+  padding: var(--track-inset);
+  border-radius: var(--pill);
+  background: var(--switch-off);
+}
+.track::before {
+  content: "";
+  display: block;
+  width: var(--knob);
+  height: var(--knob);
+  border-radius: var(--pill);
+  background: var(--cream);
+}
+.toggle input:checked + .track { background: var(--action); }
+.toggle input:checked + .track::before {
+  transform: translateX(var(--switch-travel));
+  background: var(--action-ink);
+}
+.primary, .secondary {
+  width: 100%;
+  border-radius: var(--pill);
+}
+.secondary:disabled { cursor: default; opacity: 1; }
+:focus-visible, .segment input:focus-visible + label, .toggle input:focus-visible + .track {
+  outline: var(--focus-size) solid var(--focus, var(--pine-deep));
+  outline-offset: var(--focus-size);
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Настройки · варианты</h1>
+  <nav class="nav" aria-label="Оформление">
+    <a id="cream" href="#cream">A · Крем</a>
+    <a id="pine" href="#pine">B · Хвоя</a>
+    <a id="paper" href="#paper">C · Бумага</a>
+  </nav>
+  <div class="phone" id="closed">
+    <div class="board-scene" aria-hidden="true">
+      <h2>Клумба</h2>
+      <svg class="board" viewBox="0 0 236 236" aria-hidden="true">
+        <defs>
+          <pattern id="rim" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="16" height="16" fill="var(--stripe-cream)"/>
+            <rect width="8" height="16" fill="var(--berry)"/>
+          </pattern>
+          <rect id="tile" width="54" height="54" rx="9"/>
+        </defs>
+        <rect width="236" height="236" rx="18" fill="url(#rim)"/>
+        <g transform="translate(6 6)">
+          <use href="#tile" fill="var(--bed-a)"/><use href="#tile" x="57" fill="var(--bed-a)"/>
+          <use href="#tile" x="114" fill="var(--bed-b)"/><use href="#tile" x="171" fill="var(--bed-b)"/>
+          <use href="#tile" y="57" fill="var(--bed-a)"/><use href="#tile" x="57" y="57" fill="var(--bed-b)"/>
+          <use href="#tile" x="114" y="57" fill="var(--bed-b)"/><use href="#tile" x="171" y="57" fill="var(--bed-c)"/>
+          <use href="#tile" y="114" fill="var(--bed-d)"/><use href="#tile" x="57" y="114" fill="var(--bed-d)"/>
+          <use href="#tile" x="114" y="114" fill="var(--bed-c)"/><use href="#tile" x="171" y="114" fill="var(--bed-c)"/>
+          <use href="#tile" y="171" fill="var(--bed-d)"/><use href="#tile" x="57" y="171" fill="var(--bed-d)"/>
+          <use href="#tile" x="114" y="171" fill="var(--bed-c)"/><use href="#tile" x="171" y="171" fill="var(--bed-c)"/>
+        </g>
+      </svg>
+    </div>
+    <div class="shade">
+      <section class="popup" aria-labelledby="settings-title" tabindex="0">
+        <div class="popup-body">
+          <header>
+            <h2 id="settings-title">Настройки</h2>
+            <a class="close" href="#closed" aria-label="Закрыть">×</a>
+          </header>
+          <div class="setting">
+            <span id="theme-label">Тема</span>
+            <div class="segment" role="group" aria-labelledby="theme-label">
+              <input type="radio" name="theme" id="winter" checked><label for="winter">Зима</label>
+              <input type="radio" name="theme" id="garden"><label for="garden">Сад</label>
+            </div>
+          </div>
+          <div class="setting">
+            <span id="pattern-label">Узоры на клумбах</span>
+            <label class="toggle"><input type="checkbox" role="switch" aria-labelledby="pattern-label"><span class="track"></span></label>
+          </div>
+          <div class="setting">
+            <span id="motion-label">Меньше анимации</span>
+            <label class="toggle"><input type="checkbox" role="switch" aria-labelledby="motion-label"><span class="track"></span></label>
+          </div>
+          <div class="setting">
+            <span id="vibration-label">Вибрация при ошибке</span>
+            <label class="toggle"><input type="checkbox" role="switch" aria-labelledby="vibration-label" checked><span class="track"></span></label>
+          </div>
+          <button class="secondary" type="button" disabled>Обучение</button>
+          <a class="primary" href="#closed">Готово</a>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+</body>
+</html>
+
