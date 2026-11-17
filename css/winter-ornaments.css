@@ -1,10 +1,15 @@
 :root {
   --winter-candy-red: #b8413f;
   --winter-candy-cream: #fbf2e4;
-  --winter-candy-spent: #9b8d7f;
-  --winter-candy-stripe: 3px;
-  --winter-candy-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fbf2e4' transform='rotate(26 12 12)' d='M7 20V8a7 7 0 0 1 14 0v2a2.5 2.5 0 0 1-5 0V8a2 2 0 0 0-4 0v12a2.5 2.5 0 0 1-5 0Z'/%3E%3C/svg%3E");
-  --winter-candy-outline: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23fbf2e4' stroke-width='1.3' transform='rotate(26 12 12)' d='M7 20V8a7 7 0 0 1 14 0v2a2.5 2.5 0 0 1-5 0V8a2 2 0 0 0-4 0v12a2.5 2.5 0 0 1-5 0Z'/%3E%3C/svg%3E");
+  --winter-candy-ink: #573421;
+  --winter-candy-spent: #806b5b;
+  --winter-candy-size: 32px;
+  --winter-candy-gap: 3px;
+  --winter-candy-stripe: 4px;
+  --winter-candy-stroke: 1.5;
+  --winter-candy-tilt: 17deg;
+  --winter-candy-path: path("M5 20V9a7.5 7.5 0 0 1 15 0v1a3 3 0 0 1-6 0V9a1.5 1.5 0 0 0-3 0v11a3 3 0 0 1-6 0Z");
+  --winter-candy-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fbf2e4' transform='rotate(17 12 12)' d='M5 20V9a7.5 7.5 0 0 1 15 0v1a3 3 0 0 1-6 0V9a1.5 1.5 0 0 0-3 0v11a3 3 0 0 1-6 0Z'/%3E%3C/svg%3E");
   --winter-milestone-margin: 12px;
   --winter-milestone-padding-block: 5px;
   --winter-milestone-padding-inline: 14px;
@@ -17,24 +22,41 @@
   --winter-milestone-border: 1px;
 }
 
+html[data-theme="winter"] .lives {
+  gap: var(--winter-candy-gap);
+}
+
 html[data-theme="winter"] .lives :is(.drop-filled, .drop-empty) {
-  mask: var(--winter-candy-shape) center / contain no-repeat;
+  position: relative;
+  flex: none;
+  width: var(--winter-candy-size);
+  height: var(--winter-candy-size);
   filter: none;
 }
 
 html[data-theme="winter"] .lives :is(.drop-filled, .drop-empty) > path {
-  visibility: hidden;
+  d: var(--winter-candy-path);
+  transform-origin: center;
+  transform: rotate(var(--winter-candy-tilt));
+  fill: none;
+  stroke-width: var(--winter-candy-stroke);
+  stroke-linejoin: round;
 }
 
 html[data-theme="winter"] .lives .drop-filled {
+  mask: var(--winter-candy-mask) center / contain no-repeat;
   background: repeating-linear-gradient(45deg,
     var(--winter-candy-red) 0 var(--winter-candy-stripe),
     var(--winter-candy-cream) var(--winter-candy-stripe) calc(2 * var(--winter-candy-stripe)));
 }
 
-html[data-theme="winter"] .lives .drop-empty {
-  background: var(--winter-candy-spent);
-  mask-image: var(--winter-candy-outline);
+html[data-theme="winter"] .lives .drop-filled > path {
+  stroke: var(--winter-candy-ink);
+  stroke-width: calc(2 * var(--winter-candy-stroke));
+}
+
+html[data-theme="winter"] .lives .drop-empty > path {
+  stroke: var(--winter-candy-spent);
 }
 
 /* The renderer waits for animationend before marking the icon spent. */
