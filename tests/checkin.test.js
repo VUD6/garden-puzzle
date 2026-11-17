@@ -156,7 +156,8 @@ function freshGame(highestLevel) {
   setNow('2024-05-07');
   const day7 = Checkin.claim();
   assert(day7.reward.credits.every(function (c) { return c.helperId !== 'snowman'; }), 'day 7 (locked): snowman never appears as a credited id');
-  assert(day7.reward.credits.length <= 2, 'day 7 (locked): snowman\'s slot collapses onto finder/random, so at most 2 distinct credits');
+  assert(day7.reward.credits.length === 3, 'day 7 (locked): still exactly 3 credits (one per original slot), never merged');
+  assert(day7.reward.credits.every(function (c) { return c.amount === 3; }), 'day 7 (locked): every credit still carries the same per-slot amount (3), never a bigger merged number');
   const totalDay7Amount = day7.reward.credits.reduce(function (sum, c) { return sum + c.amount; }, 0);
   assert(totalDay7Amount === 9, 'day 7 (locked): all 9 charges (3 helpers x 3) are still granted, just redirected (got ' + totalDay7Amount + ')');
   assert(Helpers.getCharges('snowman') === beforeDay7.snowman, 'day 7 (locked): snowman charges are untouched');
@@ -174,6 +175,91 @@ function freshGame(highestLevel) {
   setNow('2024-06-03');
   const day3Unlocked = Checkin.claim();
   assert(day3Unlocked.reward.credits[0].helperId === 'snowman', 'day 3, unlocked: snowman receives its own rotation reward');
+})();
+
+// --- Frozen plan: day 4's "fewest charges" pick is decided once, when the
+// cycle starts, and never reshuffles mid-cycle just because charges moved
+// (e.g. from claiming day 1 itself, or from any other source) ---
+(function () {
+  freshGame(10); // Snowman unlocked - isolates this from the substitution logic
+  Helpers.addCharges('finder', 10); // finder starts well ahead; random/snowman stay at 5
+
+  setNow('2024-11-01');
+  const day1 = Checkin.claim(); // day 1: finder+1 (rotation) - and freezes the plan right here
+  assert(day1.available === true, 'day 1 claims successfully');
+  const frozenPlan = Platform.loadDailyGift().plan;
+  assert(frozenPlan.day4Helper === 'random', `the plan freezes day 4 as 'random' (fewest at cycle start, got ${frozenPlan.day4Helper})`);
+
+  // Inject a large charge change AFTER the plan was frozen - if day 4 were
+  // (incorrectly) recomputed live, this would flip which helper looks
+  // "fewest" by the time day 4 is actually reached.
+  Helpers.addCharges('random', 50);
+
+  // The popup's preview (rewardForDay with the stored plan) must still show
+  // the frozen pick, not a live recomputation against the now-inflated charges.
+  const previewedDay4 = Checkin.rewardForDay(4, frozenPlan);
+  assert(previewedDay4[0].helperId === 'random', `the day-4 PREVIEW still shows the frozen pick 'random', not a live recompute (got ${previewedDay4[0].helperId})`);
+
+  setNow('2024-11-02');
+  Checkin.claim(); // day 2
+  setNow('2024-11-03');
+  Checkin.claim(); // day 3
+
+  setNow('2024-11-04');
+  const day4 = Checkin.claim();
+  assert(
+    day4.reward.credits[0].helperId === 'random',
+    `the actual day-4 CLAIM still grants the frozen pick 'random', unaffected by the charge injection in between (got ${day4.reward.credits[0].helperId})`
+  );
+})();
+
+// --- Frozen plan: Snowman substitution (while locked) is also decided once
+// at cycle start, for both day 3's rotation slot and day 7's Snowman slot ---
+(function () {
+  freshGame(1); // Snowman locked for the whole cycle
+  Helpers.addCharges('finder', 3); // finder=8, random/snowman stay at 5 - random is fewest at cycle start
+
+  setNow('2024-12-01');
+  Checkin.claim(); // day 1: finder+1=9 - freezes the plan (day3Helper should be 'random', fewest at this moment)
+  const frozenPlan = Platform.loadDailyGift().plan;
+  assert(frozenPlan.day3Helper === 'random', `day 3's substitute is frozen as 'random' (fewest when the cycle started, got ${frozenPlan.day3Helper})`);
+
+  // Flip the ranking after the plan was frozen.
+  Helpers.addCharges('random', 50);
+
+  setNow('2024-12-02');
+  Checkin.claim(); // day 2: random+1 (rotation, unrelated to the frozen plan)
+
+  setNow('2024-12-03');
+  const day3 = Checkin.claim();
+  assert(
+    day3.reward.credits[0].helperId === 'random',
+    `day 3 still grants the frozen substitute 'random', not a live recompute favoring finder now (got ${day3.reward.credits[0].helperId})`
+  );
+})();
+
+// --- Frozen plan: previewing days before the cycle has ever started shows
+// a live "best guess right now" (there's nothing to freeze yet); once day 1
+// is claimed, the preview becomes stable for the rest of the cycle ---
+(function () {
+  freshGame(10);
+  Helpers.addCharges('finder', 10); // random/snowman fewest (tied at 5) before anything is claimed
+
+  // Nothing claimed yet (position 0) - rewardForDay with no stored plan
+  // reflects the live state.
+  const liveDay4Preview = Checkin.rewardForDay(4, null);
+  assert(liveDay4Preview[0].helperId === 'random', "before day 1, the day-4 preview is a live guess ('random', tied-fewest)");
+
+  setNow('2025-01-01');
+  Checkin.claim(); // day 1 - freezes day4Helper as 'random'
+
+  // Now inject a change that would flip a LIVE guess...
+  Helpers.addCharges('random', 50);
+
+  // ...but the record's own frozen plan (what the real popup would read)
+  // still says 'random', regardless.
+  const record = Platform.loadDailyGift();
+  assert(record.plan.day4Helper === 'random', 'after day 1, the stored plan stays frozen for the rest of this cycle');
 })();
 
 // --- Idempotent claim: a reload/double-tap on the same day grants once ---

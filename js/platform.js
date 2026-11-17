@@ -283,7 +283,7 @@
   }
 
   function freshDailyGiftRecord() {
-    return { lastClaimDate: null, lastSeenDate: null, position: 0 };
+    return { lastClaimDate: null, lastSeenDate: null, position: 0, plan: null };
   }
 
   function saveDailyGift(record) {
@@ -291,8 +291,26 @@
     localStorage.setItem(DAILY_GIFT_KEY, JSON.stringify(record));
   }
 
+  // A plan's shape (see js/checkin.js's computePlan) - kept structural
+  // only (never hardcodes the actual helper id strings), since platform.js
+  // deliberately knows nothing about what a "helper" is.
+  function isValidPlan(plan) {
+    return (
+      !!plan &&
+      typeof plan === 'object' &&
+      typeof plan.day3Helper === 'string' &&
+      typeof plan.day4Helper === 'string' &&
+      Array.isArray(plan.day7Helpers) &&
+      plan.day7Helpers.length === 3 &&
+      plan.day7Helpers.every(function (id) { return typeof id === 'string'; })
+    );
+  }
+
   // Corruption-tolerant: anything missing, unparsable, or shaped wrong
-  // falls back to a fresh record rather than throwing or trusting bad data.
+  // falls back to a fresh record (or, for just `plan`, to null - a missing/
+  // invalid plan simply means no cycle plan is frozen yet, which the daily
+  // gift logic already treats as "compute a live preview/fresh plan") -
+  // never throws or trusts bad data.
   function loadDailyGift() {
     if (!hasStorage()) return freshDailyGiftRecord();
     const raw = localStorage.getItem(DAILY_GIFT_KEY);
@@ -302,7 +320,8 @@
       const lastClaimDate = typeof parsed.lastClaimDate === 'string' ? parsed.lastClaimDate : null;
       const lastSeenDate = typeof parsed.lastSeenDate === 'string' ? parsed.lastSeenDate : null;
       const position = Number.isInteger(parsed.position) && parsed.position >= 0 && parsed.position <= 7 ? parsed.position : 0;
-      return { lastClaimDate, lastSeenDate, position };
+      const plan = isValidPlan(parsed.plan) ? parsed.plan : null;
+      return { lastClaimDate, lastSeenDate, position, plan };
     } catch (e) {
       return freshDailyGiftRecord();
     }
@@ -334,6 +353,7 @@
             lastClaimDate: legacy.lastClaimDate,
             lastSeenDate: legacy.lastClaimDate,
             position: ((streak - 1) % 7) + 1,
+            plan: null,
           };
         }
       } catch (e) {

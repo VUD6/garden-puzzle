@@ -101,35 +101,69 @@
     return fewestChargesAmong(['finder', 'random']);
   }
 
-  // The reward a given cycle day (1-7) grants, resolved against CURRENT
-  // charges/unlock state - this is why it doubles as both the real grant
-  // (claim() calls it for the day actually being claimed) and the popup's
-  // preview for every other day ("what would this day give right now").
-  // Returns a list of { helperId, amount } credits - normally just one, but
-  // day 7 can produce up to 3 (and, if Snowman is locked, two of those
-  // credits collapse onto the same substituted helper, which still shows
-  // as one combined entry here rather than two separate ones).
-  function rewardForDay(day) {
+  function day4EligibleHelpers() {
+    return root.Garden.helpers.isUnlocked('snowman') ? root.Garden.helpers.HELPER_IDS.slice() : ['finder', 'random'];
+  }
+
+  // A new cycle's reward *types* (day 3's rotation slot, day 4's
+  // fewest-charges pick, and each of day 7's three slots) are decided once,
+  // right when the cycle starts, and frozen in the save for the whole
+  // 7-day cycle (see computeClaim/rewardForDay below) - otherwise the
+  // preview would keep reshuffling itself as charges change from claiming
+  // earlier days in the very same cycle. Always computed from CURRENT
+  // charges/unlock state at the moment it's called - callers only call this
+  // exactly once per cycle, right as it starts.
+  function computePlan() {
+    return {
+      day3Helper: resolveHelperId(ROTATION_HELPER_BY_DAY[3]),
+      day4Helper: fewestChargesAmong(day4EligibleHelpers()),
+      day7Helpers: root.Garden.helpers.HELPER_IDS.map(resolveHelperId),
+    };
+  }
+
+  // Whether claiming from `prevPosition` starts a brand new cycle (never
+  // claimed before, or wrapping from day 7 back to day 1) - the exact
+  // moment a fresh plan needs to be computed and frozen.
+  function isNewCycleStart(prevPosition) {
+    return nextPositionAfter(prevPosition) === 1;
+  }
+
+  // The reward a given cycle day (1-7) grants. `plan` (optional) is the
+  // frozen, once-per-cycle set of reward-type decisions from computePlan -
+  // when given, day 3/4/7 use it instead of recomputing against CURRENT
+  // charges/unlock state, so a day's planned reward can never change
+  // mid-cycle just because an earlier day's claim shifted the charge
+  // counts. Without a plan (no cycle in progress yet), falls back to a
+  // live "what would this grant right now" computation - used by claim()
+  // only for the very first claim of a cycle (which is also what computes
+  // the plan to freeze), and by the popup's preview before any cycle has
+  // ever started.
+  //
+  // Returns a list of { helperId, amount } credits - normally just one,
+  // but day 7 always returns exactly 3 (one per helper's own slot); if
+  // Snowman is locked, two of those entries can end up with the same
+  // helperId (its slot redirected to Finder or Random) rather than being
+  // merged into one bigger amount - every credit always carries the same,
+  // consistent per-slot amount.
+  function rewardForDay(day, plan) {
     if (day === DAY7) {
-      const credits = {};
-      root.Garden.helpers.HELPER_IDS.forEach(function (id) {
-        const target = resolveHelperId(id);
-        credits[target] = (credits[target] || 0) + DAY7_AMOUNT;
-      });
-      return Object.keys(credits).map(function (id) {
-        return { helperId: id, amount: credits[id] };
+      const ids = plan && plan.day7Helpers ? plan.day7Helpers : root.Garden.helpers.HELPER_IDS.map(resolveHelperId);
+      return ids.map(function (id) {
+        return { helperId: id, amount: DAY7_AMOUNT };
       });
     }
 
     if (day === DAY4) {
-      const eligible = root.Garden.helpers.isUnlocked('snowman')
-        ? root.Garden.helpers.HELPER_IDS.slice()
-        : ['finder', 'random'];
-      return [{ helperId: fewestChargesAmong(eligible), amount: DAY4_AMOUNT }];
+      const helperId = plan && plan.day4Helper ? plan.day4Helper : fewestChargesAmong(day4EligibleHelpers());
+      return [{ helperId, amount: DAY4_AMOUNT }];
     }
 
     const rotationHelper = ROTATION_HELPER_BY_DAY[day];
     if (!rotationHelper) return [];
+    if (rotationHelper === 'snowman') {
+      const helperId = plan && plan.day3Helper ? plan.day3Helper : resolveHelperId('snowman');
+      return [{ helperId, amount: ROTATION_AMOUNT }];
+    }
     return [{ helperId: resolveHelperId(rotationHelper), amount: ROTATION_AMOUNT }];
   }
 
@@ -181,11 +215,15 @@
     }
 
     const position = nextPositionAfter(record.position);
+    // Freeze a fresh plan exactly when a new cycle starts (never claimed
+    // before, or wrapping from day 7 to day 1); otherwise reuse the plan
+    // already frozen for this cycle - see computePlan's own comment.
+    const plan = isNewCycleStart(record.position) ? computePlan() : record.plan;
     return {
       available: true,
       tampered: false,
-      record: { lastClaimDate: todayKey, lastSeenDate: todayKey, position },
-      reward: { day: position, credits: rewardForDay(position) },
+      record: { lastClaimDate: todayKey, lastSeenDate: todayKey, position, plan },
+      reward: { day: position, credits: rewardForDay(position, plan) },
     };
   }
 
@@ -236,22 +274,25 @@
   // (debugAdvanceDays) is left as-is, so this only rewinds progress, not
   // the simulated date.
   function debugResetDailyGift() {
-    Platform.saveDailyGift({ lastClaimDate: null, lastSeenDate: null, position: 0 });
+    Platform.saveDailyGift({ lastClaimDate: null, lastSeenDate: null, position: 0, plan: null });
   }
 
   // Jumps straight to day k (1-7) being the next claimable day, without
   // stepping through every day in between: sets lastClaimDate to
   // yesterday (so today's claim is available) and position to k-1 (so the
   // next claim resolves to day k). k=1 instead sets lastClaimDate to null
-  // (equivalent to a fresh cycle).
+  // (equivalent to a fresh cycle, no plan). For k > 1, computes and
+  // freezes a plan right now (exactly as a real day-1 claim would have),
+  // so day 4/7's frozen preview is testable without claiming through every
+  // earlier day first.
   function debugJumpToDay(k) {
     const todayKey = getTodayKey();
     if (k <= 1) {
-      Platform.saveDailyGift({ lastClaimDate: null, lastSeenDate: todayKey, position: 0 });
+      Platform.saveDailyGift({ lastClaimDate: null, lastSeenDate: todayKey, position: 0, plan: null });
       return;
     }
     const yesterdayKey = advanceDateKey(todayKey, -1);
-    Platform.saveDailyGift({ lastClaimDate: yesterdayKey, lastSeenDate: todayKey, position: k - 1 });
+    Platform.saveDailyGift({ lastClaimDate: yesterdayKey, lastSeenDate: todayKey, position: k - 1, plan: computePlan() });
   }
 
   // Browser-only: wires the menu's daily-gift button (with its unclaimed-
@@ -313,6 +354,25 @@
       return states;
     }
 
+    // One icon+amount pair per credit (rather than grouping every icon
+    // together under one shared amount) - the only way to show "each icon
+    // with +N" consistently, since a day's credits can land on the same
+    // helper twice (e.g. day 7 with Snowman still locked) yet must still
+    // read as separate, equal-amount slots rather than one bigger number.
+    function creditPairsHtml(credits) {
+      return credits
+        .map(function (c) {
+          return (
+            '<span class="daily-day-reward-item"><span class="helper-reward-icons">' +
+            helperIconFor(c.helperId) +
+            '</span><span>+' +
+            c.amount +
+            '</span></span>'
+          );
+        })
+        .join('');
+    }
+
     function buildPopup() {
       // The REAL current record (not computeClaim's hypothetical "if
       // claimed now" record, which only matters to claim() itself) - day
@@ -321,11 +381,17 @@
       const record = syncSeenDate();
       const blocked = !computeClaim(record, getTodayKey()).available;
       const states = buildDayStates(record, blocked);
+      // The frozen plan only applies to a cycle already in progress; once
+      // the last claimed day is 7 (or nothing has ever been claimed), the
+      // next claim would start a NEW cycle whose plan isn't decided yet -
+      // preview those with a live "best guess right now" instead of the
+      // just-finished cycle's stale plan.
+      const displayPlan = isNewCycleStart(record.position) ? null : record.plan;
 
       dom.checkinDaysRow.innerHTML = '';
       for (let day = 1; day <= CYCLE_LENGTH; day++) {
         const state = states[day];
-        const credits = rewardForDay(day);
+        const credits = rewardForDay(day, displayPlan);
 
         const el = document.createElement('div');
         el.className = 'daily-day';
@@ -341,12 +407,7 @@
 
         const rewardEl = document.createElement('div');
         rewardEl.className = 'daily-day-reward';
-        rewardEl.innerHTML =
-          '<span class="helper-reward-icons">' +
-          credits.map(function (c) { return helperIconFor(c.helperId); }).join('') +
-          '</span><span>+' +
-          (credits[0] ? credits[0].amount : 0) +
-          '</span>';
+        rewardEl.innerHTML = creditPairsHtml(credits);
         el.appendChild(rewardEl);
 
         dom.checkinDaysRow.appendChild(el);
@@ -394,9 +455,13 @@
       buildPopup();
       updateBadge();
       if (result.reward) {
-        const ids = result.reward.credits.map(function (c) { return c.helperId; });
-        dom.checkinClaimRewardIcons.innerHTML = ids.map(helperIconFor).join('');
-        dom.checkinClaimRewardAmount.textContent = '+' + result.reward.credits[0].amount;
+        // All of the per-credit icon+amount pairs go inside the icons slot
+        // (see creditPairsHtml) - the separate amount slot next to it is
+        // left empty/hidden, since each credit now carries its own amount
+        // rather than sharing one combined number.
+        dom.checkinClaimRewardIcons.innerHTML = creditPairsHtml(result.reward.credits);
+        dom.checkinClaimRewardAmount.textContent = '';
+        dom.checkinClaimRewardAmount.hidden = true;
         dom.checkinClaimReward.hidden = false;
         triggerOneShotAnim(dom.checkinClaimReward, 'reward-pop');
       }
@@ -422,6 +487,9 @@
     nextPositionAfter,
     fewestChargesAmong,
     resolveHelperId,
+    day4EligibleHelpers,
+    computePlan,
+    isNewCycleStart,
     rewardForDay,
     isSpecialDay,
     previewToday,
