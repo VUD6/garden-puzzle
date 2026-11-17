@@ -215,7 +215,7 @@
       resetZoomIfStuck();
     }
 
-    const checkinScreen = Garden.checkin.createCheckinScreen(dom, {
+    const checkinScreen = Garden.checkin.createDailyGiftScreen(dom, {
       onClaimed: function () {
         menuScreen.render();
       },
@@ -290,5 +290,35 @@
     platform.gameReady();
     router.leaveLoading();
     resetZoomIfStuck();
+
+    // Debug-only: simulates the passage of days for the daily gift, without
+    // waiting on real calendar days or touching the device clock. Only
+    // exists at all when the page was opened with ?debug=1 in the URL (see
+    // platform.isDebugEnabled) - never reachable by a real player. See
+    // GAME_DESIGN.md's "Daily gift" section for exact usage on desktop and
+    // on a phone.
+    if (platform.isDebugEnabled()) {
+      window.GardenDebug = {
+        advanceDays: function (n) {
+          Garden.checkin.debugAdvanceDays(n);
+          checkinScreen.render();
+        },
+        jumpToDay: function (k) {
+          Garden.checkin.debugJumpToDay(k);
+          checkinScreen.render();
+        },
+        resetDailyGift: function () {
+          Garden.checkin.debugResetDailyGift();
+          checkinScreen.render();
+        },
+        state: function () {
+          return { today: Garden.checkin.getTodayKey(), dailyGift: platform.loadDailyGift() };
+        },
+      };
+      // eslint-disable-next-line no-console
+      console.log(
+        '[Garden] Debug mode: window.GardenDebug is available - advanceDays(n), jumpToDay(k), resetDailyGift(), state()'
+      );
+    }
   });
 })(typeof window !== 'undefined' ? window : globalThis);

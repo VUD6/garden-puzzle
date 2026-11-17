@@ -1,4 +1,4 @@
-// Daily check-in: pure streak/date logic (Node-testable, no DOM) plus a
+// Daily gift: pure cycle/date/reward logic (Node-testable, no DOM) plus a
 // small self-contained DOM controller for the menu button and its popup.
 // Rewards are always credited through the helpers module (Garden.helpers) -
 // this file never writes charge storage directly.
@@ -6,15 +6,20 @@
   const Platform = root.Garden.platform;
 
   const CYCLE_LENGTH = 7;
-  // Reward by position in the 7-day cycle; any day not listed (1, 2, 3, 5,
-  // 6) grants none - the day is just marked claimed and keeps the streak
-  // going. Kept as the one place these values live. allHelpers:false means
-  // one helper, chosen deterministically from the day's own calendar date
-  // (see pickDailyHelperId) - never from its position in the cycle.
-  const HELPER_REWARD_BY_DAY = {
-    4: { amount: 3, allHelpers: false },
-    7: { amount: 2, allHelpers: true },
-  };
+
+  // Days 1, 2, 3, 5, 6 each grant 1 charge of a fixed helper, by rotation;
+  // day 4 and day 7 (below) are handled separately. Any day not listed here
+  // and not 4 or 7 doesn't exist in a 7-day cycle, so this covers every
+  // "plain" day.
+  const ROTATION_HELPER_BY_DAY = { 1: 'finder', 2: 'random', 3: 'snowman', 5: 'finder', 6: 'random' };
+  const ROTATION_AMOUNT = 1;
+
+  const DAY4 = 4;
+  const DAY4_AMOUNT = 3; // of whichever eligible helper the player has fewest charges of
+  const DAY7 = 7;
+  const DAY7_AMOUNT = 3; // of EACH helper - the big prize
+
+  const HELPER_NAME_KEY = { finder: 'helperNameFinder', random: 'helperNameRandom', snowman: 'helperNameSnowman' };
 
   function pad2(n) {
     return n < 10 ? '0' + n : String(n);
@@ -48,168 +53,312 @@
 
   // Same DST-safe UTC-anchor approach as daysBetweenKeys, just moving a
   // calendar date forward (or backward) by a number of days instead of
-  // diffing two of them. Used to preview a future row in the check-in popup
-  // (e.g. "what date would day 4 of this cycle land on, assuming the streak
-  // continues uninterrupted") without ever touching time-of-day/DST.
+  // diffing two of them. Used by the debug day-jump helpers below.
   function advanceDateKey(dateKey, days) {
     const [y, m, d] = dateKey.split('-').map(Number);
     const dt = new Date(Date.UTC(y, m - 1, d) + days * 86400000);
     return dateKeyFromParts(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
   }
 
-  // Position in the 7-day row for a given (1-based) streak length: after
-  // day 7, the next consecutive day wraps to position 1 of a new cycle
-  // while the streak itself keeps counting (so bestStreak can exceed 7).
-  function dayInCycle(streak) {
-    return ((streak - 1) % CYCLE_LENGTH) + 1;
+  function getTodayKey() {
+    return dateKeyFromDate(Platform.now());
   }
 
-  // Deterministic pick of which single helper a day-4 reward credits,
-  // keyed only by that day's actual calendar date (never by which position
-  // in the cycle it happens to be) - so the same date always picks the same
-  // helper, and the check-in popup can preview it for a not-yet-claimed row.
-  function pickDailyHelperId(dateKey) {
-    const [y, m, d] = dateKey.split('-').map(Number);
-    const seed = Date.UTC(y, m - 1, d) >>> 0;
-    const ids = root.Garden.helpers.HELPER_IDS;
-    const roll = root.Garden.rng.createRng(seed)();
-    return ids[Math.floor(roll * ids.length)];
+  // Position after the next claim, given the last-claimed position (0 if
+  // never claimed): 0 -> 1, 1 -> 2, ..., 6 -> 7, 7 -> 1 (wraps - "after day
+  // 7 the cycle starts again from day 1"). Missing days never resets this:
+  // it only ever depends on the LAST position claimed, never on how many
+  // calendar days passed since then - that's what makes a gap "pause
+  // instead of reset."
+  function nextPositionAfter(position) {
+    return position === 0 ? 1 : (position % CYCLE_LENGTH) + 1;
   }
 
-  // The reward a given cycle position would grant if claimed on dateKey, or
-  // null for a day that grants nothing. Shared by claim() (acting on the
-  // real today) and the popup preview (acting on a hypothetical future row).
-  function helperRewardForDayAt(day, dateKey) {
-    const config = HELPER_REWARD_BY_DAY[day];
-    if (!config) return null;
-    if (config.allHelpers) return { amount: config.amount, allHelpers: true, helperId: null };
-    return { amount: config.amount, allHelpers: false, helperId: pickDailyHelperId(dateKey) };
+  // Among the given helper ids, the one with the fewest current charges;
+  // ties favor the id earliest in the list (callers always pass finder
+  // first, so a tie favors finder, as specified).
+  function fewestChargesAmong(ids) {
+    const Helpers = root.Garden.helpers;
+    let best = ids[0];
+    let bestCharges = Helpers.getCharges(best);
+    for (let i = 1; i < ids.length; i++) {
+      const charges = Helpers.getCharges(ids[i]);
+      if (charges < bestCharges) {
+        best = ids[i];
+        bestCharges = charges;
+      }
+    }
+    return best;
+  }
+
+  // Snowman never receives a reward before it's unlocked (level 10, see
+  // Garden.helpers.isUnlocked) - redirected to whichever of Finder/Random
+  // the player currently has fewer charges of instead, so nothing is
+  // wasted. Any other helper id passes through unchanged.
+  function resolveHelperId(id) {
+    if (id !== 'snowman') return id;
+    if (root.Garden.helpers.isUnlocked('snowman')) return 'snowman';
+    return fewestChargesAmong(['finder', 'random']);
+  }
+
+  // The reward a given cycle day (1-7) grants, resolved against CURRENT
+  // charges/unlock state - this is why it doubles as both the real grant
+  // (claim() calls it for the day actually being claimed) and the popup's
+  // preview for every other day ("what would this day give right now").
+  // Returns a list of { helperId, amount } credits - normally just one, but
+  // day 7 can produce up to 3 (and, if Snowman is locked, two of those
+  // credits collapse onto the same substituted helper, which still shows
+  // as one combined entry here rather than two separate ones).
+  function rewardForDay(day) {
+    if (day === DAY7) {
+      const credits = {};
+      root.Garden.helpers.HELPER_IDS.forEach(function (id) {
+        const target = resolveHelperId(id);
+        credits[target] = (credits[target] || 0) + DAY7_AMOUNT;
+      });
+      return Object.keys(credits).map(function (id) {
+        return { helperId: id, amount: credits[id] };
+      });
+    }
+
+    if (day === DAY4) {
+      const eligible = root.Garden.helpers.isUnlocked('snowman')
+        ? root.Garden.helpers.HELPER_IDS.slice()
+        : ['finder', 'random'];
+      return [{ helperId: fewestChargesAmong(eligible), amount: DAY4_AMOUNT }];
+    }
+
+    const rotationHelper = ROTATION_HELPER_BY_DAY[day];
+    if (!rotationHelper) return [];
+    return [{ helperId: resolveHelperId(rotationHelper), amount: ROTATION_AMOUNT }];
+  }
+
+  function isSpecialDay(day) {
+    return day === DAY4 || day === DAY7;
+  }
+
+  // Bumps the persisted "last seen" date forward (monotonic max) so a
+  // later backwards jump can be detected even on a day when nothing was
+  // claimed - e.g. opening the game yesterday without claiming, then having
+  // the clock jump back to two days ago, must still be caught. Only ever
+  // moves forward or leaves things alone; never rewrites lastSeenDate to an
+  // earlier value, which is exactly what the tampering guard in
+  // computeClaim below is watching for.
+  function syncSeenDate() {
+    const record = Platform.loadDailyGift();
+    const todayKey = getTodayKey();
+    if (record.lastSeenDate && daysBetweenKeys(record.lastSeenDate, todayKey) <= 0) return record;
+    const updated = Object.assign({}, record, { lastSeenDate: todayKey });
+    Platform.saveDailyGift(updated);
+    return updated;
   }
 
   // Pure decision: given the persisted record and today's calendar-date
-  // key, decides the new record and reward without touching storage or
-  // charges. claim() below is the only thing that actually persists it.
+  // key, decides whether a claim is available and what it would grant,
+  // without touching storage or charges - claim() below is the only thing
+  // that actually persists/credits it. Also doubles as the popup's preview
+  // (computeClaim(record, todayKey) with no further action taken).
   //
-  // alreadyClaimedToday covers two distinct cases that the UI treats the
-  // same way (nothing to claim right now, show as already claimed):
-  //  - today's reward was already claimed;
-  //  - the device clock moved BACKWARDS past the last claim date. This is
-  //    only a sanity guard against an accidental/naive clock change - a
-  //    purely client-side check can't stop someone from moving the clock
-  //    forward one day at a time to farm streaks, so it only catches the
-  //    backwards case. A real fix needs server time, which is a Step 8
-  //    follow-up once the Yandex SDK is wired in.
+  // "available: false" covers two distinct cases the UI treats the same
+  // way (nothing to claim right now):
+  //  - today's reward was already claimed (tampered: false);
+  //  - the device clock appears to have moved BACKWARDS relative to the
+  //    latest date this module has ever observed (tampered: true) - a
+  //    sanity guard, not real fraud prevention: it can't stop someone
+  //    walking the clock forward a day at a time, only catch an actual
+  //    backwards jump. A real fix needs server time (Garden.platform.now
+  //    is the one clock entry point everything here goes through, so
+  //    swapping it for a Yandex SDK server-time call later needs no
+  //    changes here).
   function computeClaim(record, todayKey) {
-    record = record || { lastClaimDate: null, currentStreak: 0, bestStreak: 0 };
+    record = record || Platform.loadDailyGift();
 
-    if (record.lastClaimDate === todayKey) {
-      return { claimed: false, alreadyClaimedToday: true, record, reward: null };
+    const alreadyClaimedToday = record.lastClaimDate === todayKey;
+    const tampered = !!record.lastSeenDate && daysBetweenKeys(record.lastSeenDate, todayKey) < 0;
+
+    if (alreadyClaimedToday || tampered) {
+      return { available: false, tampered: tampered && !alreadyClaimedToday, record, reward: null };
     }
 
-    if (record.lastClaimDate && daysBetweenKeys(record.lastClaimDate, todayKey) < 0) {
-      return { claimed: false, alreadyClaimedToday: true, record, reward: null };
-    }
-
-    const isConsecutive = record.lastClaimDate && daysBetweenKeys(record.lastClaimDate, todayKey) === 1;
-    const nextStreak = isConsecutive ? record.currentStreak + 1 : 1;
-    const nextBest = Math.max(record.bestStreak || 0, nextStreak);
-    const reward = helperRewardForDayAt(dayInCycle(nextStreak), todayKey);
-
+    const position = nextPositionAfter(record.position);
     return {
-      claimed: true,
-      alreadyClaimedToday: false,
-      record: { lastClaimDate: todayKey, currentStreak: nextStreak, bestStreak: nextBest },
-      reward,
+      available: true,
+      tampered: false,
+      record: { lastClaimDate: todayKey, lastSeenDate: todayKey, position },
+      reward: { day: position, credits: rewardForDay(position) },
     };
   }
 
-  // The only place that actually persists a claim. Writes the new streak
-  // record FIRST, then credits charges - so a reload or crash between the
-  // two can never double-claim: a later call always sees lastClaimDate
-  // already equal to today and reports alreadyClaimedToday, even if the
-  // charge credit itself never happened.
+  // Read-only preview of today's status (used by both the badge and the
+  // popup) - syncs lastSeenDate as a side effect (see syncSeenDate), then
+  // decides without granting anything.
+  function previewToday() {
+    const record = syncSeenDate();
+    return computeClaim(record, getTodayKey());
+  }
+
+  // The only place that actually persists a claim and credits charges.
+  // Writes the new record FIRST, then credits charges - so a reload or
+  // crash between the two can never double-claim: a later call always sees
+  // lastClaimDate already equal to today and reports available: false,
+  // even if the charge credit itself never happened. A rapid double tap is
+  // likewise safe: the second call re-reads the just-written record and
+  // finds alreadyClaimedToday already true.
   function claim() {
-    const record = Platform.loadCheckin();
-    const todayKey = dateKeyFromDate(Platform.now());
+    const record = syncSeenDate();
+    const todayKey = getTodayKey();
     const result = computeClaim(record, todayKey);
-    if (result.claimed) {
-      Platform.saveCheckin(result.record);
-      if (result.reward) {
-        const Helpers = root.Garden.helpers;
-        if (result.reward.allHelpers) {
-          Helpers.HELPER_IDS.forEach(function (id) { Helpers.addCharges(id, result.reward.amount); });
-        } else {
-          Helpers.addCharges(result.reward.helperId, result.reward.amount);
-        }
-      }
+    if (result.available) {
+      Platform.saveDailyGift(result.record);
+      const Helpers = root.Garden.helpers;
+      result.reward.credits.forEach(function (credit) {
+        Helpers.addCharges(credit.helperId, credit.amount);
+      });
     }
     return result;
   }
 
-  // Browser-only: wires the menu's check-in button (with its unclaimed-dot
-  // badge) and the 7-day popup. No game-rule logic beyond calling claim().
-  function createCheckinScreen(dom, handlers) {
+  // --- Debug day-simulation (only ever wired to window.GardenDebug by
+  // main.js, and only when Garden.platform.isDebugEnabled() is true - see
+  // its own comment). Lets the full day-by-day cycle be exercised without
+  // waiting on real calendar days. ---
+
+  // Shifts the simulated clock by `days` (positive or negative), on top of
+  // whatever offset is already in effect - repeated calls accumulate, e.g.
+  // advanceDays(1) three times behaves like advanceDays(3) once. Never
+  // touches the daily-gift record itself, only Garden.platform.now()'s
+  // debug offset - exactly simulates "N real days passed."
+  function debugAdvanceDays(days) {
+    Platform.saveDebugDayOffset(Platform.loadDebugDayOffset() + days);
+  }
+
+  // Resets the daily-gift record to "never claimed" - the offset day
+  // (debugAdvanceDays) is left as-is, so this only rewinds progress, not
+  // the simulated date.
+  function debugResetDailyGift() {
+    Platform.saveDailyGift({ lastClaimDate: null, lastSeenDate: null, position: 0 });
+  }
+
+  // Jumps straight to day k (1-7) being the next claimable day, without
+  // stepping through every day in between: sets lastClaimDate to
+  // yesterday (so today's claim is available) and position to k-1 (so the
+  // next claim resolves to day k). k=1 instead sets lastClaimDate to null
+  // (equivalent to a fresh cycle).
+  function debugJumpToDay(k) {
+    const todayKey = getTodayKey();
+    if (k <= 1) {
+      Platform.saveDailyGift({ lastClaimDate: null, lastSeenDate: todayKey, position: 0 });
+      return;
+    }
+    const yesterdayKey = advanceDateKey(todayKey, -1);
+    Platform.saveDailyGift({ lastClaimDate: yesterdayKey, lastSeenDate: todayKey, position: k - 1 });
+  }
+
+  // Browser-only: wires the menu's daily-gift button (with its unclaimed-
+  // today badge) and the 7-day popup. No game-rule logic beyond calling
+  // claim()/previewToday(). Hook classes/attributes for Codex's later
+  // styling pass (see GAME_DESIGN.md): .daily-gift-btn, .daily-gift-badge,
+  // .daily-popup, .daily-day[data-state="claimed|today|upcoming|paused"]
+  // plus data-day="1".."7" and data-special="true" on days 4 and 7.
+  function createDailyGiftScreen(dom, handlers) {
     handlers = handlers || {};
     const I18n = root.Garden.i18n;
-    const Helpers = root.Garden.helpers;
-    const pieceSvgFor = root.Garden.render.pieceSvgFor;
     const helperIconFor = root.Garden.render.helperIconFor;
     const triggerOneShotAnim = root.Garden.render.triggerOneShotAnim;
+
+    dom.dailyCheckinButton.classList.add('daily-gift-btn');
+    dom.checkinBadge.classList.add('daily-gift-badge');
+    dom.checkinOverlay.classList.add('daily-popup');
 
     dom.dailyCheckinLabel.textContent = I18n.t('dailyCheckinButtonLabel');
     dom.checkinTitle.textContent = I18n.t('dailyCheckinButtonLabel');
     dom.checkinCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
 
+    function dayCellLabel(day, state, credits) {
+      const rewardText = credits
+        .map(function (c) {
+          return I18n.t(HELPER_NAME_KEY[c.helperId]) + ' +' + c.amount;
+        })
+        .join(', ');
+      const stateKey = {
+        claimed: 'dailyGiftDayStateClaimed',
+        today: 'dailyGiftDayStateToday',
+        paused: 'dailyGiftDayStatePaused',
+        upcoming: 'dailyGiftDayStateUpcoming',
+      }[state];
+      return I18n.t('dailyGiftDayLabel', { day }) + ': ' + I18n.t(stateKey) + (rewardText ? ', ' + rewardText : '');
+    }
+
+    // Day-cell states: claimed (d <= the last-claimed position), today
+    // (the next claimable day, right now), paused (the day right after
+    // today's just-claimed one - waiting for tomorrow, not reset), or
+    // upcoming (anything further out). See computeClaim's own comment for
+    // why "already claimed" and "clock tampered" are both treated as
+    // blocked the same way.
+    function buildDayStates(record, blocked) {
+      const states = new Array(CYCLE_LENGTH + 1).fill('upcoming');
+      if (blocked && record.lastClaimDate === getTodayKey()) {
+        const paused = nextPositionAfter(record.position);
+        for (let d = 1; d <= CYCLE_LENGTH; d++) {
+          if (d <= record.position) states[d] = 'claimed';
+          else if (d === paused) states[d] = 'paused';
+        }
+      } else {
+        const next = nextPositionAfter(record.position);
+        for (let d = 1; d <= CYCLE_LENGTH; d++) {
+          if (d < next) states[d] = 'claimed';
+          else if (d === next) states[d] = 'today';
+        }
+      }
+      return states;
+    }
+
     function buildPopup() {
-      const record = Platform.loadCheckin();
-      const todayKey = dateKeyFromDate(Platform.now());
-      // Reuses computeClaim as a pure *preview* (it has no side effects) to
-      // find where "today" sits in the row and whether claiming is
-      // currently blocked - the exact same rule used by claim() itself,
-      // including the backwards-clock guard.
-      const preview = computeClaim(record, todayKey);
-      const todayPosition = dayInCycle(preview.record.currentStreak);
-      const blocked = preview.alreadyClaimedToday;
+      // The REAL current record (not computeClaim's hypothetical "if
+      // claimed now" record, which only matters to claim() itself) - day
+      // states are always rendered from this, whether or not a claim is
+      // currently available.
+      const record = syncSeenDate();
+      const blocked = !computeClaim(record, getTodayKey()).available;
+      const states = buildDayStates(record, blocked);
 
       dom.checkinDaysRow.innerHTML = '';
       for (let day = 1; day <= CYCLE_LENGTH; day++) {
-        const isClaimed = day < todayPosition || (day === todayPosition && blocked);
-        const isToday = day === todayPosition;
-        const isFuture = day > todayPosition;
+        const state = states[day];
+        const credits = rewardForDay(day);
 
         const el = document.createElement('div');
-        el.className =
-          'checkin-day' + (isClaimed ? ' is-claimed' : '') + (isToday ? ' is-today' : '') + (isFuture ? ' is-future' : '');
+        el.className = 'daily-day';
+        el.dataset.state = state;
+        el.dataset.day = String(day);
+        if (isSpecialDay(day)) el.dataset.special = 'true';
+        el.setAttribute('aria-label', dayCellLabel(day, state, credits));
 
         const markEl = document.createElement('div');
-        markEl.className = 'checkin-day-mark';
-        if (isClaimed) {
-          markEl.innerHTML = pieceSvgFor(day - 1);
-        } else {
-          markEl.textContent = String(day);
-        }
+        markEl.className = 'daily-day-mark';
+        markEl.textContent = String(day);
         el.appendChild(markEl);
 
-        // The calendar date this row would actually be claimed on, assuming
-        // the streak continues uninterrupted from today - lets a day-4
-        // row's single-helper pick be previewed accurately even before it's
-        // reached, since the pick only ever depends on the date.
-        const rowDateKey = advanceDateKey(todayKey, day - todayPosition);
-        const reward = helperRewardForDayAt(day, rowDateKey);
-        if (reward) {
-          const rewardEl = document.createElement('div');
-          rewardEl.className = 'checkin-day-reward';
-          const ids = reward.allHelpers ? Helpers.HELPER_IDS : [reward.helperId];
-          rewardEl.innerHTML =
-            '<span class="helper-reward-icons">' + ids.map(helperIconFor).join('') + '</span><span>+' + reward.amount + '</span>';
-          el.appendChild(rewardEl);
-        }
+        const rewardEl = document.createElement('div');
+        rewardEl.className = 'daily-day-reward';
+        rewardEl.innerHTML =
+          '<span class="helper-reward-icons">' +
+          credits.map(function (c) { return helperIconFor(c.helperId); }).join('') +
+          '</span><span>+' +
+          (credits[0] ? credits[0].amount : 0) +
+          '</span>';
+        el.appendChild(rewardEl);
 
         dom.checkinDaysRow.appendChild(el);
       }
 
-      dom.checkinCurrentStreakText.textContent = I18n.t('checkinCurrentStreak', { count: record.currentStreak });
-      dom.checkinBestStreakText.textContent = I18n.t('checkinBestStreak', { count: record.bestStreak });
+      // Repurposed from the old streak lines: the first now shows "day N of
+      // 7", the second shows the "come back tomorrow" state line only when
+      // blocked (hidden otherwise) - see GAME_DESIGN.md for why these two
+      // existing elements were reused rather than left unused.
+      dom.checkinCurrentStreakText.textContent = I18n.t('dailyGiftDayLabel', { day: nextPositionAfter(record.position) });
+      dom.checkinBestStreakText.textContent = I18n.t('dailyGiftComeBackTomorrow');
+      dom.checkinBestStreakText.hidden = !blocked;
 
       dom.checkinClaimButton.disabled = blocked;
       dom.checkinClaimButton.textContent = I18n.t(blocked ? 'checkinClaimedButton' : 'checkinClaimButton');
@@ -217,9 +366,12 @@
     }
 
     function updateBadge() {
-      const record = Platform.loadCheckin();
-      const todayKey = dateKeyFromDate(Platform.now());
-      dom.checkinBadge.hidden = record.lastClaimDate === todayKey;
+      dom.checkinBadge.hidden = !previewToday().available;
+    }
+
+    function render() {
+      updateBadge();
+      if (!dom.checkinOverlay.hidden) buildPopup();
     }
 
     function openPopup() {
@@ -242,31 +394,43 @@
       buildPopup();
       updateBadge();
       if (result.reward) {
-        const ids = result.reward.allHelpers ? Helpers.HELPER_IDS : [result.reward.helperId];
+        const ids = result.reward.credits.map(function (c) { return c.helperId; });
         dom.checkinClaimRewardIcons.innerHTML = ids.map(helperIconFor).join('');
-        dom.checkinClaimRewardAmount.textContent = '+' + result.reward.amount;
+        dom.checkinClaimRewardAmount.textContent = '+' + result.reward.credits[0].amount;
         dom.checkinClaimReward.hidden = false;
         triggerOneShotAnim(dom.checkinClaimReward, 'reward-pop');
       }
       if (typeof handlers.onClaimed === 'function') handlers.onClaimed(result);
     });
 
-    return { render: updateBadge };
+    return { render };
   }
 
   const Checkin = {
     CYCLE_LENGTH,
-    HELPER_REWARD_BY_DAY,
+    ROTATION_HELPER_BY_DAY,
+    ROTATION_AMOUNT,
+    DAY4,
+    DAY4_AMOUNT,
+    DAY7,
+    DAY7_AMOUNT,
     dateKeyFromParts,
     dateKeyFromDate,
     daysBetweenKeys,
     advanceDateKey,
-    dayInCycle,
-    pickDailyHelperId,
-    helperRewardForDayAt,
+    getTodayKey,
+    nextPositionAfter,
+    fewestChargesAmong,
+    resolveHelperId,
+    rewardForDay,
+    isSpecialDay,
+    previewToday,
     computeClaim,
     claim,
-    createCheckinScreen,
+    debugAdvanceDays,
+    debugResetDailyGift,
+    debugJumpToDay,
+    createDailyGiftScreen,
   };
 
   root.Garden = root.Garden || {};

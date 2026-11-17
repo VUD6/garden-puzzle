@@ -22,10 +22,24 @@
   const TUTORIAL_DONE_KEY = 'garden.tutorialDone';
   const REDUCE_MOTION_KEY = 'garden.reduceMotion';
   const VIBRATION_KEY = 'garden.vibrationEnabled';
-  const CHECKIN_KEY = 'garden.checkin';
   const THEME_KEY = 'garden.theme';
   const HELPER_CHARGES_KEY = 'garden.helperCharges';
   const HIGHEST_LEVEL_KEY = 'garden.highestLevel';
+  // Daily gift (js/checkin.js): a position-based record (no more streak -
+  // see migrateDailyGift below for why), versioned separately from every
+  // other save so tuning it can never touch progress/score/charges/best times.
+  const DAILY_GIFT_KEY = 'garden.dailyGift';
+  const DAILY_GIFT_SCHEMA_VERSION = 1;
+  const DAILY_GIFT_SCHEMA_VERSION_KEY = 'garden.dailyGiftSchemaVersion';
+  // The old daily check-in's storage key (streak-based: lastClaimDate,
+  // currentStreak, bestStreak) - read once by migrateDailyGift below, then
+  // removed; never written again.
+  const LEGACY_CHECKIN_KEY = 'garden.checkin';
+  // Debug-only simulated day offset (js/checkin.js's debug*  helpers) -
+  // only ever has an effect when isDebugEnabled() is true (?debug=1 in the
+  // URL), so a real player's clock can never be affected by a stray value
+  // left over from testing.
+  const DEBUG_DAY_OFFSET_KEY = 'garden.debugDayOffset';
 
   function hasStorage() {
     return typeof localStorage !== 'undefined';
@@ -225,38 +239,111 @@
     return Number.isInteger(level) && level > 0 ? level : 1;
   }
 
-  // The single clock entry point for anything date-based (currently just the
-  // daily check-in). Tests override this directly (Platform.now = () => ...)
-  // to simulate arbitrary days without waiting for real ones.
-  function now() {
-    return new Date();
+  // Whether debug mode is active: the URL carries ?debug=1. Gates every
+  // debug-only affordance (window.GardenDebug in main.js, and the day-
+  // offset clock below) so none of it can ever reach a real player by
+  // accident - without the flag, loadDebugDayOffset's stored value (even if
+  // non-zero from earlier testing) has zero effect on now().
+  function isDebugEnabled() {
+    if (typeof location === 'undefined' || typeof URLSearchParams === 'undefined') return false;
+    try {
+      return new URLSearchParams(location.search).get('debug') === '1';
+    } catch (e) {
+      return false;
+    }
   }
 
-  function freshCheckinRecord() {
-    return { lastClaimDate: null, currentStreak: 0, bestStreak: 0 };
+  function loadDebugDayOffset() {
+    if (!hasStorage()) return 0;
+    const raw = localStorage.getItem(DEBUG_DAY_OFFSET_KEY);
+    const n = parseInt(raw, 10);
+    return Number.isInteger(n) ? n : 0;
   }
 
-  function saveCheckin(record) {
+  function saveDebugDayOffset(days) {
     if (!hasStorage()) return;
-    localStorage.setItem(CHECKIN_KEY, JSON.stringify(record));
+    localStorage.setItem(DEBUG_DAY_OFFSET_KEY, String(days));
+  }
+
+  // The single clock entry point for anything date-based (the daily gift
+  // feature). Tests override this directly (Platform.now = () => ...) to
+  // simulate arbitrary days without waiting for real ones. In the real app,
+  // defaults to the real device clock; under explicit debug mode (?debug=1
+  // - see isDebugEnabled) a persisted day offset can shift it instead, so
+  // the daily gift's day-by-day logic can be tested without waiting on real
+  // calendar days. Swapping this for a Yandex SDK server-time call later
+  // (roadmap step 8) needs no changes at any call site - every date-based
+  // feature already goes through here.
+  function now() {
+    const real = new Date();
+    if (!isDebugEnabled()) return real;
+    const offsetDays = loadDebugDayOffset();
+    if (!offsetDays) return real;
+    return new Date(real.getTime() + offsetDays * 86400000);
+  }
+
+  function freshDailyGiftRecord() {
+    return { lastClaimDate: null, lastSeenDate: null, position: 0 };
+  }
+
+  function saveDailyGift(record) {
+    if (!hasStorage()) return;
+    localStorage.setItem(DAILY_GIFT_KEY, JSON.stringify(record));
   }
 
   // Corruption-tolerant: anything missing, unparsable, or shaped wrong
-  // (wrong types, negative counts) falls back to a fresh record rather
-  // than throwing or trusting bad data.
-  function loadCheckin() {
-    if (!hasStorage()) return freshCheckinRecord();
-    const raw = localStorage.getItem(CHECKIN_KEY);
-    if (!raw) return freshCheckinRecord();
+  // falls back to a fresh record rather than throwing or trusting bad data.
+  function loadDailyGift() {
+    if (!hasStorage()) return freshDailyGiftRecord();
+    const raw = localStorage.getItem(DAILY_GIFT_KEY);
+    if (!raw) return freshDailyGiftRecord();
     try {
       const parsed = JSON.parse(raw);
       const lastClaimDate = typeof parsed.lastClaimDate === 'string' ? parsed.lastClaimDate : null;
-      const currentStreak = Number.isInteger(parsed.currentStreak) && parsed.currentStreak >= 0 ? parsed.currentStreak : 0;
-      const bestStreak = Number.isInteger(parsed.bestStreak) && parsed.bestStreak >= 0 ? parsed.bestStreak : 0;
-      return { lastClaimDate, currentStreak, bestStreak };
+      const lastSeenDate = typeof parsed.lastSeenDate === 'string' ? parsed.lastSeenDate : null;
+      const position = Number.isInteger(parsed.position) && parsed.position >= 0 && parsed.position <= 7 ? parsed.position : 0;
+      return { lastClaimDate, lastSeenDate, position };
     } catch (e) {
-      return freshCheckinRecord();
+      return freshDailyGiftRecord();
     }
+  }
+
+  // One-time migration from the old streak-based daily check-in record
+  // (garden.checkin - lastClaimDate/currentStreak/bestStreak) to the new
+  // position-based daily gift record. The new rules never reset on a
+  // missed day, so there's no "streak" left to carry over - only
+  // lastClaimDate matters, preserved exactly so a player mid-update can
+  // never claim twice on the same calendar day; the old streak is used
+  // only to best-effort seed an initial cycle position. Idempotent (checks
+  // the schema version first) and touches nothing but the two daily-gift
+  // keys and the legacy key it reads from - progress, total score, stars,
+  // best times, and helper charges are a completely separate storage prefix.
+  function migrateDailyGift() {
+    if (!hasStorage()) return;
+    const storedVersion = parseInt(localStorage.getItem(DAILY_GIFT_SCHEMA_VERSION_KEY), 10);
+    if (Number.isInteger(storedVersion) && storedVersion >= DAILY_GIFT_SCHEMA_VERSION) return;
+
+    let migrated = freshDailyGiftRecord();
+    const legacyRaw = localStorage.getItem(LEGACY_CHECKIN_KEY);
+    if (legacyRaw) {
+      try {
+        const legacy = JSON.parse(legacyRaw);
+        if (legacy && typeof legacy.lastClaimDate === 'string') {
+          const streak = Number.isInteger(legacy.currentStreak) && legacy.currentStreak > 0 ? legacy.currentStreak : 1;
+          migrated = {
+            lastClaimDate: legacy.lastClaimDate,
+            lastSeenDate: legacy.lastClaimDate,
+            position: ((streak - 1) % 7) + 1,
+          };
+        }
+      } catch (e) {
+        // Unparsable legacy record - fall through to the fresh one.
+      }
+      localStorage.removeItem(LEGACY_CHECKIN_KEY);
+    }
+
+    localStorage.setItem(DAILY_GIFT_KEY, JSON.stringify(migrated));
+    localStorage.setItem(DAILY_GIFT_SCHEMA_VERSION_KEY, String(DAILY_GIFT_SCHEMA_VERSION));
   }
 
   function vibrate(pattern) {
@@ -315,16 +402,21 @@
     saveHighestLevel,
     loadHighestLevel,
     now,
-    saveCheckin,
-    loadCheckin,
+    isDebugEnabled,
+    loadDebugDayOffset,
+    saveDebugDayOffset,
+    saveDailyGift,
+    loadDailyGift,
+    migrateDailyGift,
     gameReady,
     showRewardedAd,
     showInterstitialAd,
   };
 
-  // Runs once, right when this module is first loaded (i.e. once per real
-  // page load) - idempotent, see migrateBestTimes's own comment.
+  // Run once, right when this module is first loaded (i.e. once per real
+  // page load) - both idempotent, see their own comments.
   migrateBestTimes();
+  migrateDailyGift();
 
   root.Garden = root.Garden || {};
   root.Garden.platform = Platform;
