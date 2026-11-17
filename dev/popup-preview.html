@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="../css/winter-ornaments.css">
 <link rel="stylesheet" href="../css/winter-popups.css">
 <link rel="stylesheet" href="../css/daily-gift.css">
+<link rel="stylesheet" href="../css/winter-win.css">
 <style>
 :root {
   --preview-page: #efe3d4;
@@ -57,11 +58,12 @@ nav a:focus-visible { outline: var(--winter-focus-width) solid var(--pine); }
 .scene { display: grid; justify-items: center; padding: var(--winter-plaque-padding); }
 .preview-board { width: min(100%, var(--preview-board-size)); }
 .phone > .overlay { position: absolute; }
-.phone > :is(#how, #example, #daily) { display: none; }
+.phone > :is(#how, #example, #daily, #winPreview) { display: none; }
 body:has(#show-how:target) #how,
 body:has(#show-example:target) #example,
-body:has(#show-daily:target) #daily { display: flex; }
-body:has(#show-how:target, #show-example:target, #show-daily:target, #preview-closed:target) #settings { display: none; }
+body:has(#show-daily:target) #daily,
+body:has(#show-win:target) #winPreview { display: flex; }
+body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:target, #preview-closed:target) #settings { display: none; }
 .tutorial-board { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
 .preview-empty { min-height: calc(3 * var(--winter-touch)); }
 .preview-empty h2 { padding-inline: var(--winter-touch); }
@@ -93,6 +95,7 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #preview-cl
     <a id="show-settings" href="#show-settings">Настройки</a>
     <a id="show-how" href="#show-how">Как играть</a>
     <a id="show-daily" href="#show-daily">Награда</a>
+    <a id="show-win" href="#show-win">Победа</a>
     <a id="show-example" href="#show-example">Шаблон</a>
   </nav>
   <div class="phone">
@@ -174,6 +177,29 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #preview-cl
         </label>
       </div>
     </div>
+    <div class="overlay winter-plaque-overlay" id="winPreview">
+      <div class="overlay-card winter-plaque winter-win">
+        <div class="cell-mark win-flower" id="previewWinPiece"></div>
+        <h2 class="result-text" id="previewWinTitle"></h2>
+        <div class="stars star-pop" id="previewWinStars"></div>
+        <p class="rank-title" id="previewWinRank"></p>
+        <p id="previewWinPoints"></p>
+        <p class="best-time" id="previewWinTime"></p>
+        <div class="reward-badge" id="previewWinMilestone" hidden>
+          <span class="helper-reward-icons" id="previewWinHelpers"></span>
+          <span id="previewWinAmount"></span>
+        </div>
+        <button class="winter-plaque-primary" id="previewWinNext" type="button" data-preview-close></button>
+        <label class="preview-daily-label">Превью
+          <select id="preview-win-state">
+            <option value="1">1 звезда</option>
+            <option value="2">2 звезды</option>
+            <option value="3">3 звезды</option>
+            <option value="milestone">Праздничный уровень</option>
+          </select>
+        </label>
+      </div>
+    </div>
     <div class="overlay winter-plaque-overlay" id="example">
       <div class="overlay-card winter-plaque preview-empty">
         <h2>Шаблон</h2>
@@ -232,6 +258,26 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #preview-cl
     renderDailyPreview();
   });
   renderDailyPreview();
+  const winSelect = document.getElementById('preview-win-state');
+  function renderWinPreview() {
+    const milestone = winSelect.value === 'milestone';
+    const rating = milestone ? 3 : Number(winSelect.value);
+    const starPath = 'M12 2l2.9 6.26L22 9.27l-5 5.13L18.18 22 12 18.56 5.82 22 7 14.4l-5-5.13 7.1-1.01L12 2z';
+    document.getElementById('previewWinPiece').innerHTML = themes.getCurrentTheme().pieceArt();
+    document.getElementById('previewWinTitle').textContent = i18n.t(rating === 3 ? 'resultPerfect' : 'resultDone');
+    document.getElementById('previewWinStars').innerHTML = Array.from({length: 3}, (_, index) =>
+      '<svg viewBox="0 0 24 24" class="star-' + (index < rating ? 'filled' : 'empty') +
+      '" aria-hidden="true"><path d="' + starPath + '"/></svg>').join('');
+    document.getElementById('previewWinRank').textContent = i18n.t(['', 'rankGardener', 'rankSkilledGardener', 'rankMasterGardener'][rating]);
+    document.getElementById('previewWinPoints').textContent = i18n.t('scoreEarnedLabel', { amount: 120 });
+    document.getElementById('previewWinTime').textContent = i18n.t('bestTimeLabel', { time: '01:24' });
+    document.getElementById('previewWinMilestone').hidden = !milestone;
+    document.getElementById('previewWinHelpers').innerHTML = ['finder', 'random', 'snowman'].map(id => themes.getCurrentTheme().helperIconSvg(id)).join('');
+    document.getElementById('previewWinAmount').textContent = '+1';
+    document.getElementById('previewWinNext').textContent = i18n.t('nextLevelButton');
+  }
+  winSelect.addEventListener('change', renderWinPreview);
+  renderWinPreview();
   document.getElementById('replayTutorialButton').addEventListener('click', () => { location.hash = 'show-how'; });
   document.querySelectorAll('[data-preview-close]').forEach(button => {
     button.addEventListener('click', () => { location.hash = 'preview-closed'; });

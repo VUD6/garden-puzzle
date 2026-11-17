@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="css/winter-ornaments.css">
 <link rel="stylesheet" href="css/winter-popups.css">
 <link rel="stylesheet" href="css/daily-gift.css">
+<link rel="stylesheet" href="css/winter-win.css">
 </head>
 <body>
 <div id="app">
@@ -198,8 +199,8 @@
     <div class="board" id="board"></div>
   </main>
   </div>
-  <div class="overlay" id="winOverlay" hidden>
-    <div class="overlay-card">
+  <div class="overlay winter-plaque-overlay" id="winOverlay" hidden>
+    <div class="overlay-card winter-plaque winter-win">
       <div class="cell-mark win-flower" id="winFlower"></div>
       <h2 id="winTitle"></h2>
       <div class="stars" id="starsContainer"></div>
@@ -210,7 +211,7 @@
         <span class="helper-reward-icons" id="milestoneRewardIcons"></span>
         <span id="milestoneRewardAmount"></span>
       </div>
-      <button id="nextLevelButton" type="button"></button>
+      <button class="winter-plaque-primary" id="nextLevelButton" type="button"></button>
     </div>
   </div>
   <div class="overlay" id="failOverlay" hidden>
