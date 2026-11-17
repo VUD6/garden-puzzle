@@ -35,6 +35,21 @@
     return level < DAILY_CHALLENGE_UNLOCK_LEVEL;
   }
 
+  // The single source of truth for the daily-challenge button's state -
+  // 'locked' (below the unlock level), 'done' (already won today, no
+  // reward on a replay), or 'available' (the only state that may ever
+  // actually start anything). Pure given the current saved/date state
+  // (reads Garden.dailyChallenge.isDoneToday() at call time, never at
+  // module-eval time, so this file has no load-order dependency on
+  // js/daily-challenge.js - see its own module comment). Exported so both
+  // the click handler below AND tests can ask "is this actually startable
+  // right now" from one place, rather than trusting a possibly-stale
+  // `.disabled`/`dataset.state` already baked into the DOM.
+  function challengeState(level) {
+    if (shouldShowDailyLock(level)) return 'locked';
+    return root.Garden.dailyChallenge.isDoneToday() ? 'done' : 'available';
+  }
+
   // Browser-only: wires the menu screen's buttons and keeps its "Играть" /
   // "Продолжить · Уровень N" label and daily-lock visibility in sync with
   // saved progress. No game-rule logic lives here.
@@ -56,14 +71,21 @@
     totalStarsEl.className = 'menu-total-stars';
     dom.menuSubtitle.insertAdjacentElement('afterend', totalStarsEl);
 
-    // Daily challenge button: index.html already has the button, its lock
-    // icon, and its caption span (the pre-existing locked teaser) - only the
-    // unclaimed-today badge has no slot, so it's created once and appended,
-    // same convention as .menu-total-stars above. Stable hooks for Codex's
-    // later styling pass: .daily-challenge-btn, data-state="locked|
-    // available|done" on the button, .daily-challenge-badge on the badge.
+    // Daily challenge button: index.html already has the button, an icon
+    // svg (originally lock-only), and its caption span (the pre-existing
+    // locked teaser) - only the unclaimed-today badge has no slot, so it's
+    // created once and appended, same convention as .menu-total-stars
+    // above. Stable hooks for Codex's later styling pass: .daily-challenge-btn,
+    // data-state="locked|available|done" on the button,
+    // .daily-challenge-badge on the badge, and the pre-existing icon svg is
+    // repurposed into a generic .daily-challenge-icon with
+    // data-icon="lock|gift|check" (one element, three looks - Codex draws
+    // the check mark for "done" and a gift glyph for "available") rather
+    // than three separate icon elements, since index.html only ever had the
+    // one slot and this file can't add markup there.
     dom.dailyChallengeButton.classList.add('daily-challenge-btn');
-    const dailyChallengeLockIcon = dom.dailyChallengeButton.querySelector('.lock-icon');
+    const dailyChallengeIcon = dom.dailyChallengeButton.querySelector('.lock-icon');
+    if (dailyChallengeIcon) dailyChallengeIcon.classList.add('daily-challenge-icon');
     const dailyChallengeBadge = document.createElement('span');
     dailyChallengeBadge.className = 'daily-challenge-badge';
     dailyChallengeBadge.hidden = true;
@@ -82,18 +104,23 @@
       handlers.onSettings();
     });
     dom.dailyChallengeButton.addEventListener('click', function () {
-      // disabled already blocks this in a real browser (locked, or already
-      // done for today - no reward on a replay, see js/daily-challenge.js);
-      // this guard is just defensive.
-      if (dom.dailyChallengeButton.disabled) return;
+      // Re-derives the state fresh at the moment of the click, rather than
+      // trusting this button's last-rendered `.disabled`/`dataset.state` -
+      // this is the ONE guard that actually decides whether anything
+      // happens, so a stale render (or a `?debug=1` call, or a future
+      // caller that bypasses the button's own disabled flag some other
+      // way) can never slip a click through while locked or already done
+      // for today. Fires identically for a mouse click, a touch tap, or a
+      // keyboard Enter/Space activation - a real <button> dispatches the
+      // exact same 'click' event for all three, and there is no separate
+      // keydown handling here to diverge from it. Garden.dailyChallenge.start()
+      // keeps its own independent copy of this same eligibility check, so a
+      // completed/locked challenge can't be started by a direct call that
+      // skips this button entirely either (see its own comment).
+      if (challengeState(Platform.loadProgress()) !== 'available') return;
       AudioFx.playEffect('tap');
       handlers.onDailyChallenge();
     });
-
-    function challengeState(level) {
-      if (shouldShowDailyLock(level)) return 'locked';
-      return root.Garden.dailyChallenge.isDoneToday() ? 'done' : 'available';
-    }
 
     function render() {
       const level = Platform.loadProgress();
@@ -104,9 +131,18 @@
 
       const state = challengeState(level);
       dom.dailyChallengeButton.hidden = false;
+      // Native `disabled` is the primary guard (a real browser never even
+      // dispatches 'click'/keyboard activation for it); `aria-disabled` is
+      // layered on top purely for assistive-tech semantics, and the click
+      // handler above re-derives this same state independently rather than
+      // trusting either of these - see its own comment for why.
       dom.dailyChallengeButton.disabled = state !== 'available';
+      dom.dailyChallengeButton.setAttribute('aria-disabled', String(state !== 'available'));
       dom.dailyChallengeButton.dataset.state = state;
-      if (dailyChallengeLockIcon) dailyChallengeLockIcon.hidden = state !== 'locked';
+      if (dailyChallengeIcon) {
+        dailyChallengeIcon.hidden = false;
+        dailyChallengeIcon.dataset.icon = state === 'locked' ? 'lock' : state === 'done' ? 'check' : 'gift';
+      }
       dom.dailyChallengeCaption.textContent = I18n.t(
         state === 'locked' ? 'dailyChallengeCaption' : state === 'done' ? 'dailyChallengeDoneCaption' : 'dailyChallengeButtonLabel'
       );
@@ -120,7 +156,7 @@
     return { render };
   }
 
-  const Menu = { hasProgress, shouldShowDailyLock, createMenuScreen, DAILY_CHALLENGE_UNLOCK_LEVEL };
+  const Menu = { hasProgress, shouldShowDailyLock, challengeState, createMenuScreen, DAILY_CHALLENGE_UNLOCK_LEVEL };
 
   root.Garden = root.Garden || {};
   root.Garden.menu = Menu;

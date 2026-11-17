@@ -263,8 +263,11 @@
         renderer.openSettings();
       },
       onDailyChallenge: function () {
-        Garden.dailyChallenge.start(game);
-        enterGame();
+        // start() itself is the authoritative guard (see its own comment) -
+        // a no-op, returning false, if the challenge is locked or already
+        // won today, in which case the screen must stay exactly where it
+        // is rather than entering a game that was never actually started.
+        if (Garden.dailyChallenge.start(game)) enterGame();
       },
     });
 

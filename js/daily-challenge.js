@@ -184,14 +184,34 @@
 
   // --- Glue: starting a challenge attempt, and reacting to its snapshots ---
 
+  // Whether the challenge is actually allowed to start right now - below
+  // the unlock level, or already won today, and this is a no-op. This is
+  // the SAME eligibility rule js/menu.js's own challengeState() computes
+  // for the button's UI state (locked/available/done), kept as its own
+  // independent copy here (consistent with this file's other small local
+  // rule copies, see pickChallengeRewardHelper's comment) so `start()`
+  // below can never be made to (re-)open a completed/locked challenge by
+  // ANY caller - the menu button, a direct console call, or anything else -
+  // not just one that happens to go through the button's own disabled
+  // check first.
+  function canStart() {
+    const level = root.Garden.platform.loadProgress();
+    return level >= UNLOCK_LEVEL && !isDoneToday();
+  }
+
   // Starts (or resumes an in-progress attempt at) today's puzzle on the
   // given game instance (see Garden.state.createGame's enterChallenge) -
   // the same instance that's showing the player's normal progression the
   // rest of the time, switched into challenge mode for the duration.
+  // Returns whether it actually started anything (false - a complete
+  // no-op, `game` left untouched - below the unlock level or already won
+  // today; see canStart above).
   function start(game) {
+    if (!canStart()) return false;
     const today = todayKey();
     const pseudoLevel = difficultyLevelForDate(today);
     game.enterChallenge(function () { return buildChallengeLevel(today); }, pseudoLevel, 'daily-' + today);
+    return true;
   }
 
   // Enriches a game snapshot with this day's reward info, crediting it
@@ -243,6 +263,7 @@
     pickChallengeRewardHelper,
     isDoneToday,
     creditIfFirstWinToday,
+    canStart,
     start,
     handleSnapshot,
     debugReset,

@@ -211,6 +211,40 @@ function main() {
   assert(game1.getSnapshot().mode === 'normal', 'exitChallenge switches back to normal mode');
   assert(game1.getSnapshot().level === 20, 'exitChallenge reloads the real saved progress level');
 
+  // --- start()/canStart() refuse to (re-)open a locked or already-done challenge,
+  // regardless of caller - not just when gated by the menu button's own disabled
+  // state (this is the exact bug this guard fixes: a stale/bypassed button click,
+  // or any other direct call, must never be able to start a completed/locked
+  // challenge). ---
+  freshGame();
+  Platform.saveProgress(10); // below the level-15 unlock
+  Platform.saveHighestLevel(10);
+  setNow('2024-05-10');
+
+  const lockedGame = State.createGame({ onChange: function () {} });
+  const lockedModeBefore = lockedGame.getSnapshot().mode;
+  assert(DailyChallenge.canStart() === false, 'canStart() is false below the unlock level');
+  assert(DailyChallenge.start(lockedGame) === false, 'start() refuses below the unlock level');
+  assert(lockedGame.getSnapshot().mode === lockedModeBefore, 'a refused start() never touches the game instance at all');
+
+  Platform.saveProgress(20);
+  Platform.saveHighestLevel(20);
+  const todayLocked = Checkin.getTodayKey();
+  assert(DailyChallenge.canStart() === true, 'canStart() is true once unlocked and not yet won today');
+
+  const doneGame = State.createGame({ onChange: function () {} });
+  const doneSnapshots = [];
+  const unlockedGame = State.createGame({ onChange: function (s) { doneSnapshots.push(s); } });
+  DailyChallenge.start(unlockedGame);
+  winChallenge(unlockedGame, todayLocked, doneSnapshots);
+  DailyChallenge.creditIfFirstWinToday(doneSnapshots[doneSnapshots.length - 1].levelScore, doneSnapshots[doneSnapshots.length - 1].rating);
+  assert(DailyChallenge.isDoneToday() === true, 'the challenge is now done for today, set up for the next checks');
+
+  const doneModeBefore = doneGame.getSnapshot().mode;
+  assert(DailyChallenge.canStart() === false, 'canStart() is false once already won today');
+  assert(DailyChallenge.start(doneGame) === false, 'start() refuses to re-open an already-won-today challenge');
+  assert(doneGame.getSnapshot().mode === doneModeBefore, 'a refused start() never touches a completely unrelated game instance either');
+
   // --- Reward on first win: points, stars, helper charges - exactly once ---
   freshGame();
   Platform.saveProgress(20);
