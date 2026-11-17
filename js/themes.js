@@ -207,7 +207,7 @@
     '--accent-glow': 'rgba(62, 143, 87, 0.5)',
     // Candy-cane rim: a diagonal red/off-white stripe (never pure #fff, per
     // the project's no-pure-white-or-black palette rule).
-    '--board-frame-bg': 'repeating-linear-gradient(45deg, #b8413f 0px 10px, #fbf2e4 10px 20px)',
+    '--board-frame-bg': 'repeating-linear-gradient(45deg, var(--winter-candy-red) 0px 10px, var(--winter-candy-cream) 10px 20px)',
     // "Icy-candy" tile: a gentle highlight, a cool blue-grey lower edge, and
     // a light translucent sheen - same geometry/press behavior as the
     // garden tile, just re-colored for the light page.
