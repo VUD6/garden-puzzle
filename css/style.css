@@ -1663,6 +1663,7 @@ html[data-theme="winter"] .game-screen .board-wrap {
   min-height: 0;
   padding: var(--winter-board-gutter);
   container-type: size;
+  align-items: flex-start;
 }
 
 html[data-theme="winter"] .game-screen .board {
@@ -1730,6 +1731,7 @@ html[data-theme="winter"] .game-screen .helper-lock-caption {
 }
 
 html[data-theme="winter"] .game-screen .helpers-row {
+  order: 1;
   align-items: flex-start;
   padding-bottom: var(--winter-ui-gap);
 }
@@ -1766,6 +1768,7 @@ html[data-theme="winter"] .game-screen .rules-bar:not(.popup-mode) .rule-text {
     grid-column: 2;
     grid-row: 1 / -1;
     align-self: stretch;
+    align-items: center;
   }
 }
 
@@ -1807,19 +1810,33 @@ html[data-theme="winter"] .rule-cell.flower .dot {
   --winter-menu-title: clamp(2rem, 9vw, 3.25rem);
   --winter-menu-decor: 440px;
   --winter-menu-icon: 24px;
+  --winter-primary-highlight: #52846a;
+  --winter-primary-edge: #234836;
+  --winter-primary-stroke: 1px;
+  --winter-primary-edge-size: 3px;
+  --winter-focus-width: 2px;
+  --winter-tutorial-dim-opacity: 0.55;
+  --winter-target-ring: 2px;
+  --winter-target-outline: 3px;
+  --winter-target-static-ring: 3px;
+  --winter-target-static-outline: 4px;
+  --winter-target-glow: 7px;
+  --winter-target-glow-peak: 13px;
+  --winter-target-glow-color: rgba(247, 240, 231, 0.78);
+  --winter-target-pulse-time: 1.4s;
 }
 
-html[data-theme="winter"] .rules-bar:not(.popup-mode) .rule-cell {
+html[data-theme="winter"] .rules-bar .rule-cell {
   background: var(--panel);
 }
 
-html[data-theme="winter"] .rules-bar:not(.popup-mode) .rule-cell.bed {
+html[data-theme="winter"] .rules-bar .rule-cell:is(.bed, .x, .flower) {
   background: var(--winter-rule-sand);
   box-shadow: inset 0 0 0 1px var(--panel-border);
 }
 
-html[data-theme="winter"] .rules-bar:not(.popup-mode) .rule-cell .mark-x::before,
-html[data-theme="winter"] .rules-bar:not(.popup-mode) .rule-cell .mark-x::after {
+html[data-theme="winter"] .rules-bar .rule-cell .mark-x::before,
+html[data-theme="winter"] .rules-bar .rule-cell .mark-x::after {
   background: var(--ink-soft);
 }
 
@@ -1891,22 +1908,22 @@ html[data-theme="winter"] .menu-card > button {
   padding: var(--winter-ui-gap) var(--winter-tutorial-padding);
 }
 
-html[data-theme="winter"] .menu-play-button {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--panel-border);
-  background: linear-gradient(var(--panel), var(--panel-soft));
-  color: var(--pine);
-  min-height: var(--winter-helper-size);
+html[data-theme="winter"] :is(.menu-play-button, .overlay-card #nextLevelButton) {
+  border: var(--winter-primary-stroke) solid var(--winter-primary-edge);
+  background: var(--pine);
+  color: var(--snow);
+  min-height: var(--winter-primary-height, var(--winter-touch));
+  box-shadow: inset 0 var(--winter-primary-stroke) var(--winter-primary-highlight),
+    inset 0 calc(-1 * var(--winter-primary-edge-size)) var(--winter-primary-edge);
 }
 
-html[data-theme="winter"] .menu-play-button::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0;
-  height: var(--winter-ui-gap);
-  background: var(--board-frame-bg);
-  opacity: 0.58;
+html[data-theme="winter"] .menu-play-button {
+  --winter-primary-height: var(--winter-helper-size);
+}
+
+html[data-theme="winter"] :is(.menu-play-button, .overlay-card #nextLevelButton):focus-visible {
+  outline: var(--winter-focus-width) solid var(--winter-primary-edge);
+  outline-offset: var(--winter-focus-width);
 }
 
 html[data-theme="winter"] .checkin-menu-button {
@@ -1927,7 +1944,7 @@ html[data-theme="winter"] .menu-secondary-button {
   box-shadow: var(--winter-control-shadow);
 }
 
-html[data-theme="winter"] .menu-button:active:not(:disabled) {
+html[data-theme="winter"] :is(.menu-button, .overlay-card #nextLevelButton):active:not(:disabled) {
   box-shadow: var(--shadow-inset);
 }
 
@@ -1954,13 +1971,39 @@ html[data-theme="winter"] .tutorial-board {
   gap: var(--winter-compact-gap);
 }
 
-html[data-theme="winter"] .tutorial-board .cell.tutorial-dim {
-  opacity: 1;
+html[data-theme="winter"] .tutorial-board .cell:is(.tutorial-dim, .tutorial-active.locked) {
+  opacity: var(--winter-tutorial-dim-opacity);
+  animation: none;
+  box-shadow: none;
 }
 
-html[data-theme="winter"] .tutorial-board .cell.tutorial-active {
+html[data-theme="winter"] .tutorial-board .cell.tutorial-active:not(.locked) {
   z-index: 1;
+  box-shadow: 0 0 0 var(--winter-target-ring) var(--snow),
+    0 0 0 var(--winter-target-outline) var(--crust);
+  animation: winter-target-pulse var(--winter-target-pulse-time) ease-in-out infinite;
 }
+
+@keyframes winter-target-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 var(--winter-target-ring) var(--snow),
+      0 0 0 var(--winter-target-outline) var(--crust),
+      0 0 var(--winter-target-glow) var(--winter-target-glow-color);
+  }
+
+  50% {
+    box-shadow: 0 0 0 var(--winter-target-ring) var(--snow),
+      0 0 0 var(--winter-target-outline) var(--crust),
+      0 0 var(--winter-target-glow-peak) var(--winter-target-glow-color);
+  }
+}
+
+html[data-theme="winter"].reduce-motion .tutorial-board .cell.tutorial-active:not(.locked) {
+  animation: none;
+  box-shadow: 0 0 0 var(--winter-target-static-ring) var(--snow),
+    0 0 0 var(--winter-target-static-outline) var(--crust);
+}
+
 
 html[data-theme="winter"] .tutorial-hand {
   z-index: 2;
@@ -2018,6 +2061,12 @@ html[data-theme="winter"] .tutorial-bubble {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html[data-theme="winter"] .tutorial-board .cell.tutorial-active:not(.locked) {
+    animation: none;
+    box-shadow: 0 0 0 var(--winter-target-static-ring) var(--snow),
+      0 0 0 var(--winter-target-static-outline) var(--crust);
+  }
+
   html[data-theme="winter"] .loading-pulse span {
     animation: none;
     opacity: 0.8;
