@@ -23,6 +23,12 @@
   // never re-grants it.
   const MILESTONE_HELPER_REWARD = 1;
 
+  // Win streak: every WIN_STREAK_BONUS_INTERVAL-th consecutive level won
+  // grants WIN_STREAK_BONUS_AMOUNT charges of one helper (see finishLevel
+  // and pickStreakBonusHelper below).
+  const WIN_STREAK_BONUS_INTERVAL = 5;
+  const WIN_STREAK_BONUS_AMOUNT = 1;
+
   // Grid size by level: 1-2 -> 4x4, 3-5 -> 5x5, 6-9 -> 6x6, 10-14 -> 7x7, 15+ -> 8x8.
   const SIZE_THRESHOLDS = [
     { minLevel: 1, size: 4 },
@@ -168,6 +174,29 @@
       if (chosen.length >= count) break;
     }
     return chosen;
+  }
+
+  // The win-streak bonus (see finishLevel below) goes to whichever eligible
+  // helper the player currently has the fewest charges of; a tie favors the
+  // id earliest in the list, which is always passed finder-first. Snowman
+  // is only eligible once unlocked (level 10) - mirrors the exact same
+  // "fewest charges, tie to finder, snowman only if unlocked" rule
+  // Garden.checkin uses for its own day-4/day-7 rewards, kept as its own
+  // small local copy rather than a cross-module call, since state.js has
+  // no other reason to depend on the daily-gift feature.
+  function pickStreakBonusHelper() {
+    const Helpers = root.Garden.helpers;
+    const eligible = Helpers.isUnlocked('snowman') ? Helpers.HELPER_IDS.slice() : ['finder', 'random'];
+    let best = eligible[0];
+    let bestCharges = Helpers.getCharges(best);
+    for (let i = 1; i < eligible.length; i++) {
+      const charges = Helpers.getCharges(eligible[i]);
+      if (charges < bestCharges) {
+        best = eligible[i];
+        bestCharges = charges;
+      }
+    }
+    return best;
   }
 
   function createGame(options) {
@@ -406,9 +435,33 @@
       const bestTimeSeconds = alreadyCompletedBefore ? Math.min(previousBest, elapsedSeconds) : elapsedSeconds;
       platform.saveBestTime(level, bestTimeSeconds);
 
+      // Best stars per level, same "can always improve on a replay" rule as
+      // best time - platform.saveBestStars keeps the menu's running
+      // totalStars in sync by the exact delta, so nothing here has to
+      // re-sum every level itself.
+      const previousBestStars = platform.loadBestStars(level);
+      const bestStars = previousBestStars === null ? rating : Math.max(previousBestStars, rating);
+      platform.saveBestStars(level, bestStars);
+
+      // Win streak: only a win that represents genuine NEW progress (not
+      // yet completed before) extends it - re-winning an already-completed
+      // level neither extends nor breaks it, so it can't be farmed for free
+      // bonus charges. A loss always breaks it regardless (see
+      // attemptFlower) - there is no equivalent "already completed"
+      // exception for losing.
+      let streak = null;
+      let streakBonus = null;
       if (!alreadyCompletedBefore) {
         committedScore += levelScore;
         platform.saveTotalScore(committedScore);
+
+        streak = platform.loadWinStreak() + 1;
+        platform.saveWinStreak(streak);
+        if (streak % WIN_STREAK_BONUS_INTERVAL === 0) {
+          const bonusHelperId = pickStreakBonusHelper();
+          Helpers.addCharges(bonusHelperId, WIN_STREAK_BONUS_AMOUNT);
+          streakBonus = { helperId: bonusHelperId, amount: WIN_STREAK_BONUS_AMOUNT };
+        }
       }
 
       // Milestone reward: +1 charge of EACH helper, granted only on a
@@ -424,7 +477,19 @@
 
       status = 'won';
       platform.clearBoard(level);
-      emit({ scoreGain, winFill, rating, elapsedSeconds, bestTimeSeconds, helperPlant: helperPlant || null, milestoneReward });
+      emit({
+        scoreGain,
+        winFill,
+        rating,
+        elapsedSeconds,
+        bestTimeSeconds,
+        helperPlant: helperPlant || null,
+        milestoneReward,
+        streak,
+        streakBonus,
+        winsUntilStreakBonus:
+          streak === null ? null : WIN_STREAK_BONUS_INTERVAL - (streak % WIN_STREAK_BONUS_INTERVAL),
+      });
     }
 
     function attemptFlower(row, col, cell) {
@@ -432,7 +497,14 @@
         cell.state = CellState.WRONG;
         cell.locked = true;
         lives--;
-        if (lives <= 0) status = 'lost';
+        if (lives <= 0) {
+          status = 'lost';
+          // A loss always breaks the win streak - unlike a win, there is no
+          // "already completed" exception here (see finishLevel's own
+          // comment): losing on a replay of an already-won level still
+          // resets it, same as any other loss.
+          platform.saveWinStreak(0);
+        }
         commit({ mistake: { row, col, lostLifeIndex: lives } });
         return;
       }
@@ -686,6 +758,7 @@
     computeRating,
     randomRollSeed,
     pickSpreadCrossCells,
+    pickStreakBonusHelper,
     MAX_LIVES,
     DOUBLE_TAP_WINDOW_MS,
     POINTS_PER_FLOWER,
@@ -695,6 +768,8 @@
     MILESTONE_HELPER_REWARD,
     SINGLE_CELL_REGION_FREE_MAX_LEVEL,
     SINGLE_CELL_REGION_INTERVAL,
+    WIN_STREAK_BONUS_INTERVAL,
+    WIN_STREAK_BONUS_AMOUNT,
   };
 
   root.Garden = root.Garden || {};

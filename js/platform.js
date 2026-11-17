@@ -25,6 +25,20 @@
   const THEME_KEY = 'garden.theme';
   const HELPER_CHARGES_KEY = 'garden.helperCharges';
   const HIGHEST_LEVEL_KEY = 'garden.highestLevel';
+  // Win streak (consecutive levels won in a row, see state.js) - a plain
+  // counter, not date-based, so it needs no migration of its own: a
+  // missing key already defaults to 0, exactly the correct "never won a
+  // level" starting state.
+  const WIN_STREAK_KEY = 'garden.winStreak';
+  // Best stars (1-3) ever earned per level, and the running sum of them
+  // shown on the menu. Versioned because this is a brand-new save: there
+  // is no historical per-level star data to recover (star ratings were
+  // never recorded before this feature), so migrateStars() below only
+  // ever has to establish totalStars at 0 once - see its own comment.
+  const BEST_STARS_KEY_PREFIX = 'garden.bestStars.';
+  const TOTAL_STARS_KEY = 'garden.totalStars';
+  const STARS_SCHEMA_VERSION = 1;
+  const STARS_SCHEMA_VERSION_KEY = 'garden.starsSchemaVersion';
   // Daily gift (js/checkin.js): a position-based record (no more streak -
   // see migrateDailyGift below for why), versioned separately from every
   // other save so tuning it can never touch progress/score/charges/best times.
@@ -165,6 +179,69 @@
     });
     localStorage.removeItem(BEST_TIME_LEVELS_KEY);
     localStorage.setItem(BEST_TIME_SCHEMA_VERSION_KEY, String(BEST_TIME_SCHEMA_VERSION));
+  }
+
+  function saveWinStreak(n) {
+    if (!hasStorage()) return;
+    localStorage.setItem(WIN_STREAK_KEY, String(Math.max(0, n)));
+  }
+
+  function loadWinStreak() {
+    if (!hasStorage()) return 0;
+    const raw = localStorage.getItem(WIN_STREAK_KEY);
+    const n = parseInt(raw, 10);
+    return Number.isInteger(n) && n >= 0 ? n : 0;
+  }
+
+  function loadTotalStars() {
+    if (!hasStorage()) return 0;
+    const raw = localStorage.getItem(TOTAL_STARS_KEY);
+    const n = parseInt(raw, 10);
+    return Number.isInteger(n) && n >= 0 ? n : 0;
+  }
+
+  function saveTotalStars(n) {
+    if (!hasStorage()) return;
+    localStorage.setItem(TOTAL_STARS_KEY, String(Math.max(0, n)));
+  }
+
+  function loadBestStars(level) {
+    if (!hasStorage()) return null;
+    const raw = localStorage.getItem(BEST_STARS_KEY_PREFIX + level);
+    if (raw === null) return null;
+    const stars = parseInt(raw, 10);
+    return Number.isInteger(stars) && stars >= 0 && stars <= 3 ? stars : null;
+  }
+
+  // A dumb writer, same as saveBestTime - the caller (state.js) is the one
+  // that decides the value to write (e.g. Math.max against the previous
+  // best), not this function. The only thing this does on top of a plain
+  // write is keep the menu's running totalStars in sync by the exact delta,
+  // so the menu never needs to re-sum every level's best stars itself.
+  function saveBestStars(level, stars) {
+    if (!hasStorage()) return;
+    const previous = loadBestStars(level);
+    localStorage.setItem(BEST_STARS_KEY_PREFIX + level, String(stars));
+    const delta = stars - (previous || 0);
+    if (delta !== 0) saveTotalStars(loadTotalStars() + delta);
+  }
+
+  // One-time setup: per-level best stars were never recorded before this
+  // feature existed, so there is no historical data to recover - this just
+  // establishes totalStars at 0 once (if nothing is stored yet), the same
+  // "nothing lost, nothing fabricated" stance as not backfilling fake star
+  // counts for already-completed levels. Idempotent, like migrateBestTimes.
+  // Progress, total score, board state, best times, and helper charges are
+  // a completely separate storage prefix and are never touched.
+  function migrateStars() {
+    if (!hasStorage()) return;
+    const storedVersion = parseInt(localStorage.getItem(STARS_SCHEMA_VERSION_KEY), 10);
+    if (Number.isInteger(storedVersion) && storedVersion >= STARS_SCHEMA_VERSION) return;
+
+    if (localStorage.getItem(TOTAL_STARS_KEY) === null) {
+      localStorage.setItem(TOTAL_STARS_KEY, '0');
+    }
+    localStorage.setItem(STARS_SCHEMA_VERSION_KEY, String(STARS_SCHEMA_VERSION));
   }
 
   function saveTutorialDone(done) {
@@ -409,6 +486,13 @@
     saveBestTime,
     loadBestTime,
     migrateBestTimes,
+    saveWinStreak,
+    loadWinStreak,
+    saveBestStars,
+    loadBestStars,
+    saveTotalStars,
+    loadTotalStars,
+    migrateStars,
     saveTutorialDone,
     loadTutorialDone,
     saveReduceMotionEnabled,
@@ -434,9 +518,10 @@
   };
 
   // Run once, right when this module is first loaded (i.e. once per real
-  // page load) - both idempotent, see their own comments.
+  // page load) - all idempotent, see their own comments.
   migrateBestTimes();
   migrateDailyGift();
+  migrateStars();
 
   root.Garden = root.Garden || {};
   root.Garden.platform = Platform;

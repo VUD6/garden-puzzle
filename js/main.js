@@ -311,13 +311,30 @@
           Garden.checkin.debugResetDailyGift();
           checkinScreen.render();
         },
+        // Sets the win streak directly (e.g. setWinStreak(4), then win one
+        // level normally to see the bonus trigger at 5) - bypasses actually
+        // winning/losing levels to reach a given streak quickly.
+        setWinStreak: function (n) {
+          platform.saveWinStreak(n);
+        },
+        // Sets the menu's total-stars counter directly, for checking its
+        // display without replaying levels for real stars.
+        setTotalStars: function (n) {
+          platform.saveTotalStars(n);
+          menuScreen.render();
+        },
         state: function () {
-          return { today: Garden.checkin.getTodayKey(), dailyGift: platform.loadDailyGift() };
+          return {
+            today: Garden.checkin.getTodayKey(),
+            dailyGift: platform.loadDailyGift(),
+            winStreak: platform.loadWinStreak(),
+            totalStars: platform.loadTotalStars(),
+          };
         },
       };
       // eslint-disable-next-line no-console
       console.log(
-        '[Garden] Debug mode: window.GardenDebug is available - advanceDays(n), jumpToDay(k), resetDailyGift(), state()'
+        '[Garden] Debug mode: window.GardenDebug is available - advanceDays(n), jumpToDay(k), resetDailyGift(), setWinStreak(n), setTotalStars(n), state()'
       );
     }
   });

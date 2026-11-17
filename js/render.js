@@ -505,6 +505,42 @@
       if (!rulesInline) dom.rulesBar.hidden = true;
     }
 
+    // The win-screen streak elements have no slot in index.html (this is a
+    // brand-new piece of UI, unlike the daily gift's popup which could
+    // reuse existing markup) - built once, lazily, and inserted into the
+    // existing win-overlay card, right before the "next level" button, so
+    // existing win-screen content/order is never disturbed. Stable hooks
+    // for Codex's later styling pass: .win-streak, .win-streak-hint,
+    // .win-streak-bonus (the last reusing the same .reward-badge/
+    // helper-reward-icons markup pattern the milestone reward already uses).
+    let winStreakEls = null;
+    function ensureWinStreakEls() {
+      if (winStreakEls) return winStreakEls;
+
+      const streakText = document.createElement('p');
+      streakText.className = 'win-streak';
+
+      const hintText = document.createElement('p');
+      hintText.className = 'win-streak-hint';
+
+      const bonusBadge = document.createElement('div');
+      bonusBadge.className = 'reward-badge win-streak-bonus';
+      bonusBadge.hidden = true;
+      const bonusIcons = document.createElement('span');
+      bonusIcons.className = 'helper-reward-icons';
+      const bonusAmount = document.createElement('span');
+      bonusBadge.appendChild(bonusIcons);
+      bonusBadge.appendChild(bonusAmount);
+
+      const card = dom.nextLevelButton.parentElement;
+      card.insertBefore(streakText, dom.nextLevelButton);
+      card.insertBefore(hintText, dom.nextLevelButton);
+      card.insertBefore(bonusBadge, dom.nextLevelButton);
+
+      winStreakEls = { streakText, hintText, bonusBadge, bonusIcons, bonusAmount };
+      return winStreakEls;
+    }
+
     function showWinOverlay(snapshot) {
       dom.winFlower.innerHTML = pieceSvgFor(0);
       triggerOneShotAnim(dom.winFlower, 'mark-bloom');
@@ -534,6 +570,36 @@
         triggerOneShotAnim(dom.milestoneRewardBadge, 'reward-pop');
       } else {
         dom.milestoneRewardBadge.hidden = true;
+      }
+
+      // Win streak: shown from the 2nd consecutive win on (snapshot.streak
+      // is null entirely on a replay of an already-completed level, which
+      // never extends or breaks the streak - see state.js's finishLevel).
+      const streakEls = ensureWinStreakEls();
+      if (snapshot.streak !== null && snapshot.streak >= 2) {
+        streakEls.streakText.hidden = false;
+        streakEls.streakText.textContent = I18n.t('winStreakLabel', { count: snapshot.streak });
+        streakEls.hintText.hidden = false;
+        streakEls.hintText.textContent = I18n.t('winStreakHint', { count: snapshot.winsUntilStreakBonus });
+      } else {
+        streakEls.streakText.hidden = true;
+        streakEls.hintText.hidden = true;
+      }
+
+      if (snapshot.streakBonus) {
+        streakEls.bonusIcons.innerHTML = helperIconFor(snapshot.streakBonus.helperId);
+        streakEls.bonusAmount.textContent = '+' + snapshot.streakBonus.amount;
+        streakEls.bonusBadge.hidden = false;
+        streakEls.bonusBadge.setAttribute(
+          'aria-label',
+          I18n.t('winStreakBonusAriaLabel', {
+            name: I18n.t(HELPER_NAME_KEY[snapshot.streakBonus.helperId]),
+            amount: snapshot.streakBonus.amount,
+          })
+        );
+        triggerOneShotAnim(streakEls.bonusBadge, 'reward-pop');
+      } else {
+        streakEls.bonusBadge.hidden = true;
       }
 
       dom.winOverlay.hidden = false;

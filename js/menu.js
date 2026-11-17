@@ -48,6 +48,14 @@
     dom.menuSettingsButton.textContent = I18n.t('settingsButtonLabel');
     dom.dailyChallengeCaption.textContent = I18n.t('dailyChallengeCaption');
 
+    // No slot for this in index.html (a brand-new piece of UI) - created
+    // once and inserted right after the subtitle, before the menu buttons,
+    // so existing menu content/order is never disturbed. Stable hook for
+    // Codex's later styling pass: .menu-total-stars.
+    const totalStarsEl = document.createElement('p');
+    totalStarsEl.className = 'menu-total-stars';
+    dom.menuSubtitle.insertAdjacentElement('afterend', totalStarsEl);
+
     dom.playButton.addEventListener('click', handlers.onPlay);
     dom.howToPlayButton.addEventListener('click', handlers.onHowToPlay);
     dom.menuSettingsButton.addEventListener('click', handlers.onSettings);
@@ -59,6 +67,10 @@
         ? I18n.t('menuContinueButton', { level })
         : I18n.t('menuPlayButton');
       dom.dailyChallengeButton.hidden = !shouldShowDailyLock(level);
+
+      const totalStars = Platform.loadTotalStars();
+      totalStarsEl.textContent = I18n.t('menuTotalStarsLabel', { count: totalStars });
+      totalStarsEl.setAttribute('aria-label', I18n.t('menuTotalStarsAriaLabel', { count: totalStars }));
     }
 
     return { render };
