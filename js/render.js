@@ -9,6 +9,7 @@
   const Platform = root.Garden.platform;
   const Themes = root.Garden.themes;
   const Helpers = root.Garden.helpers;
+  const AudioFx = root.Garden.audio;
 
   // Single reusable piece-art lookup: swapping the active theme only means
   // asking Themes for a different bed-color list and a different pieceArt
@@ -303,8 +304,10 @@
                 triggerOneShotAnim(ref.markEl, 'mark-bloom');
                 spawnSparkles(row, col);
               }
+              AudioFx.playEffect('placeFlower');
             } else if (cell.state === Grid.CellState.X) {
               triggerOneShotAnim(ref.markEl, 'mark-pop');
+              AudioFx.playEffect('placeCross');
             }
             ref.prevState = cell.state;
           }
@@ -545,6 +548,7 @@
     }
 
     function showWinOverlay(snapshot) {
+      AudioFx.playEffect('win', { rating: snapshot.rating });
       dom.winFlower.innerHTML = pieceSvgFor(0);
       triggerOneShotAnim(dom.winFlower, 'mark-bloom');
 
@@ -571,6 +575,7 @@
         dom.milestoneRewardAmount.textContent = '+' + snapshot.milestoneReward.amount;
         dom.milestoneRewardBadge.hidden = false;
         triggerOneShotAnim(dom.milestoneRewardBadge, 'reward-pop');
+        AudioFx.playEffect('reward');
       } else {
         dom.milestoneRewardBadge.hidden = true;
       }
@@ -601,6 +606,7 @@
           })
         );
         triggerOneShotAnim(streakEls.bonusBadge, 'reward-pop');
+        AudioFx.playEffect('reward');
       } else {
         streakEls.bonusBadge.hidden = true;
       }
@@ -632,6 +638,7 @@
         // Shown for the whole time a milestone level is open, hidden
         // otherwise - toggled only on actually entering a (new) level.
         dom.milestoneBanner.hidden = snapshot.levelKind !== 'milestone';
+        if (snapshot.levelKind === 'milestone') AudioFx.playEffect('milestoneStart');
       } else {
         syncCells(snapshot.grid, snapshot.helperPlant);
         syncBedTracker(snapshot.grid);
@@ -640,6 +647,10 @@
       if (snapshot.mistake) {
         triggerMistakeShake(snapshot.mistake.row, snapshot.mistake.col);
         if (vibrationEnabled) Platform.vibrate(120);
+        // The fatal mistake (the one that actually spends the last life)
+        // plays the "lose" phrase instead of the plain mistake bonk - the
+        // fail overlay appears on this exact same tick.
+        AudioFx.playEffect(snapshot.status === 'lost' ? 'lose' : 'mistake');
       }
       if (snapshot.scoreGain) spawnScorePopup(snapshot.scoreGain.row, snapshot.scoreGain.col, snapshot.scoreGain.amount);
 

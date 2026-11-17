@@ -5,6 +5,7 @@
 (function (root) {
   const Grid = root.Garden.grid;
   const I18n = root.Garden.i18n;
+  const AudioFx = root.Garden.audio;
   const CellState = Grid.CellState;
   const DOUBLE_TAP_WINDOW_MS = root.Garden.state.DOUBLE_TAP_WINDOW_MS;
   const ADVANCE_DELAY_MS = 550;
@@ -192,6 +193,7 @@
           cs.state = CellState.FLOWER;
           cs.locked = true;
           dom.tutorialHand.hidden = true;
+          AudioFx.playEffect('placeFlower');
           completeCell(row, col);
           return;
         }
@@ -209,6 +211,7 @@
       if (cs.state === CellState.EMPTY) {
         cs.state = CellState.X;
         cs.locked = true;
+        AudioFx.playEffect('placeCross');
         completeCell(row, col);
       }
     }
@@ -242,7 +245,10 @@
     }
 
     dom.tutorialBoard.addEventListener('pointerup', onBoardPointerUp);
-    dom.tutorialGotItButton.addEventListener('click', finish);
+    dom.tutorialGotItButton.addEventListener('click', function () {
+      AudioFx.playEffect('tap');
+      finish();
+    });
     window.addEventListener('resize', function () {
       if (!dom.tutorialOverlay.hidden) positionHand(STEPS[stepIndex] && STEPS[stepIndex].hand);
     });

@@ -22,6 +22,16 @@
   const TUTORIAL_DONE_KEY = 'garden.tutorialDone';
   const REDUCE_MOTION_KEY = 'garden.reduceMotion';
   const VIBRATION_KEY = 'garden.vibrationEnabled';
+  // Sound/music settings (js/audio.js) - both default ON, independent
+  // switches. Versioned the same "establish once, idempotent" way as
+  // migrateStars: there is no pre-existing sound feature to migrate FROM,
+  // so migrateAudioSettings() below only ever has to write the defaults
+  // once if nothing is stored yet - it never touches progress, score,
+  // stars, best times, charges, win streak, or daily gift state.
+  const SFX_ENABLED_KEY = 'garden.sfxEnabled';
+  const MUSIC_ENABLED_KEY = 'garden.musicEnabled';
+  const AUDIO_SCHEMA_VERSION = 1;
+  const AUDIO_SCHEMA_VERSION_KEY = 'garden.audioSchemaVersion';
   const THEME_KEY = 'garden.theme';
   const HELPER_CHARGES_KEY = 'garden.helperCharges';
   const HIGHEST_LEVEL_KEY = 'garden.highestLevel';
@@ -275,6 +285,43 @@
     return raw === null ? true : raw === '1';
   }
 
+  function saveSfxEnabled(enabled) {
+    if (!hasStorage()) return;
+    localStorage.setItem(SFX_ENABLED_KEY, enabled ? '1' : '0');
+  }
+
+  function loadSfxEnabled() {
+    if (!hasStorage()) return true;
+    const raw = localStorage.getItem(SFX_ENABLED_KEY);
+    return raw === null ? true : raw === '1';
+  }
+
+  function saveMusicEnabled(enabled) {
+    if (!hasStorage()) return;
+    localStorage.setItem(MUSIC_ENABLED_KEY, enabled ? '1' : '0');
+  }
+
+  function loadMusicEnabled() {
+    if (!hasStorage()) return true;
+    const raw = localStorage.getItem(MUSIC_ENABLED_KEY);
+    return raw === null ? true : raw === '1';
+  }
+
+  // One-time setup, same idempotent "establish once" shape as migrateStars:
+  // there is no earlier sound feature to migrate data FROM, so this only
+  // ever has to write the two defaults (both ON) once, if nothing is stored
+  // yet - it never touches progress, score, stars, best times, charges, win
+  // streak, or daily gift state, which all live under their own keys.
+  function migrateAudioSettings() {
+    if (!hasStorage()) return;
+    const storedVersion = parseInt(localStorage.getItem(AUDIO_SCHEMA_VERSION_KEY), 10);
+    if (Number.isInteger(storedVersion) && storedVersion >= AUDIO_SCHEMA_VERSION) return;
+
+    if (localStorage.getItem(SFX_ENABLED_KEY) === null) localStorage.setItem(SFX_ENABLED_KEY, '1');
+    if (localStorage.getItem(MUSIC_ENABLED_KEY) === null) localStorage.setItem(MUSIC_ENABLED_KEY, '1');
+    localStorage.setItem(AUDIO_SCHEMA_VERSION_KEY, String(AUDIO_SCHEMA_VERSION));
+  }
+
   function saveHelperCharges(charges) {
     if (!hasStorage()) return;
     localStorage.setItem(HELPER_CHARGES_KEY, JSON.stringify(charges));
@@ -501,6 +548,11 @@
     loadVibrationEnabled,
     vibrate,
     isVibrationSupported,
+    saveSfxEnabled,
+    loadSfxEnabled,
+    saveMusicEnabled,
+    loadMusicEnabled,
+    migrateAudioSettings,
     saveHelperCharges,
     loadHelperCharges,
     saveHighestLevel,
@@ -522,6 +574,7 @@
   migrateBestTimes();
   migrateDailyGift();
   migrateStars();
+  migrateAudioSettings();
 
   root.Garden = root.Garden || {};
   root.Garden.platform = Platform;

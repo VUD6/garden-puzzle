@@ -3,7 +3,16 @@
 // renderer and platform.
 (function (root) {
   const CellState = root.Garden.grid.CellState;
+  const AudioFx = root.Garden.audio;
   const SINK_MS = 140;
+
+  // Generic UI tap tick, wired to every plain chrome button below (back,
+  // settings, rules, theme, retry/next-level, the plain toggles) - never the
+  // board itself, which already gets its own placeFlower/placeCross/mistake
+  // effects from render.js keyed off the actual cell-state transition.
+  function tapTick() {
+    AudioFx.playEffect('tap');
+  }
 
   function cellFromElement(el) {
     const cellEl = el && el.closest ? el.closest('.cell') : null;
@@ -23,6 +32,7 @@
       const next = buttonEl.getAttribute('aria-pressed') !== 'true';
       buttonEl.setAttribute('aria-pressed', String(next));
       onChange(next);
+      tapTick();
     });
   }
 
@@ -94,14 +104,17 @@
     dom.board.addEventListener('pointercancel', endDrag);
 
     dom.nextLevelButton.addEventListener('click', function () {
+      tapTick();
       game.nextLevel();
     });
 
     dom.retryButton.addEventListener('click', function () {
+      tapTick();
       game.retryLevel();
     });
 
     dom.backButton.addEventListener('click', function () {
+      tapTick();
       handlers.onBack();
     });
 
@@ -121,6 +134,7 @@
         // this is just the call site.
         const used = game.useHelper(id);
         if (used) {
+          AudioFx.playEffect('helperUse');
           // Nothing else changes state during the lock window, so nothing
           // would otherwise flip this button's disabled state back on once
           // it expires. Deliberately touches only the button - re-running
@@ -144,24 +158,32 @@
     }
 
     dom.settingsButton.addEventListener('click', function () {
+      tapTick();
       game.pauseTimer('settings');
       renderer.openSettings();
     });
-    dom.settingsCloseButton.addEventListener('click', closeSettingsAndResumeTimer);
+    dom.settingsCloseButton.addEventListener('click', function () {
+      tapTick();
+      closeSettingsAndResumeTimer();
+    });
     wireBackdropDismiss(dom.settingsOverlay, closeSettingsAndResumeTimer);
 
     dom.rulesHelpButton.addEventListener('click', function () {
+      tapTick();
       renderer.toggleRulesPopup();
     });
     dom.rulesCloseButton.addEventListener('click', function () {
+      tapTick();
       renderer.closeRulesPopup();
     });
     wireBackdropDismiss(dom.rulesBar, renderer.closeRulesPopup);
 
     dom.themeWinterButton.addEventListener('click', function () {
+      tapTick();
       handlers.onSelectTheme('winter');
     });
     dom.themeGardenButton.addEventListener('click', function () {
+      tapTick();
       handlers.onSelectTheme('garden');
     });
 

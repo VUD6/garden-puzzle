@@ -4,6 +4,7 @@
 // this file never writes charge storage directly.
 (function (root) {
   const Platform = root.Garden.platform;
+  const AudioFx = root.Garden.audio;
 
   const CYCLE_LENGTH = 7;
 
@@ -444,8 +445,14 @@
       dom.checkinOverlay.hidden = true;
     }
 
-    dom.dailyCheckinButton.addEventListener('click', openPopup);
-    dom.checkinCloseButton.addEventListener('click', closePopup);
+    dom.dailyCheckinButton.addEventListener('click', function () {
+      AudioFx.playEffect('tap');
+      openPopup();
+    });
+    dom.checkinCloseButton.addEventListener('click', function () {
+      AudioFx.playEffect('tap');
+      closePopup();
+    });
     dom.checkinOverlay.addEventListener('click', function (event) {
       if (event.target === dom.checkinOverlay) closePopup();
     });
@@ -455,6 +462,7 @@
       buildPopup();
       updateBadge();
       if (result.reward) {
+        AudioFx.playEffect('reward');
         // All of the per-credit icon+amount pairs go inside the icons slot
         // (see creditPairsHtml) - the separate amount slot next to it is
         // left empty/hidden, since each credit now carries its own amount

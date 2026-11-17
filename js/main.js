@@ -146,8 +146,17 @@
     };
 
     const platform = Garden.platform;
+    const audio = Garden.audio;
+    audio.init();
     const renderer = Garden.render.createRenderer(dom);
     const prefersReducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    // Which of the two music loops belongs to whatever's on screen right
+    // now - the game screen gets the gameplay track, everything else
+    // (loading, menu, tutorial) shares the calmer menu/loading track.
+    function musicTrackForCurrentScreen() {
+      return dom.gameScreen.hidden ? 'menu' : 'game';
+    }
 
     function applyThemeButtons(themeId) {
       dom.themeWinterButton.classList.toggle('active', themeId === 'winter');
@@ -173,8 +182,10 @@
     // or Settings' "Replay tutorial"), resumed the instant it's dismissed.
     function startTutorial(onComplete) {
       game.pauseTimer('tutorial');
+      audio.setMusicTrack('menu');
       tutorial.start(function () {
         game.resumeTimer('tutorial');
+        audio.setMusicTrack(musicTrackForCurrentScreen());
         if (typeof onComplete === 'function') onComplete();
       });
     }
@@ -202,6 +213,7 @@
 
     function enterGame() {
       router.showScreen('game');
+      audio.setMusicTrack('game');
       resetZoomIfStuck();
       // The board was last sized while the game screen was hidden (clientWidth/
       // Height both 0 then), so it needs a fresh render now that it's visible.
@@ -212,6 +224,7 @@
       menuScreen.render();
       checkinScreen.render();
       router.showScreen('menu');
+      audio.setMusicTrack('menu');
       resetZoomIfStuck();
     }
 
@@ -285,10 +298,13 @@
       startTutorial();
     });
 
+    audio.createSettingsRows(dom);
+
     menuScreen.render();
     checkinScreen.render();
     platform.gameReady();
     router.leaveLoading();
+    audio.setMusicTrack('menu');
     resetZoomIfStuck();
 
     // Debug-only: simulates the passage of days for the daily gift, without

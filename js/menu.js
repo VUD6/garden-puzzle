@@ -41,6 +41,7 @@
   function createMenuScreen(dom, handlers) {
     const I18n = root.Garden.i18n;
     const Platform = root.Garden.platform;
+    const AudioFx = root.Garden.audio;
 
     dom.menuTitle.textContent = I18n.t('appTitle');
     dom.menuSubtitle.textContent = I18n.t('menuSubtitle');
@@ -56,9 +57,18 @@
     totalStarsEl.className = 'menu-total-stars';
     dom.menuSubtitle.insertAdjacentElement('afterend', totalStarsEl);
 
-    dom.playButton.addEventListener('click', handlers.onPlay);
-    dom.howToPlayButton.addEventListener('click', handlers.onHowToPlay);
-    dom.menuSettingsButton.addEventListener('click', handlers.onSettings);
+    dom.playButton.addEventListener('click', function () {
+      AudioFx.playEffect('tap');
+      handlers.onPlay();
+    });
+    dom.howToPlayButton.addEventListener('click', function () {
+      AudioFx.playEffect('tap');
+      handlers.onHowToPlay();
+    });
+    dom.menuSettingsButton.addEventListener('click', function () {
+      AudioFx.playEffect('tap');
+      handlers.onSettings();
+    });
 
     function render() {
       const level = Platform.loadProgress();
