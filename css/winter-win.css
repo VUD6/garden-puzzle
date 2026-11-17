@@ -113,3 +113,123 @@ html[data-theme="winter"] .winter-win .win-flower .piece-part {
 html[data-theme="winter"] .winter-win button.winter-plaque-primary:active {
   box-shadow: var(--shadow-inset);
 }
+
+/* Winter menu totals, loss, and win streak. */
+:root {
+  --winter-status-gold: #edba53;
+  --winter-status-ink: #573421;
+  --winter-status-muted: #927c63;
+  --winter-status-icon: 24px;
+  --winter-status-dot: 9px;
+  --winter-status-gap: 6px;
+  --winter-status-bounce: 350ms;
+  --winter-status-star: url("winter-total-star.svg");
+  --winter-status-snow: url("winter-streak-snow.svg");
+}
+
+html[data-theme="winter"] .menu-total-stars {
+  align-self: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto var(--winter-ui-gap);
+  padding: var(--winter-ui-gap) var(--winter-plaque-padding);
+  border: var(--winter-plaque-rule) solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  color: var(--ink);
+  font: 700 1rem var(--font-ui);
+  overflow-wrap: anywhere;
+}
+
+html[data-theme="winter"] .menu-total-stars::first-letter { font-size: 0; }
+html[data-theme="winter"] .menu-total-stars::before {
+  content: '';
+  display: inline-block;
+  width: var(--winter-status-icon);
+  height: var(--winter-status-icon);
+  vertical-align: middle;
+  margin-inline-end: var(--winter-status-gap);
+  background: var(--winter-status-star) center / contain no-repeat;
+}
+
+html[data-theme="winter"] .winter-lose h2 {
+  color: var(--pine);
+  margin: 0 0 var(--winter-plaque-padding);
+}
+html[data-theme="winter"] .winter-lose p {
+  color: var(--ink);
+  margin-bottom: var(--winter-plaque-padding);
+}
+.winter-spent-decoration { display: none; }
+html[data-theme="winter"] .winter-spent-decoration {
+  display: flex;
+  justify-content: center;
+  gap: var(--winter-candy-gap);
+  margin-bottom: var(--winter-plaque-padding);
+}
+.winter-spent-decoration span {
+  width: var(--winter-candy-size);
+  height: var(--winter-candy-size);
+  background: var(--winter-candy-spent-art) center / contain no-repeat;
+}
+html[data-theme="winter"] .winter-win .win-streak:not([hidden]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--winter-status-gap);
+  width: fit-content;
+  margin: var(--winter-ui-gap) auto;
+  padding: var(--winter-ui-gap) var(--winter-plaque-padding);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  color: var(--pine);
+  font-weight: 700;
+}
+html[data-theme="winter"] .winter-win .win-streak::before {
+  content: '';
+  width: var(--winter-status-icon);
+  height: var(--winter-status-icon);
+  background: var(--winter-status-snow) center / contain no-repeat;
+}
+html[data-theme="winter"] .winter-win .win-streak-hint {
+  color: var(--winter-plaque-secondary-ink);
+  font-size: var(--winter-win-time);
+  margin-bottom: var(--winter-plaque-padding);
+}
+html[data-theme="winter"] .winter-win .win-streak-bonus:not([hidden]) {
+  border-color: var(--pine);
+  background: var(--panel);
+  margin-block: var(--winter-ui-gap) var(--winter-plaque-padding);
+}
+html[data-theme="winter"] .winter-win .win-streak-hint + [hidden] + button {
+  margin-top: var(--winter-ui-gap);
+}
+.winter-streak-dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--winter-status-gap);
+  margin-block: var(--winter-ui-gap) var(--winter-plaque-padding);
+}
+.winter-streak-dots span {
+  width: var(--winter-status-dot);
+  height: var(--winter-status-dot);
+  border: var(--winter-plaque-rule) solid var(--winter-status-muted);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+}
+.winter-streak-dots .filled { background: var(--pine); border-color: var(--pine); }
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme="winter"]:not(.reduce-motion) .menu-total-stars.is-updated {
+    animation: winter-total-bounce var(--winter-status-bounce) ease-out;
+  }
+}
+@keyframes winter-total-bounce {
+  50% { transform: translateY(-3px); }
+}
+
+html[data-theme="winter"] .menu-total-stars::before { content: none; }
+html[data-theme="winter"] .menu-total-stars::first-letter {
+  color: transparent;
+  font-size: var(--winter-status-icon);
+  background: var(--winter-status-star) center / contain no-repeat;
+}

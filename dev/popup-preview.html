@@ -58,12 +58,14 @@ nav a:focus-visible { outline: var(--winter-focus-width) solid var(--pine); }
 .scene { display: grid; justify-items: center; padding: var(--winter-plaque-padding); }
 .preview-board { width: min(100%, var(--preview-board-size)); }
 .phone > .overlay { position: absolute; }
-.phone > :is(#how, #example, #daily, #winPreview) { display: none; }
+.phone > :is(#how, #example, #daily, #winPreview, #losePreview, #starsPreview) { display: none; }
 body:has(#show-how:target) #how,
 body:has(#show-example:target) #example,
 body:has(#show-daily:target) #daily,
-body:has(#show-win:target) #winPreview { display: flex; }
-body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:target, #preview-closed:target) #settings { display: none; }
+body:has(#show-win:target) #winPreview,
+body:has(#show-lose:target) #losePreview,
+body:has(#show-stars:target) #starsPreview { display: flex; }
+body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:target, #show-lose:target, #show-stars:target, #preview-closed:target) #settings { display: none; }
 .tutorial-board { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
 .preview-empty { min-height: calc(3 * var(--winter-touch)); }
 .preview-empty h2 { padding-inline: var(--winter-touch); }
@@ -86,6 +88,8 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
   font: inherit;
 }
 .preview-daily-label select:focus-visible { outline: var(--winter-focus-width) solid var(--pine); }
+.winter-streak-dots[hidden] { display: none; }
+#previewStreakBonus svg { width: var(--winter-status-icon); height: var(--winter-status-icon); }
 </style>
 </head>
 <body>
@@ -96,6 +100,8 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
     <a id="show-how" href="#show-how">Как играть</a>
     <a id="show-daily" href="#show-daily">Награда</a>
     <a id="show-win" href="#show-win">Победа</a>
+    <a id="show-lose" href="#show-lose">Проигрыш</a>
+    <a id="show-stars" href="#show-stars">Звёзды</a>
     <a id="show-example" href="#show-example">Шаблон</a>
   </nav>
   <div class="phone">
@@ -189,15 +195,33 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
           <span class="helper-reward-icons" id="previewWinHelpers"></span>
           <span id="previewWinAmount"></span>
         </div>
+        <p class="win-streak" id="previewStreak" hidden></p>
+        <p class="win-streak-hint" id="previewStreakHint" hidden></p>
+        <div class="winter-streak-dots" id="previewStreakDots" hidden></div>
+        <div class="reward-badge win-streak-bonus" id="previewStreakBonus" hidden></div>
         <button class="winter-plaque-primary" id="previewWinNext" type="button" data-preview-close></button>
         <label class="preview-daily-label">Превью
           <select id="preview-win-state">
             <option value="1">1 звезда</option>
             <option value="2">2 звезды</option>
             <option value="3">3 звезды</option>
+            <option value="streak2">Серия 2</option><option value="streak4">Серия 4</option><option value="streak5">Серия 5 · бонус</option>
             <option value="milestone">Праздничный уровень</option>
           </select>
         </label>
+      </div>
+    </div>
+    <div class="overlay winter-plaque-overlay" id="losePreview">
+      <div class="overlay-card winter-plaque winter-lose">
+        <div class="winter-spent-decoration" aria-hidden="true"><span></span><span></span><span></span></div>
+        <h2 id="previewLoseTitle"></h2><p id="previewLoseText"></p>
+        <button class="winter-plaque-primary" id="previewLoseRetry" data-preview-close></button>
+      </div>
+    </div>
+    <div class="overlay winter-plaque-overlay" id="starsPreview">
+      <div class="overlay-card winter-plaque">
+        <p class="menu-total-stars is-updated">★ 0</p>
+        <p class="menu-total-stars is-updated">★ 999999</p>
       </div>
     </div>
     <div class="overlay winter-plaque-overlay" id="example">
@@ -261,7 +285,8 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
   const winSelect = document.getElementById('preview-win-state');
   function renderWinPreview() {
     const milestone = winSelect.value === 'milestone';
-    const rating = milestone ? 3 : Number(winSelect.value);
+    const streak = winSelect.value.startsWith('streak') ? Number(winSelect.value.slice(6)) : 0;
+    const rating = milestone || streak ? 3 : Number(winSelect.value);
     const starPath = 'M12 2l2.9 6.26L22 9.27l-5 5.13L18.18 22 12 18.56 5.82 22 7 14.4l-5-5.13 7.1-1.01L12 2z';
     document.getElementById('previewWinPiece').innerHTML = themes.getCurrentTheme().pieceArt();
     document.getElementById('previewWinTitle').textContent = i18n.t(rating === 3 ? 'resultPerfect' : 'resultDone');
@@ -274,10 +299,22 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
     document.getElementById('previewWinMilestone').hidden = !milestone;
     document.getElementById('previewWinHelpers').innerHTML = ['finder', 'random', 'snowman'].map(id => themes.getCurrentTheme().helperIconSvg(id)).join('');
     document.getElementById('previewWinAmount').textContent = '+1';
+    document.getElementById('previewStreak').hidden = !streak;
+    document.getElementById('previewStreakHint').hidden = !streak;
+    document.getElementById('previewStreakDots').hidden = !streak;
+    document.getElementById('previewStreakBonus').hidden = streak !== 5;
+    document.getElementById('previewStreak').textContent = i18n.t('winStreakLabel', { count: streak });
+    document.getElementById('previewStreakHint').textContent = i18n.t('winStreakHint', { count: streak === 5 ? 5 : 5 - streak });
+    document.getElementById('previewStreakDots').innerHTML = Array.from({length: 5}, (_, i) =>
+      '<span class="' + (i < streak ? 'filled' : '') + '"></span>').join('');
+    document.getElementById('previewStreakBonus').innerHTML = themes.getCurrentTheme().helperIconSvg('finder') + '<span>+1</span>';
     document.getElementById('previewWinNext').textContent = i18n.t('nextLevelButton');
   }
   winSelect.addEventListener('change', renderWinPreview);
   renderWinPreview();
+  document.getElementById('previewLoseTitle').textContent = i18n.t('failTitle');
+  document.getElementById('previewLoseText').textContent = i18n.t('failMessage');
+  document.getElementById('previewLoseRetry').textContent = i18n.t('retryButton');
   document.getElementById('replayTutorialButton').addEventListener('click', () => { location.hash = 'show-how'; });
   document.querySelectorAll('[data-preview-close]').forEach(button => {
     button.addEventListener('click', () => { location.hash = 'preview-closed'; });
