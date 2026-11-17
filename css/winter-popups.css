@@ -152,3 +152,45 @@ html[data-theme="winter"] .winter-plaque :is(.tutorial-board-wrap, .tutorial-mas
     align-items: center;
   }
 }
+
+/* Audio switches use the existing pressed state and 44px settings targets. */
+:root {
+  --winter-audio-off-track: #d6c2a8;
+  --winter-audio-off-edge: #806b5b;
+  --winter-audio-symbol-inset: 4px;
+  --winter-audio-check: url("winter-toggle-check.svg");
+  --winter-audio-minus: url("winter-toggle-minus.svg");
+}
+html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) {
+  min-height: var(--winter-touch);
+}
+html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) .settings-row-label {
+  color: var(--ink);
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) .toggle-switch {
+  width: var(--winter-touch);
+  height: var(--winter-touch);
+}
+html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) .toggle-switch::before {
+  border: var(--winter-plaque-rule) solid var(--winter-audio-off-edge);
+  background: var(--winter-audio-off-track);
+}
+html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) .toggle-switch[aria-pressed="true"]::before {
+  background: var(--pine);
+  border-color: var(--pine);
+}
+html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) .toggle-knob {
+  transition: none;
+}
+html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) .toggle-knob::after {
+  content: '';
+  position: absolute;
+  inset: var(--winter-audio-symbol-inset);
+  background: var(--winter-audio-minus) center / contain no-repeat;
+}
+html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) [aria-pressed="true"] .toggle-knob::after {
+  background-image: var(--winter-audio-check);
+}

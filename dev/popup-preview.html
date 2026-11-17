@@ -150,6 +150,21 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
         </div>
         <button class="toggle-switch" id="vibrationToggle" type="button" aria-pressed="true"><span class="toggle-knob"></span></button>
       </div>
+      <div class="settings-row setting-sfx">
+        <span class="settings-row-label">Звуковые эффекты</span>
+        <button class="toggle-switch" type="button" aria-label="Звуковые эффекты" aria-pressed="true"><span class="toggle-knob"></span></button>
+      </div>
+      <div class="settings-row setting-music">
+        <span class="settings-row-label">Музыка</span>
+        <button class="toggle-switch" type="button" aria-label="Музыка" aria-pressed="true"><span class="toggle-knob"></span></button>
+      </div>
+      <label class="preview-daily-label">Звук · превью
+        <select id="preview-audio-state">
+          <option value="on">Оба включены</option>
+          <option value="mixed">Музыка выключена</option>
+          <option value="off">Оба выключены</option>
+        </select>
+      </label>
       <button class="replay-tutorial-button winter-plaque-primary" id="replayTutorialButton" type="button">Обучение</button>
       <button class="overlay-close-button" id="settingsCloseButton" type="button" aria-label="Закрыть" data-preview-close></button>
     </div>
@@ -237,6 +252,10 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
 <script src="../js/checkin.js"></script>
 <script>
   Garden.themes.applyTheme('winter');
+  document.getElementById('preview-audio-state').addEventListener('change', event => {
+    document.querySelector('.setting-sfx button').setAttribute('aria-pressed', event.target.value !== 'off');
+    document.querySelector('.setting-music button').setAttribute('aria-pressed', event.target.value === 'on');
+  });
   const { checkin, themes, i18n } = Garden;
   const dailyState = document.getElementById('preview-daily-state');
   const claimButton = document.getElementById('checkinClaimButton');

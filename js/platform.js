@@ -64,6 +64,15 @@
   // URL), so a real player's clock can never be affected by a stray value
   // left over from testing.
   const DEBUG_DAY_OFFSET_KEY = 'garden.debugDayOffset';
+  // Daily challenge (js/daily-challenge.js): a brand-new feature, so - same
+  // "establish once, idempotent" shape as migrateStars/migrateAudioSettings -
+  // there is no legacy data to migrate FROM. lastSeenDate/lastRewardDate
+  // mirror the daily gift's own clock-tampering guard shape; challengeStars
+  // is the running count of star ratings earned from challenge wins, added
+  // on top of (never replacing) the sum of best stars per level.
+  const DAILY_CHALLENGE_KEY = 'garden.dailyChallenge';
+  const DAILY_CHALLENGE_SCHEMA_VERSION = 1;
+  const DAILY_CHALLENGE_SCHEMA_VERSION_KEY = 'garden.dailyChallengeSchemaVersion';
 
   function hasStorage() {
     return typeof localStorage !== 'undefined';
@@ -490,6 +499,50 @@
     localStorage.setItem(DAILY_GIFT_SCHEMA_VERSION_KEY, String(DAILY_GIFT_SCHEMA_VERSION));
   }
 
+  function freshDailyChallengeRecord() {
+    return { lastSeenDate: null, lastRewardDate: null, challengeStars: 0 };
+  }
+
+  function saveDailyChallenge(record) {
+    if (!hasStorage()) return;
+    localStorage.setItem(DAILY_CHALLENGE_KEY, JSON.stringify(record));
+  }
+
+  // Corruption-tolerant, same shape as loadDailyGift: anything missing,
+  // unparsable, or shaped wrong falls back to a fresh record rather than
+  // throwing or trusting bad data.
+  function loadDailyChallenge() {
+    if (!hasStorage()) return freshDailyChallengeRecord();
+    const raw = localStorage.getItem(DAILY_CHALLENGE_KEY);
+    if (!raw) return freshDailyChallengeRecord();
+    try {
+      const parsed = JSON.parse(raw);
+      const lastSeenDate = typeof parsed.lastSeenDate === 'string' ? parsed.lastSeenDate : null;
+      const lastRewardDate = typeof parsed.lastRewardDate === 'string' ? parsed.lastRewardDate : null;
+      const challengeStars = Number.isInteger(parsed.challengeStars) && parsed.challengeStars >= 0 ? parsed.challengeStars : 0;
+      return { lastSeenDate, lastRewardDate, challengeStars };
+    } catch (e) {
+      return freshDailyChallengeRecord();
+    }
+  }
+
+  // One-time setup, same idempotent "establish once" shape as migrateStars/
+  // migrateAudioSettings: this is a brand-new feature with no earlier data
+  // to migrate FROM, so it only ever has to write the fresh record once, if
+  // nothing is stored yet. Never touches progress, score, best times,
+  // stars, helper charges, win streak, or daily gift state - all separate
+  // storage prefixes.
+  function migrateDailyChallenge() {
+    if (!hasStorage()) return;
+    const storedVersion = parseInt(localStorage.getItem(DAILY_CHALLENGE_SCHEMA_VERSION_KEY), 10);
+    if (Number.isInteger(storedVersion) && storedVersion >= DAILY_CHALLENGE_SCHEMA_VERSION) return;
+
+    if (localStorage.getItem(DAILY_CHALLENGE_KEY) === null) {
+      localStorage.setItem(DAILY_CHALLENGE_KEY, JSON.stringify(freshDailyChallengeRecord()));
+    }
+    localStorage.setItem(DAILY_CHALLENGE_SCHEMA_VERSION_KEY, String(DAILY_CHALLENGE_SCHEMA_VERSION));
+  }
+
   function vibrate(pattern) {
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       navigator.vibrate(pattern);
@@ -564,6 +617,9 @@
     saveDailyGift,
     loadDailyGift,
     migrateDailyGift,
+    saveDailyChallenge,
+    loadDailyChallenge,
+    migrateDailyChallenge,
     gameReady,
     showRewardedAd,
     showInterstitialAd,
@@ -575,6 +631,7 @@
   migrateDailyGift();
   migrateStars();
   migrateAudioSettings();
+  migrateDailyChallenge();
 
   root.Garden = root.Garden || {};
   root.Garden.platform = Platform;

@@ -105,7 +105,14 @@
 
     dom.nextLevelButton.addEventListener('click', function () {
       tapTick();
-      game.nextLevel();
+      // Daily challenge: there is no "next level" for a once-a-day puzzle -
+      // the button is repurposed to "В меню" (see js/render.js's
+      // showWinOverlay), so it returns to the menu instead.
+      if (game.getSnapshot().mode === 'challenge') {
+        handlers.onBack();
+      } else {
+        game.nextLevel();
+      }
     });
 
     dom.retryButton.addEventListener('click', function () {

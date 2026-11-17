@@ -169,7 +169,15 @@
     applyThemeButtons(renderer.setTheme(platform.loadTheme()));
 
     const game = Garden.state.createGame({
-      onChange: renderer.render,
+      // Every snapshot passes through the daily challenge's own handler
+      // first - a no-op pass-through for every normal-mode snapshot and
+      // every challenge snapshot that isn't a win; on an actual challenge
+      // win it idempotently credits today's reward (if not already
+      // credited) and attaches the result as snapshot.challengeReward for
+      // the renderer's win screen (see js/daily-challenge.js/js/render.js).
+      onChange: function (snapshot) {
+        renderer.render(Garden.dailyChallenge.handleSnapshot(snapshot));
+      },
     });
 
     const router = Garden.router.createRouter(dom);
@@ -221,6 +229,11 @@
     }
 
     function returnToMenu() {
+      // A no-op unless a daily-challenge attempt is actually open (see
+      // js/state.js's exitChallenge) - switches the shared game instance
+      // back to tracking the player's real progression, so "Играть"/
+      // "Продолжить" always resumes the right thing next time.
+      game.exitChallenge();
       menuScreen.render();
       checkinScreen.render();
       router.showScreen('menu');
@@ -248,6 +261,10 @@
       onSettings: function () {
         game.pauseTimer('settings');
         renderer.openSettings();
+      },
+      onDailyChallenge: function () {
+        Garden.dailyChallenge.start(game);
+        enterGame();
       },
     });
 
@@ -318,6 +335,11 @@
         advanceDays: function (n) {
           Garden.checkin.debugAdvanceDays(n);
           checkinScreen.render();
+          // The daily challenge shares this same simulated clock (see
+          // Garden.platform.now()) - advancing it changes which puzzle
+          // today's challenge generates and the menu button's done/
+          // available state, so it needs a re-render too.
+          menuScreen.render();
         },
         jumpToDay: function (k) {
           Garden.checkin.debugJumpToDay(k);
@@ -339,18 +361,39 @@
           platform.saveTotalStars(n);
           menuScreen.render();
         },
+        // Resets today's daily-challenge reward back to "not won yet" (and
+        // clears any in-progress saved attempt), for re-testing the
+        // once-per-day reward without waiting for a new day.
+        resetDailyChallenge: function () {
+          Garden.dailyChallenge.debugReset();
+          menuScreen.render();
+        },
+        // Sets the player's saved progress level directly (e.g.
+        // setUnlockedLevel(15) to unlock the daily challenge), bypassing
+        // actually climbing there level by level. Also raises the
+        // highest-level-reached watermark to match, so Snowman's own
+        // level-10 unlock stays consistent.
+        setUnlockedLevel: function (n) {
+          Garden.dailyChallenge.debugSetUnlockedLevel(n);
+          menuScreen.render();
+        },
         state: function () {
           return {
             today: Garden.checkin.getTodayKey(),
             dailyGift: platform.loadDailyGift(),
             winStreak: platform.loadWinStreak(),
             totalStars: platform.loadTotalStars(),
+            progressLevel: platform.loadProgress(),
+            dailyChallenge: Object.assign({}, platform.loadDailyChallenge(), {
+              difficultyLevel: Garden.dailyChallenge.difficultyLevelForDate(Garden.checkin.getTodayKey()),
+              doneToday: Garden.dailyChallenge.isDoneToday(),
+            }),
           };
         },
       };
       // eslint-disable-next-line no-console
       console.log(
-        '[Garden] Debug mode: window.GardenDebug is available - advanceDays(n), jumpToDay(k), resetDailyGift(), setWinStreak(n), setTotalStars(n), state()'
+        '[Garden] Debug mode: window.GardenDebug is available - advanceDays(n), jumpToDay(k), resetDailyGift(), setWinStreak(n), setTotalStars(n), resetDailyChallenge(), setUnlockedLevel(n), state()'
       );
     }
   });

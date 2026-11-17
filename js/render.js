@@ -136,6 +136,10 @@
       document.title = I18n.t('appFullTitle');
       dom.loadingTitle.textContent = I18n.t('appTitle');
       dom.loadingStatusText.textContent = I18n.t('loadingStatusText');
+      // Overwritten per-render in render() when a challenge is open (see
+      // below) - the plain "Следующий уровень" label is the normal-mode
+      // default restored here whenever renderStaticText() reruns (e.g. a
+      // theme switch).
       dom.nextLevelButton.textContent = I18n.t('nextLevelButton');
       dom.failTitle.textContent = I18n.t('failTitle');
       dom.failMessage.textContent = I18n.t('failMessage');
@@ -547,6 +551,54 @@
       return winStreakEls;
     }
 
+    // In-game label shown for the whole time a daily-challenge attempt is
+    // open (see js/state.js's enterChallenge/exitChallenge) - no slot in
+    // index.html, created once and inserted right next to the milestone
+    // banner (a challenge is never a milestone level, so the two never
+    // compete for the same spot). Stable hook for Codex's later styling
+    // pass: .challenge-banner.
+    let challengeBannerEl = null;
+    function ensureChallengeBannerEl() {
+      if (challengeBannerEl) return challengeBannerEl;
+      challengeBannerEl = document.createElement('div');
+      challengeBannerEl.className = 'challenge-banner';
+      challengeBannerEl.hidden = true;
+      dom.milestoneBanner.insertAdjacentElement('afterend', challengeBannerEl);
+      return challengeBannerEl;
+    }
+
+    // Win-screen reward lines for a daily-challenge win - no slot in
+    // index.html, created once and inserted into the existing #winOverlay
+    // card right before the "next level"/"back to menu" button, same
+    // pattern as ensureWinStreakEls above. Stable hooks for Codex's later
+    // styling pass: .challenge-reward (reusing the .reward-badge/
+    // helper-reward-icons markup pattern the milestone reward and win-streak
+    // bonus already use) and .challenge-come-back-tomorrow.
+    let challengeEls = null;
+    function ensureChallengeEls() {
+      if (challengeEls) return challengeEls;
+
+      const rewardBadge = document.createElement('div');
+      rewardBadge.className = 'reward-badge challenge-reward';
+      rewardBadge.hidden = true;
+      const rewardIcons = document.createElement('span');
+      rewardIcons.className = 'helper-reward-icons';
+      const rewardAmount = document.createElement('span');
+      rewardBadge.appendChild(rewardIcons);
+      rewardBadge.appendChild(rewardAmount);
+
+      const comeBackTomorrow = document.createElement('p');
+      comeBackTomorrow.className = 'challenge-come-back-tomorrow';
+      comeBackTomorrow.hidden = true;
+
+      const card = dom.nextLevelButton.parentElement;
+      card.insertBefore(rewardBadge, dom.nextLevelButton);
+      card.insertBefore(comeBackTomorrow, dom.nextLevelButton);
+
+      challengeEls = { rewardBadge, rewardIcons, rewardAmount, comeBackTomorrow };
+      return challengeEls;
+    }
+
     function showWinOverlay(snapshot) {
       AudioFx.playEffect('win', { rating: snapshot.rating });
       dom.winFlower.innerHTML = pieceSvgFor(0);
@@ -611,6 +663,35 @@
         streakEls.bonusBadge.hidden = true;
       }
 
+      // Daily challenge: the primary button becomes "В меню" (there is no
+      // "next level" for a once-a-day puzzle - see js/input.js's click
+      // handler, which branches on snapshot.mode the same way), and the
+      // win screen shows "Приходи завтра" (reusing the daily gift's own
+      // i18n string for the same phrase) plus a reward line only on the
+      // actual first win of the day (snapshot.challengeReward, set by
+      // js/daily-challenge.js's handleSnapshot - null on a reload/double-
+      // tap replay of an already-rewarded win, so no reward line and no
+      // second credit either).
+      const challengeEls = ensureChallengeEls();
+      if (snapshot.mode === 'challenge') {
+        dom.nextLevelButton.textContent = I18n.t('challengeBackToMenuButton');
+        challengeEls.comeBackTomorrow.hidden = false;
+        challengeEls.comeBackTomorrow.textContent = I18n.t('dailyGiftComeBackTomorrow');
+        if (snapshot.challengeReward) {
+          challengeEls.rewardIcons.innerHTML = helperIconFor(snapshot.challengeReward.helperId);
+          challengeEls.rewardAmount.textContent = '+' + snapshot.challengeReward.amount;
+          challengeEls.rewardBadge.hidden = false;
+          triggerOneShotAnim(challengeEls.rewardBadge, 'reward-pop');
+          AudioFx.playEffect('reward');
+        } else {
+          challengeEls.rewardBadge.hidden = true;
+        }
+      } else {
+        dom.nextLevelButton.textContent = I18n.t('nextLevelButton');
+        challengeEls.comeBackTomorrow.hidden = true;
+        challengeEls.rewardBadge.hidden = true;
+      }
+
       dom.winOverlay.hidden = false;
     }
 
@@ -639,6 +720,11 @@
         // otherwise - toggled only on actually entering a (new) level.
         dom.milestoneBanner.hidden = snapshot.levelKind !== 'milestone';
         if (snapshot.levelKind === 'milestone') AudioFx.playEffect('milestoneStart');
+        // Daily challenge banner: same lifecycle as the milestone banner
+        // above - shown for the whole time a challenge attempt is open,
+        // toggled only on actually entering a (new) level/attempt.
+        ensureChallengeBannerEl().hidden = snapshot.mode !== 'challenge';
+        ensureChallengeBannerEl().textContent = I18n.t('dailyChallengeButtonLabel');
       } else {
         syncCells(snapshot.grid, snapshot.helperPlant);
         syncBedTracker(snapshot.grid);

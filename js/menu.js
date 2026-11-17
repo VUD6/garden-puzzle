@@ -29,8 +29,8 @@
     return false;
   }
 
-  // The daily challenge (roadmap step 7) doesn't exist yet, so its button
-  // only shows as a locked teaser before the level it will unlock at.
+  // Whether the daily-challenge button should still show as a locked
+  // teaser (below the unlock level) rather than the real, tappable button.
   function shouldShowDailyLock(level) {
     return level < DAILY_CHALLENGE_UNLOCK_LEVEL;
   }
@@ -47,7 +47,6 @@
     dom.menuSubtitle.textContent = I18n.t('menuSubtitle');
     dom.howToPlayButton.textContent = I18n.t('howToPlayButton');
     dom.menuSettingsButton.textContent = I18n.t('settingsButtonLabel');
-    dom.dailyChallengeCaption.textContent = I18n.t('dailyChallengeCaption');
 
     // No slot for this in index.html (a brand-new piece of UI) - created
     // once and inserted right after the subtitle, before the menu buttons,
@@ -56,6 +55,19 @@
     const totalStarsEl = document.createElement('p');
     totalStarsEl.className = 'menu-total-stars';
     dom.menuSubtitle.insertAdjacentElement('afterend', totalStarsEl);
+
+    // Daily challenge button: index.html already has the button, its lock
+    // icon, and its caption span (the pre-existing locked teaser) - only the
+    // unclaimed-today badge has no slot, so it's created once and appended,
+    // same convention as .menu-total-stars above. Stable hooks for Codex's
+    // later styling pass: .daily-challenge-btn, data-state="locked|
+    // available|done" on the button, .daily-challenge-badge on the badge.
+    dom.dailyChallengeButton.classList.add('daily-challenge-btn');
+    const dailyChallengeLockIcon = dom.dailyChallengeButton.querySelector('.lock-icon');
+    const dailyChallengeBadge = document.createElement('span');
+    dailyChallengeBadge.className = 'daily-challenge-badge';
+    dailyChallengeBadge.hidden = true;
+    dom.dailyChallengeButton.appendChild(dailyChallengeBadge);
 
     dom.playButton.addEventListener('click', function () {
       AudioFx.playEffect('tap');
@@ -69,6 +81,19 @@
       AudioFx.playEffect('tap');
       handlers.onSettings();
     });
+    dom.dailyChallengeButton.addEventListener('click', function () {
+      // disabled already blocks this in a real browser (locked, or already
+      // done for today - no reward on a replay, see js/daily-challenge.js);
+      // this guard is just defensive.
+      if (dom.dailyChallengeButton.disabled) return;
+      AudioFx.playEffect('tap');
+      handlers.onDailyChallenge();
+    });
+
+    function challengeState(level) {
+      if (shouldShowDailyLock(level)) return 'locked';
+      return root.Garden.dailyChallenge.isDoneToday() ? 'done' : 'available';
+    }
 
     function render() {
       const level = Platform.loadProgress();
@@ -76,7 +101,16 @@
       dom.playButton.textContent = hasProgress(saved)
         ? I18n.t('menuContinueButton', { level })
         : I18n.t('menuPlayButton');
-      dom.dailyChallengeButton.hidden = !shouldShowDailyLock(level);
+
+      const state = challengeState(level);
+      dom.dailyChallengeButton.hidden = false;
+      dom.dailyChallengeButton.disabled = state !== 'available';
+      dom.dailyChallengeButton.dataset.state = state;
+      if (dailyChallengeLockIcon) dailyChallengeLockIcon.hidden = state !== 'locked';
+      dom.dailyChallengeCaption.textContent = I18n.t(
+        state === 'locked' ? 'dailyChallengeCaption' : state === 'done' ? 'dailyChallengeDoneCaption' : 'dailyChallengeButtonLabel'
+      );
+      dailyChallengeBadge.hidden = state !== 'available';
 
       const totalStars = Platform.loadTotalStars();
       totalStarsEl.textContent = I18n.t('menuTotalStarsLabel', { count: totalStars });

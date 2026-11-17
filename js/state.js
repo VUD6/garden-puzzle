@@ -209,7 +209,23 @@
     const rules = root.Garden.rules;
     const CellState = gridModule.CellState;
 
-    let level = platform.loadProgress();
+    // Challenge mode (js/daily-challenge.js): a self-contained attempt at
+    // today's puzzle that never touches real level progression/win streak/
+    // best-time-per-level bookkeeping. `levelBuilder` replaces buildLevel
+    // (the daily challenge passes a function that ignores its argument and
+    // always returns today's deterministically-seeded puzzle); boardKeyOverride
+    // replaces the numeric level as the save-board storage key (so an
+    // in-progress challenge attempt can never collide with a real level's
+    // saved board). Both reset back to their normal-mode defaults by
+    // exitChallenge(). See enterChallenge/exitChallenge below.
+    let mode = options.mode === 'challenge' ? 'challenge' : 'normal';
+    let levelBuilder = typeof options.levelBuilder === 'function' ? options.levelBuilder : buildLevel;
+    let boardKeyOverride = options.boardKey || null;
+    function storageKeyFor(levelNumber) {
+      return boardKeyOverride !== null ? boardKeyOverride : levelNumber;
+    }
+
+    let level = mode === 'challenge' && typeof options.initialLevel === 'number' ? options.initialLevel : platform.loadProgress();
     let lives = MAX_LIVES;
     let grid = null;
     let status = 'playing'; // 'playing' | 'won' | 'lost'
@@ -311,6 +327,7 @@
         helpers: buildHelperSnapshot(),
         startType,
         levelKind: levelKindValue,
+        mode,
       };
     }
 
@@ -332,7 +349,7 @@
     }
 
     function commit(extra) {
-      platform.saveBoard(level, serializeBoard());
+      platform.saveBoard(storageKeyFor(level), serializeBoard());
       emit(extra);
     }
 
@@ -342,7 +359,7 @@
       lastTap = null;
       resetTimer();
 
-      const built = buildLevel(levelNumber);
+      const built = levelBuilder(levelNumber);
       grid = gridModule.createGrid(built.size, built.regionOf);
       solutionKeys = new Set(built.solution.map((pos) => cellKey(pos.row, pos.col)));
       solutionList = built.solution;
@@ -366,7 +383,7 @@
         cell.given = true;
       });
 
-      const saved = platform.loadBoard(levelNumber);
+      const saved = platform.loadBoard(storageKeyFor(levelNumber));
       if (saved && Array.isArray(saved.cells) && saved.cells.length === built.size) {
         lives = saved.lives;
         levelScore = saved.levelScore || 0;
@@ -388,21 +405,53 @@
         randomUseCount = 0;
       }
 
-      platform.saveProgress(level);
-      // Tracked separately from "current level" so Snowman's level-10 lock
-      // (see Helpers.isUnlocked) can never flicker back on by revisiting an
-      // earlier level - it only ever goes up.
-      platform.saveHighestLevel(Math.max(platform.loadHighestLevel(), level));
+      // Real level progression (saved progress/highest-level-reached) is a
+      // normal-mode-only concept - a challenge attempt never advances or
+      // otherwise touches it, exactly like it never touches the win streak
+      // (see attemptFlower) or per-level best time/stars/milestone reward
+      // (see finishLevel).
+      if (mode === 'normal') {
+        platform.saveProgress(level);
+        // Tracked separately from "current level" so Snowman's level-10 lock
+        // (see Helpers.isUnlocked) can never flicker back on by revisiting an
+        // earlier level - it only ever goes up.
+        platform.saveHighestLevel(Math.max(platform.loadHighestLevel(), level));
+      }
       emit();
     }
 
     function retryLevel() {
-      platform.clearBoard(level);
+      platform.clearBoard(storageKeyFor(level));
       startLevel(level);
     }
 
     function nextLevel() {
       startLevel(level + 1);
+    }
+
+    // Switches this same game instance into daily-challenge mode and starts
+    // today's puzzle: `builderFn` ignores the level number it's given and
+    // always returns the deterministically date-seeded puzzle (see
+    // js/daily-challenge.js); `pseudoLevel` is only used for sizing/display
+    // (the challenge's own difficulty-level pick, 15-30); `boardKey` keeps
+    // an in-progress attempt's save separate from any real level's board.
+    function enterChallenge(builderFn, pseudoLevel, boardKey) {
+      mode = 'challenge';
+      levelBuilder = builderFn;
+      boardKeyOverride = boardKey;
+      startLevel(pseudoLevel);
+    }
+
+    // Switches back to normal mode and reloads the player's real saved
+    // progress/board, exactly as if the game had just been (re)created in
+    // normal mode - a no-op if already in normal mode, so callers can call
+    // this unconditionally whenever returning to the menu.
+    function exitChallenge() {
+      if (mode !== 'challenge') return;
+      mode = 'normal';
+      levelBuilder = buildLevel;
+      boardKeyOverride = null;
+      startLevel(platform.loadProgress());
     }
 
     // All remaining empty cells get a white X (a solved board never leaves
@@ -427,56 +476,69 @@
       const mistakesUsed = MAX_LIVES - lives;
       const rating = computeRating(grid.size, mistakesUsed, elapsedSeconds);
 
-      // Best time and stars can always improve on a replay, but the total
-      // score only ever comes from this level's first-ever completion -
-      // replaying an already-completed level earns no more of it.
-      const previousBest = platform.loadBestTime(level);
-      const alreadyCompletedBefore = previousBest !== null;
-      const bestTimeSeconds = alreadyCompletedBefore ? Math.min(previousBest, elapsedSeconds) : elapsedSeconds;
-      platform.saveBestTime(level, bestTimeSeconds);
-
-      // Best stars per level, same "can always improve on a replay" rule as
-      // best time - platform.saveBestStars keeps the menu's running
-      // totalStars in sync by the exact delta, so nothing here has to
-      // re-sum every level itself.
-      const previousBestStars = platform.loadBestStars(level);
-      const bestStars = previousBestStars === null ? rating : Math.max(previousBestStars, rating);
-      platform.saveBestStars(level, bestStars);
-
-      // Win streak: only a win that represents genuine NEW progress (not
-      // yet completed before) extends it - re-winning an already-completed
-      // level neither extends nor breaks it, so it can't be farmed for free
-      // bonus charges. A loss always breaks it regardless (see
-      // attemptFlower) - there is no equivalent "already completed"
-      // exception for losing.
+      // Every per-level/progression side effect below (best time, best
+      // stars, total score, win streak, milestone reward) is a normal-mode-
+      // only concept - a challenge attempt's `level` is just that day's
+      // difficulty pick, not a real level identity, so none of this is
+      // computed or persisted for it. The daily challenge's own reward
+      // (helper charges, points, stars - once per day) is credited entirely
+      // separately, outside state.js, by js/daily-challenge.js reacting to
+      // this same 'won' snapshot (status/rating/elapsedSeconds/levelScore
+      // are all still emitted below regardless of mode).
+      let bestTimeSeconds = elapsedSeconds;
       let streak = null;
       let streakBonus = null;
-      if (!alreadyCompletedBefore) {
-        committedScore += levelScore;
-        platform.saveTotalScore(committedScore);
+      let milestoneReward = null;
 
-        streak = platform.loadWinStreak() + 1;
-        platform.saveWinStreak(streak);
-        if (streak % WIN_STREAK_BONUS_INTERVAL === 0) {
-          const bonusHelperId = pickStreakBonusHelper();
-          Helpers.addCharges(bonusHelperId, WIN_STREAK_BONUS_AMOUNT);
-          streakBonus = { helperId: bonusHelperId, amount: WIN_STREAK_BONUS_AMOUNT };
+      if (mode === 'normal') {
+        // Best time and stars can always improve on a replay, but the total
+        // score only ever comes from this level's first-ever completion -
+        // replaying an already-completed level earns no more of it.
+        const previousBest = platform.loadBestTime(level);
+        const alreadyCompletedBefore = previousBest !== null;
+        bestTimeSeconds = alreadyCompletedBefore ? Math.min(previousBest, elapsedSeconds) : elapsedSeconds;
+        platform.saveBestTime(level, bestTimeSeconds);
+
+        // Best stars per level, same "can always improve on a replay" rule as
+        // best time - platform.saveBestStars keeps the menu's running
+        // totalStars in sync by the exact delta, so nothing here has to
+        // re-sum every level itself.
+        const previousBestStars = platform.loadBestStars(level);
+        const bestStars = previousBestStars === null ? rating : Math.max(previousBestStars, rating);
+        platform.saveBestStars(level, bestStars);
+
+        // Win streak: only a win that represents genuine NEW progress (not
+        // yet completed before) extends it - re-winning an already-completed
+        // level neither extends nor breaks it, so it can't be farmed for free
+        // bonus charges. A loss always breaks it regardless (see
+        // attemptFlower) - there is no equivalent "already completed"
+        // exception for losing.
+        if (!alreadyCompletedBefore) {
+          committedScore += levelScore;
+          platform.saveTotalScore(committedScore);
+
+          streak = platform.loadWinStreak() + 1;
+          platform.saveWinStreak(streak);
+          if (streak % WIN_STREAK_BONUS_INTERVAL === 0) {
+            const bonusHelperId = pickStreakBonusHelper();
+            Helpers.addCharges(bonusHelperId, WIN_STREAK_BONUS_AMOUNT);
+            streakBonus = { helperId: bonusHelperId, amount: WIN_STREAK_BONUS_AMOUNT };
+          }
+        }
+
+        // Milestone reward: +1 charge of EACH helper, granted only on a
+        // milestone level's first-ever completion - same loadBestTime-based
+        // guard as the total score above, so a replay never re-grants it, and
+        // always credited through Garden.helpers.addCharges (which persists
+        // immediately), never a direct storage write.
+        if (!alreadyCompletedBefore && levelKindValue === 'milestone') {
+          Helpers.HELPER_IDS.forEach(function (id) { Helpers.addCharges(id, MILESTONE_HELPER_REWARD); });
+          milestoneReward = { amount: MILESTONE_HELPER_REWARD };
         }
       }
 
-      // Milestone reward: +1 charge of EACH helper, granted only on a
-      // milestone level's first-ever completion - same loadBestTime-based
-      // guard as the total score above, so a replay never re-grants it, and
-      // always credited through Garden.helpers.addCharges (which persists
-      // immediately), never a direct storage write.
-      let milestoneReward = null;
-      if (!alreadyCompletedBefore && levelKindValue === 'milestone') {
-        Helpers.HELPER_IDS.forEach(function (id) { Helpers.addCharges(id, MILESTONE_HELPER_REWARD); });
-        milestoneReward = { amount: MILESTONE_HELPER_REWARD };
-      }
-
       status = 'won';
-      platform.clearBoard(level);
+      platform.clearBoard(storageKeyFor(level));
       emit({
         scoreGain,
         winFill,
@@ -502,8 +564,10 @@
           // A loss always breaks the win streak - unlike a win, there is no
           // "already completed" exception here (see finishLevel's own
           // comment): losing on a replay of an already-won level still
-          // resets it, same as any other loss.
-          platform.saveWinStreak(0);
+          // resets it, same as any other loss. A challenge-mode loss never
+          // touches it at all - the daily challenge doesn't affect the
+          // streak either way (see js/daily-challenge.js).
+          if (mode === 'normal') platform.saveWinStreak(0);
         }
         commit({ mistake: { row, col, lostLifeIndex: lives } });
         return;
@@ -747,6 +811,8 @@
       getSnapshot,
       pauseTimer,
       resumeTimer,
+      enterChallenge,
+      exitChallenge,
     };
   }
 
