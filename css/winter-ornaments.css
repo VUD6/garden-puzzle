@@ -95,30 +95,6 @@ html[data-theme="winter"] .milestone-banner-title {
   --winter-game-tree-height: 84px;
 }
 
-html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .game-screen {
-  isolation: isolate;
-  position: relative;
-}
-
-html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .game-screen::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    var(--winter-game-firs-art) bottom / 100% var(--winter-game-tree-height) no-repeat,
-    var(--winter-game-snow-art) center / 100% 100% no-repeat;
-}
-
-html[data-theme="winter"] #app:has(.game-screen:not([hidden])) > .winter-decor {
-  display: none;
-}
-
-html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .particle {
-  box-shadow: none;
-}
-
 html[data-theme="winter"] .game-screen:has(#milestoneBanner:not([hidden])) .board {
   --board-frame-bg: linear-gradient(var(--winter-frame-gold), var(--winter-frame-gold-edge));
 }
@@ -170,17 +146,17 @@ html[data-theme="winter"] .game-screen .cell[data-given="true"]:has(> .cell-mark
   --winter-caption-padding: 6px;
   --winter-game-top-inset: 8px;
 }
-html[data-theme="winter"] #app:has(.game-screen:not([hidden])) {
+html[data-theme="winter"] #app {
   isolation: isolate;
 }
-html[data-theme="winter"] #app:has(.game-screen:not([hidden]))::before {
+html[data-theme="winter"] #app::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -2;
   pointer-events: none;
   background:
-    var(--winter-game-firs-art) bottom / auto var(--winter-evening-firs-height) repeat-x,
+    var(--winter-game-firs-art) bottom / var(--winter-firs-repeat-width) var(--winter-evening-firs-height) repeat-x,
     var(--winter-game-snow-art) bottom / 100% 100% no-repeat,
     linear-gradient(var(--winter-evening-top), var(--winter-evening-bottom));
 }
@@ -199,7 +175,7 @@ html[data-theme="winter"] .game-screen .helper-lock-caption:not([hidden]) {
   padding-inline: var(--winter-caption-padding);
   border-radius: var(--radius-pill);
 }
-html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .particle {
+html[data-theme="winter"] #app .particle {
   background: var(--winter-evening-snow);
   animation-duration: var(--winter-evening-flake-duration);
 }
@@ -226,6 +202,38 @@ html[data-theme="winter"] .game-screen .cell[data-given="true"] > .cell-mark > s
 html[data-theme="winter"] .game-screen:has(#milestoneBanner:not([hidden])) .bed-tracker {
   transform: translateY(var(--winter-garland-tracker-lift));
 }
-html[data-theme="winter"] #app:has(.game-screen:not([hidden]))::before {
-  background-size: var(--winter-firs-repeat-width) var(--winter-evening-firs-height), 100% 100%, 100% 100%;
+
+/* Shared scene stays behind loading, menu, game, and tutorial overlays. */
+:root {
+  --winter-scene-text: #fbf2e4;
+  --winter-scene-text-shadow: 0 2px 3px rgba(55, 34, 23, .25);
+  --winter-scene-text-padding: 4px;
+}
+
+html[data-theme="winter"] :is(.loading-screen, .menu-screen) {
+  background: transparent;
+}
+html[data-theme="winter"] :is(.winter-menu-landscape, .winter-decor) {
+  display: none;
+}
+html[data-theme="winter"] #app .particle {
+  box-shadow: none;
+}
+html[data-theme="winter"] :is(.loading-title, .menu-title, .menu-subtitle) {
+  color: var(--winter-scene-text);
+  background: var(--winter-evening-top);
+  border-radius: var(--radius-lg);
+  padding: var(--winter-scene-text-padding) var(--winter-plaque-padding);
+  text-shadow: var(--winter-scene-text-shadow);
+}
+html[data-theme="winter"] .menu-daily-button:disabled {
+  color: var(--ink);
+  opacity: 1;
+}
+html[data-theme="winter"] .loading-pulse span {
+  background: var(--winter-scene-text);
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="winter"] .loading-screen { transition: none; }
 }
