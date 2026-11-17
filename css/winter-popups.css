@@ -1,0 +1,154 @@
+:root {
+  --winter-plaque-band: 7px;
+  --winter-plaque-padding: 16px;
+  --winter-plaque-margin: 12px;
+  --winter-plaque-radius: 24px;
+  --winter-plaque-width: 380px;
+  --winter-plaque-wide: 480px;
+  --winter-plaque-rule: 1px;
+  --winter-plaque-backdrop: rgba(55, 34, 23, .64);
+  --winter-plaque-shadow: 0 12px 32px rgba(55, 35, 24, .28);
+  --winter-plaque-secondary-ink: #6a5240;
+  --winter-plaque-toggle-off: #796655;
+  --winter-plaque-thumb: 20px;
+  --winter-plaque-track: 26px;
+  --winter-plaque-thumb-inset: 3px;
+}
+
+html[data-theme="winter"] .winter-plaque-overlay {
+  background: var(--winter-plaque-backdrop);
+  padding: max(var(--winter-plaque-margin), env(safe-area-inset-top))
+    max(var(--winter-plaque-margin), env(safe-area-inset-right))
+    max(var(--winter-plaque-margin), env(safe-area-inset-bottom))
+    max(var(--winter-plaque-margin), env(safe-area-inset-left));
+}
+
+html[data-theme="winter"] .winter-plaque-overlay:has(#tutorialPlay:not([hidden])) {
+  background: var(--winter-plaque-backdrop);
+  overflow: hidden;
+}
+
+html[data-theme="winter"] .winter-plaque {
+  box-sizing: border-box;
+  flex: none;
+  width: 100%;
+  max-width: var(--winter-plaque-width);
+  max-height: 100%;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: var(--winter-plaque-band) solid transparent;
+  border-radius: var(--winter-plaque-radius);
+  padding: var(--winter-plaque-padding);
+  background: linear-gradient(var(--panel-soft), var(--panel-soft)) padding-box,
+    var(--board-frame-bg) border-box;
+  color: var(--ink);
+  box-shadow: var(--winter-plaque-shadow);
+}
+
+html[data-theme="winter"] .winter-plaque[hidden] {
+  display: none;
+}
+
+html[data-theme="winter"] .winter-plaque h2 {
+  font-family: Comfortaa, var(--font-ui);
+}
+
+html[data-theme="winter"] .winter-plaque :is(button, .settings-row) {
+  min-height: var(--winter-touch);
+}
+
+html[data-theme="winter"] .winter-plaque button {
+  min-width: var(--winter-touch);
+}
+
+html[data-theme="winter"] .winter-plaque button:focus-visible {
+  outline: var(--winter-focus-width) solid var(--winter-primary-edge);
+  outline-offset: var(--winter-focus-width);
+}
+
+html[data-theme="winter"] .winter-plaque .overlay-close-button {
+  top: var(--winter-plaque-padding);
+  right: var(--winter-plaque-padding);
+  width: var(--winter-touch);
+  height: var(--winter-touch);
+  border: var(--winter-plaque-rule) solid var(--panel-border);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+html[data-theme="winter"] .winter-plaque.settings-card h2 {
+  display: flex;
+  align-items: center;
+  min-height: var(--winter-touch);
+  padding-inline-end: calc(var(--winter-touch) + var(--winter-ui-gap));
+  text-align: start;
+}
+
+html[data-theme="winter"] .winter-plaque .settings-row {
+  gap: var(--winter-ui-gap);
+}
+
+html[data-theme="winter"] .winter-plaque .settings-row-note {
+  color: var(--winter-plaque-secondary-ink);
+}
+
+html[data-theme="winter"] .winter-plaque .theme-option {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+html[data-theme="winter"] .winter-plaque :is(.theme-option.active, button.winter-plaque-primary) {
+  border-color: var(--winter-primary-edge);
+  background: var(--pine);
+  color: var(--snow);
+}
+
+html[data-theme="winter"] .winter-plaque button.winter-plaque-primary {
+  width: 100%;
+  box-shadow: inset 0 var(--winter-primary-stroke) var(--winter-primary-highlight),
+    inset 0 calc(-1 * var(--winter-primary-edge-size)) var(--winter-primary-edge);
+}
+
+html[data-theme="winter"] .winter-plaque .toggle-switch {
+  /* Keep the 44px hit target around the visible 26px track. */
+  background: transparent;
+}
+
+html[data-theme="winter"] .winter-plaque .toggle-switch::before {
+  content: '';
+  position: absolute;
+  inset: calc((var(--winter-touch) - var(--winter-plaque-track)) / 2) 0;
+  border-radius: var(--radius-pill);
+  background: var(--winter-plaque-toggle-off);
+}
+
+html[data-theme="winter"] .winter-plaque .toggle-switch[aria-pressed="true"]::before {
+  background: var(--pine);
+}
+
+html[data-theme="winter"] .winter-plaque .toggle-knob {
+  top: calc((var(--winter-touch) - var(--winter-plaque-thumb)) / 2);
+  left: var(--winter-plaque-thumb-inset);
+  background: var(--snow);
+  transition: none;
+}
+
+html[data-theme="winter"] .winter-plaque.tutorial-card {
+  justify-content: flex-start;
+}
+
+html[data-theme="winter"] .winter-plaque :is(.tutorial-mascot-row, .tutorial-bubble) {
+  min-width: 0;
+}
+
+html[data-theme="winter"] .winter-plaque :is(.tutorial-board-wrap, .tutorial-mascot-row) {
+  flex-shrink: 0;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-theme="winter"] .winter-plaque.tutorial-card {
+    max-width: var(--winter-plaque-wide);
+    align-items: center;
+  }
+}

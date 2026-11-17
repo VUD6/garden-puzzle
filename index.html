@@ -6,6 +6,7 @@
 <title>Клумба: цветочная головоломка</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/winter-ornaments.css">
+<link rel="stylesheet" href="css/winter-popups.css">
 </head>
 <body>
 <div id="app">
@@ -218,8 +219,8 @@
       <button id="retryButton" type="button"></button>
     </div>
   </div>
-  <div class="overlay settings-overlay" id="settingsOverlay" hidden>
-    <div class="overlay-card settings-card">
+  <div class="overlay settings-overlay winter-plaque-overlay" id="settingsOverlay" hidden>
+    <div class="overlay-card settings-card winter-plaque">
       <h2 id="settingsTitleText"></h2>
       <div class="settings-row">
         <span class="settings-row-label" id="themeLabelText"></span>
@@ -243,7 +244,7 @@
         </div>
         <button class="toggle-switch" id="vibrationToggle" type="button" aria-pressed="true"><span class="toggle-knob"></span></button>
       </div>
-      <button class="replay-tutorial-button" id="replayTutorialButton" type="button"></button>
+      <button class="replay-tutorial-button winter-plaque-primary" id="replayTutorialButton" type="button"></button>
       <button class="overlay-close-button" id="settingsCloseButton" type="button"></button>
     </div>
   </div>
@@ -261,8 +262,8 @@
       <button class="overlay-close-button" id="checkinCloseButton" type="button"></button>
     </div>
   </div>
-  <div class="overlay tutorial-overlay" id="tutorialOverlay" hidden>
-    <div class="tutorial-card" id="tutorialPlay">
+  <div class="overlay tutorial-overlay winter-plaque-overlay" id="tutorialOverlay" hidden>
+    <div class="tutorial-card winter-plaque" id="tutorialPlay">
       <div class="tutorial-board-wrap">
         <div class="board tutorial-board" id="tutorialBoard"></div>
         <div class="tutorial-hand" id="tutorialHand" hidden></div>
@@ -287,10 +288,10 @@
         <p class="tutorial-bubble" id="tutorialBubble"></p>
       </div>
     </div>
-    <div class="overlay-card tutorial-final" id="tutorialFinal" hidden>
+    <div class="overlay-card tutorial-final winter-plaque" id="tutorialFinal" hidden>
       <h2 id="tutorialFinalTitle"></h2>
       <p id="tutorialFinalText"></p>
-      <button id="tutorialGotItButton" type="button"></button>
+      <button class="winter-plaque-primary" id="tutorialGotItButton" type="button"></button>
     </div>
   </div>
 </div>

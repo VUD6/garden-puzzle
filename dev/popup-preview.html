@@ -1,265 +1,80 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="winter">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Клумба — варианты настроек</title>
+<title>Клумба — зимние попапы</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/winter-ornaments.css">
+<link rel="stylesheet" href="../css/winter-popups.css">
 <style>
-@font-face {
-  font-family: Comfortaa;
-  src: url("../fonts/Comfortaa.ttf") format("truetype");
-  font-weight: 300 700;
-  font-display: swap;
-}
-
 :root {
-  color-scheme: light;
-  --page: #efe3d4;
-  --ink: #4a3220;
-  --cream: #fff8f0;
-  --sand: #f6e9d8;
-  --edge: #cfb99f;
-  --pine: #285641;
-  --pine-deep: #183d2d;
-  --pine-soft: #38604d;
-  --berry: #b8413f;
-  --stripe-cream: #fbf2e4;
-  --switch-off: #796655;
-  --fog: rgba(42, 32, 27, .55);
-  --shadow: 0 12px 32px rgba(55, 35, 24, .28);
-  --touch: 44px;
-  --frame-width: 430px;
-  --frame-max-height: 740px;
-  --frame-radius: 26px;
-  --card-radius: 24px;
-  --gap: 8px;
-  --pad: 16px;
-  --board-size: 320px;
-  --stripe: 8px;
-  --paper-rim: 5px;
-  --paper-inset: 3px;
-  --focus-size: 2px;
-  --thin: 1px;
-  --pill: 999px;
-  --knob: 20px;
-  --track-width: 42px;
-  --track-height: 26px;
-  --track-inset: 3px;
-  --switch-travel: 16px;
-  --text: .875rem;
-  --title: 1.25rem;
+  --preview-page: #efe3d4;
+  --preview-frame-ink: #e6d2b8;
+  --preview-frame-cream: #fff8f0;
+  --preview-frame-sand: #f6e9d8;
+  --preview-width: 430px;
+  --preview-height: 740px;
+  --preview-board-size: 320px;
+  --preview-top-space: 90px;
   --bed-a: #e67c8a;
   --bed-b: #85beaa;
   --bed-c: #eabf59;
   --bed-d: #86a9d8;
+  --stripe-cream: var(--winter-candy-cream);
+  --berry: var(--winter-candy-red);
+  --board-frame-bg: repeating-linear-gradient(45deg,
+    var(--winter-candy-red) 0 var(--winter-plaque-band),
+    var(--winter-candy-cream) var(--winter-plaque-band) calc(2 * var(--winter-plaque-band)));
 }
-
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  padding: var(--gap);
-  background: var(--page);
-  color: var(--ink);
-  font: 700 var(--text)/1.45 Comfortaa, system-ui, sans-serif;
-}
-main { max-width: var(--frame-width); margin-inline: auto; }
-h1, h2 { margin: 0; font-size: var(--title); }
-.nav { display: flex; flex-wrap: wrap; gap: var(--gap); margin-block: var(--gap); }
-a, button, .segment label {
-  display: inline-flex;
-  min-width: var(--touch);
-  min-height: var(--touch);
-  align-items: center;
-  justify-content: center;
-  color: inherit;
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.nav a {
+body { background: var(--preview-page); }
+main { width: min(100%, var(--preview-width)); margin-inline: auto; padding: var(--winter-plaque-margin); }
+h1 { margin: 0 0 var(--winter-ui-gap); font-size: 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: var(--winter-ui-gap); margin-bottom: var(--winter-ui-gap); }
+nav a {
+  display: grid;
+  place-items: center;
   flex: 1;
-  padding-inline: var(--gap);
-  border: var(--thin) solid var(--edge);
-  border-radius: var(--pill);
-  background: var(--cream);
+  min-height: var(--winter-touch);
+  padding-inline: var(--winter-ui-gap);
+  border: var(--winter-plaque-rule) solid var(--preview-frame-ink);
+  border-radius: var(--radius-pill);
+  background: var(--preview-frame-cream);
+  color: var(--ink);
   text-align: center;
+  text-decoration: none;
 }
-body:not(:has(.nav :target)) #cream,
-.nav a:target {
-  color: var(--cream);
-  background: var(--pine);
-}
-
+nav a:focus-visible { outline: var(--winter-focus-width) solid var(--pine); }
 .phone {
   position: relative;
   isolation: isolate;
-  height: min(var(--frame-max-height), calc(100dvh - 7rem));
-  min-height: calc(var(--touch) * 3);
-  border-radius: var(--frame-radius);
   overflow: hidden;
-  background: linear-gradient(var(--cream), var(--sand));
+  height: min(var(--preview-height), calc(100dvh - var(--preview-top-space)));
+  border-radius: var(--winter-plaque-radius);
+  background: linear-gradient(var(--preview-frame-cream), var(--preview-frame-sand));
 }
-.board-scene {
-  display: grid;
-  justify-content: center;
-  justify-items: center;
-  gap: var(--pad);
-  padding: var(--pad);
-}
-.board {
-  width: min(100%, var(--board-size));
-  border-radius: var(--card-radius);
-}
-.shade {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: var(--gap);
-  background: var(--fog);
-}
-.phone:target .shade { display: none; }
-
-.popup {
-  --card: var(--cream);
-  --label-ink: var(--ink);
-  --control: var(--sand);
-  --line: var(--edge);
-  --action: var(--pine);
-  --action-ink: var(--cream);
-  --focus: var(--pine-deep);
-  width: 100%;
-  max-height: 100%;
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  border: var(--thin) solid var(--line);
-  border-radius: var(--card-radius);
-  background: var(--card);
-  color: var(--label-ink);
-  box-shadow: var(--shadow);
-}
-body:has(#pine:target) .popup {
-  --card: var(--pine-deep);
-  --label-ink: var(--cream);
-  --control: var(--pine-soft);
-  --line: var(--pine-soft);
-  --action: var(--cream);
-  --action-ink: var(--pine-deep);
-  --focus: var(--cream);
-}
-body:has(#paper:target) .popup {
-  --card: var(--sand);
-  --control: var(--cream);
-  border: var(--paper-rim) solid transparent;
-  background:
-    linear-gradient(var(--card), var(--card)) padding-box,
-    repeating-linear-gradient(45deg, var(--berry) 0 var(--stripe),
-      var(--stripe-cream) var(--stripe) calc(2 * var(--stripe))) border-box;
-}
-.popup-body {
-  display: grid;
-  gap: var(--gap);
-  padding: var(--pad);
-}
-body:has(#paper:target) .popup-body {
-  margin: var(--paper-inset);
-  border: var(--thin) solid var(--line);
-  border-radius: calc(var(--card-radius) - var(--paper-rim));
-}
-.popup header, .setting {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--gap);
-  min-height: var(--touch);
-}
-.close, .secondary {
-  background: var(--control);
-  border: var(--thin) solid var(--line);
-}
-.close { border-radius: var(--pill); font-size: var(--title); }
-.setting {
-  border-bottom: var(--thin) solid var(--line);
-  padding-block: var(--gap);
-}
-.setting > span { min-width: 0; }
-.segment {
-  position: relative;
-  display: flex;
-  flex: none;
-  border-radius: var(--pill);
-  background: var(--control);
-}
-.segment input, .toggle input {
-  position: absolute;
-  width: var(--thin);
-  height: var(--thin);
-  opacity: 0;
-}
-.segment label {
-  padding-inline: var(--gap);
-  border-radius: var(--pill);
-}
-.segment input:checked + label, .primary {
-  background: var(--action);
-  color: var(--action-ink);
-}
-.toggle {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-width: var(--touch);
-  min-height: var(--touch);
-  flex: none;
-  border-radius: var(--pill);
-  cursor: pointer;
-}
-.track {
-  display: block;
-  width: var(--track-width);
-  height: var(--track-height);
-  padding: var(--track-inset);
-  border-radius: var(--pill);
-  background: var(--switch-off);
-}
-.track::before {
-  content: "";
-  display: block;
-  width: var(--knob);
-  height: var(--knob);
-  border-radius: var(--pill);
-  background: var(--cream);
-}
-.toggle input:checked + .track { background: var(--action); }
-.toggle input:checked + .track::before {
-  transform: translateX(var(--switch-travel));
-  background: var(--action-ink);
-}
-.primary, .secondary {
-  width: 100%;
-  border-radius: var(--pill);
-}
-.secondary:disabled { cursor: default; opacity: 1; }
-:focus-visible, .segment input:focus-visible + label, .toggle input:focus-visible + .track {
-  outline: var(--focus-size) solid var(--focus, var(--pine-deep));
-  outline-offset: var(--focus-size);
-}
+.scene { display: grid; justify-items: center; padding: var(--winter-plaque-padding); }
+.preview-board { width: min(100%, var(--preview-board-size)); }
+.phone > .overlay { position: absolute; }
+.phone > :is(#how, #example) { display: none; }
+body:has(#show-how:target) #how,
+body:has(#show-example:target) #example { display: flex; }
+body:has(#show-how:target, #show-example:target, #preview-closed:target) #settings { display: none; }
+.tutorial-board { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
+.preview-empty { min-height: calc(3 * var(--winter-touch)); }
+.preview-empty h2 { padding-inline: var(--winter-touch); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Настройки · варианты</h1>
-  <nav class="nav" aria-label="Оформление">
-    <a id="cream" href="#cream">A · Крем</a>
-    <a id="pine" href="#pine">B · Хвоя</a>
-    <a id="paper" href="#paper">C · Бумага</a>
+  <h1 id="preview-closed">Зимние попапы</h1>
+  <nav aria-label="Выбор попапа">
+    <a id="show-settings" href="#show-settings">Настройки</a>
+    <a id="show-how" href="#show-how">Как играть</a>
+    <a id="show-example" href="#show-example">Шаблон</a>
   </nav>
-  <div class="phone" id="closed">
-    <div class="board-scene" aria-hidden="true">
-      <h2>Клумба</h2>
-      <svg class="board" viewBox="0 0 236 236" aria-hidden="true">
+  <div class="phone">
+    <div class="scene" aria-hidden="true"><svg class="preview-board" viewBox="0 0 236 236" aria-hidden="true">
         <defs>
           <pattern id="rim" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="16" height="16" fill="var(--stripe-cream)"/>
@@ -278,41 +93,72 @@ body:has(#paper:target) .popup-body {
           <use href="#tile" y="171" fill="var(--bed-d)"/><use href="#tile" x="57" y="171" fill="var(--bed-d)"/>
           <use href="#tile" x="114" y="171" fill="var(--bed-c)"/><use href="#tile" x="171" y="171" fill="var(--bed-c)"/>
         </g>
-      </svg>
-    </div>
-    <div class="shade">
-      <section class="popup" aria-labelledby="settings-title" tabindex="0">
-        <div class="popup-body">
-          <header>
-            <h2 id="settings-title">Настройки</h2>
-            <a class="close" href="#closed" aria-label="Закрыть">×</a>
-          </header>
-          <div class="setting">
-            <span id="theme-label">Тема</span>
-            <div class="segment" role="group" aria-labelledby="theme-label">
-              <input type="radio" name="theme" id="winter" checked><label for="winter">Зима</label>
-              <input type="radio" name="theme" id="garden"><label for="garden">Сад</label>
-            </div>
-          </div>
-          <div class="setting">
-            <span id="pattern-label">Узоры на клумбах</span>
-            <label class="toggle"><input type="checkbox" role="switch" aria-labelledby="pattern-label"><span class="track"></span></label>
-          </div>
-          <div class="setting">
-            <span id="motion-label">Меньше анимации</span>
-            <label class="toggle"><input type="checkbox" role="switch" aria-labelledby="motion-label"><span class="track"></span></label>
-          </div>
-          <div class="setting">
-            <span id="vibration-label">Вибрация при ошибке</span>
-            <label class="toggle"><input type="checkbox" role="switch" aria-labelledby="vibration-label" checked><span class="track"></span></label>
-          </div>
-          <button class="secondary" type="button" disabled>Обучение</button>
-          <a class="primary" href="#closed">Готово</a>
+      </svg></div>
+    <div class="overlay settings-overlay winter-plaque-overlay" id="settings">
+    <div class="overlay-card settings-card winter-plaque">
+      <h2 id="settingsTitleText">Настройки</h2>
+      <div class="settings-row">
+        <span class="settings-row-label" id="themeLabelText">Тема</span>
+        <div class="theme-switch" id="themeSwitch" role="group">
+          <button class="theme-option active" id="themeWinterButton" type="button">Зима</button>
+          <button class="theme-option" id="themeGardenButton" type="button">Сад</button>
         </div>
-      </section>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label" id="patternsToggleLabelText">Узоры на клумбах</span>
+        <button class="toggle-switch" id="patternsToggle" type="button" aria-pressed="false"><span class="toggle-knob"></span></button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label" id="reduceMotionLabelText">Меньше анимации</span>
+        <button class="toggle-switch" id="reduceMotionToggle" type="button" aria-pressed="false"><span class="toggle-knob"></span></button>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-label" id="vibrationLabelText">Вибрация при ошибке</span>
+          <span class="settings-row-note" id="vibrationUnsupportedNote" hidden>Не поддерживается на этом устройстве</span>
+        </div>
+        <button class="toggle-switch" id="vibrationToggle" type="button" aria-pressed="true"><span class="toggle-knob"></span></button>
+      </div>
+      <button class="replay-tutorial-button winter-plaque-primary" id="replayTutorialButton" type="button">Обучение</button>
+      <button class="overlay-close-button" id="settingsCloseButton" type="button" aria-label="Закрыть" data-preview-close></button>
+    </div>
+    </div>
+    <div class="overlay tutorial-overlay winter-plaque-overlay" id="how">
+      <div class="tutorial-card winter-plaque" id="tutorialPlay">
+        <div class="tutorial-mascot-row">
+          <p class="tutorial-bubble">Дважды коснитесь клетки, чтобы поставить пряник</p>
+        </div>
+        <div class="tutorial-board-wrap">
+          <div class="board tutorial-board"><div class="cell region-0 tutorial-dim"></div><div class="cell region-0 tutorial-active"></div><div class="cell region-1 tutorial-dim"></div><div class="cell region-1 tutorial-dim"></div><div class="cell region-0 tutorial-dim"></div><div class="cell region-0 tutorial-dim"></div><div class="cell region-2 tutorial-dim"></div><div class="cell region-1 tutorial-dim"></div><div class="cell region-3 tutorial-dim"></div><div class="cell region-2 tutorial-dim"></div><div class="cell region-2 tutorial-dim"></div><div class="cell region-1 tutorial-dim"></div><div class="cell region-3 tutorial-dim"></div><div class="cell region-3 tutorial-dim"></div><div class="cell region-2 tutorial-dim"></div><div class="cell region-2 tutorial-dim"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="overlay winter-plaque-overlay" id="example">
+      <div class="overlay-card winter-plaque preview-empty">
+        <h2>Шаблон</h2>
+        <button class="overlay-close-button" type="button" aria-label="Закрыть" data-preview-close></button>
+      </div>
     </div>
   </div>
 </main>
+<script src="../js/themes.js"></script>
+<script>
+  Garden.themes.applyTheme('winter');
+  document.getElementById('replayTutorialButton').addEventListener('click', () => { location.hash = 'show-how'; });
+  document.querySelectorAll('[data-preview-close]').forEach(button => {
+    button.addEventListener('click', () => { location.hash = 'preview-closed'; });
+  });
+  document.querySelectorAll('.toggle-switch').forEach(button => {
+    button.addEventListener('click', () => {
+      button.setAttribute('aria-pressed', button.getAttribute('aria-pressed') === 'false');
+    });
+  });
+  document.querySelectorAll('.theme-option').forEach(button => {
+    button.addEventListener('click', () => {
+      document.querySelector('.theme-option.active').classList.remove('active');
+      button.classList.add('active');
+    });
+  });
+</script>
 </body>
 </html>
-
