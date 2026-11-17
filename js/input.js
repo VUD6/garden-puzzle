@@ -135,13 +135,20 @@
       });
     });
 
+    // The level timer (see state.js's pauseTimer/resumeTimer) must not keep
+    // counting while Settings covers the board - paused here regardless of
+    // which button opened it, resumed the moment it's actually closed.
+    function closeSettingsAndResumeTimer() {
+      renderer.closeSettings();
+      game.resumeTimer('settings');
+    }
+
     dom.settingsButton.addEventListener('click', function () {
+      game.pauseTimer('settings');
       renderer.openSettings();
     });
-    dom.settingsCloseButton.addEventListener('click', function () {
-      renderer.closeSettings();
-    });
-    wireBackdropDismiss(dom.settingsOverlay, renderer.closeSettings);
+    dom.settingsCloseButton.addEventListener('click', closeSettingsAndResumeTimer);
+    wireBackdropDismiss(dom.settingsOverlay, closeSettingsAndResumeTimer);
 
     dom.rulesHelpButton.addEventListener('click', function () {
       renderer.toggleRulesPopup();

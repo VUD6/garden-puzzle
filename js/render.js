@@ -158,7 +158,10 @@
       dom.settingsCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
       dom.replayTutorialButton.textContent = I18n.t('replayTutorialButton');
       dom.milestoneBannerTitle.textContent = I18n.t('milestoneBannerTitle');
-      dom.milestoneBannerCaption.textContent = I18n.t('milestoneBannerCaption');
+      // Collapsed to a single short phrase (the title above) - the caption
+      // used to repeat the same idea ("Особый уровень"/"A special level").
+      // Left in the markup (Codex's to restyle/remove) but never populated.
+      dom.milestoneBannerCaption.hidden = true;
     }
 
     // Refreshes every themed icon that's baked as static innerHTML rather

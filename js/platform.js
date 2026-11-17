@@ -7,6 +7,18 @@
   const TOTAL_SCORE_KEY = 'garden.totalScore';
   const BOARD_KEY_PREFIX = 'garden.board.';
   const BEST_TIME_KEY_PREFIX = 'garden.bestTime.';
+  // Bumped once, the moment the active-play timer stopped counting time
+  // while the tab was hidden/backgrounded (see state.js's pauseTimer) -
+  // every best time recorded before that fix could be inflated, so
+  // migrateBestTimes() below wipes them exactly once per player. Progress,
+  // total score, board state, stars, and helper charges are all untouched.
+  const BEST_TIME_SCHEMA_VERSION = 2;
+  const BEST_TIME_SCHEMA_VERSION_KEY = 'garden.bestTimeSchemaVersion';
+  // Index of every level that currently (or ever did) have a best time
+  // saved - lets the one-time migration find and clear them all without
+  // depending on localStorage.key()/length(), which Node's/tests' minimal
+  // localStorage polyfills don't implement.
+  const BEST_TIME_LEVELS_KEY = 'garden.bestTimeLevels';
   const TUTORIAL_DONE_KEY = 'garden.tutorialDone';
   const REDUCE_MOTION_KEY = 'garden.reduceMotion';
   const VIBRATION_KEY = 'garden.vibrationEnabled';
@@ -90,9 +102,29 @@
     localStorage.removeItem(BOARD_KEY_PREFIX + level);
   }
 
+  function loadBestTimeLevels() {
+    const raw = localStorage.getItem(BEST_TIME_LEVELS_KEY);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((n) => Number.isInteger(n)) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function rememberBestTimeLevel(level) {
+    const levels = loadBestTimeLevels();
+    if (levels.indexOf(level) === -1) {
+      levels.push(level);
+      localStorage.setItem(BEST_TIME_LEVELS_KEY, JSON.stringify(levels));
+    }
+  }
+
   function saveBestTime(level, seconds) {
     if (!hasStorage()) return;
     localStorage.setItem(BEST_TIME_KEY_PREFIX + level, String(seconds));
+    rememberBestTimeLevel(level);
   }
 
   function loadBestTime(level) {
@@ -101,6 +133,24 @@
     if (raw === null) return null;
     const seconds = parseInt(raw, 10);
     return Number.isInteger(seconds) && seconds >= 0 ? seconds : null;
+  }
+
+  // One-time migration: wipes every previously-recorded best time once per
+  // player, the moment BEST_TIME_SCHEMA_VERSION is bumped (see its comment
+  // above) - idempotent, since it checks the stored version first and never
+  // re-wipes on a later call/page load once that version is already current.
+  // Leaves progress, total score, in-progress board state, stars, and helper
+  // charges completely untouched; only garden.bestTime.* keys are removed.
+  function migrateBestTimes() {
+    if (!hasStorage()) return;
+    const storedVersion = parseInt(localStorage.getItem(BEST_TIME_SCHEMA_VERSION_KEY), 10);
+    if (Number.isInteger(storedVersion) && storedVersion >= BEST_TIME_SCHEMA_VERSION) return;
+
+    loadBestTimeLevels().forEach(function (level) {
+      localStorage.removeItem(BEST_TIME_KEY_PREFIX + level);
+    });
+    localStorage.removeItem(BEST_TIME_LEVELS_KEY);
+    localStorage.setItem(BEST_TIME_SCHEMA_VERSION_KEY, String(BEST_TIME_SCHEMA_VERSION));
   }
 
   function saveTutorialDone(done) {
@@ -251,6 +301,7 @@
     clearBoard,
     saveBestTime,
     loadBestTime,
+    migrateBestTimes,
     saveTutorialDone,
     loadTutorialDone,
     saveReduceMotionEnabled,
@@ -270,6 +321,10 @@
     showRewardedAd,
     showInterstitialAd,
   };
+
+  // Runs once, right when this module is first loaded (i.e. once per real
+  // page load) - idempotent, see migrateBestTimes's own comment.
+  migrateBestTimes();
 
   root.Garden = root.Garden || {};
   root.Garden.platform = Platform;

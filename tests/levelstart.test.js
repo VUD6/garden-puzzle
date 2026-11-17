@@ -108,14 +108,19 @@ for (const level of [1, 10, 15, 16, 18, 29, 40]) {
   assert(JSON.stringify(a.crossCells) === JSON.stringify(b.crossCells), `level ${level}: cross cells identical across two calls`);
 }
 
-// --- Generation untouched: State.buildLevel's regionOf/solution must stay
-// bit-for-bit identical to the pre-existing algorithm (plain
-// createRng(level) straight into generateLevel, with no further draws),
-// across a sample of levels spanning every grid size. ---
+// --- Generation untouched BY START-TYPE LOGIC specifically: State.buildLevel's
+// regionOf/solution must stay bit-for-bit identical to calling
+// Generator.generateLevel directly with the exact same single-cell-region
+// cap buildLevel itself applies (Garden.state.singleCellRegionCap) - i.e.
+// levelstart.js's own random draws (which type, how many given/crosses)
+// never perturb generation, even though the single-cell-region cap (a
+// separate, deliberate generation change - see tests/generator.test.js and
+// the dedicated cap-scan test below) does. Across a sample of levels
+// spanning every grid size. ---
 const GENERATION_SAMPLE = [1, 2, 3, 5, 6, 9, 10, 13, 15, 16, 20, 25, 34, 40, 50, 60, 70, 80];
 for (const level of GENERATION_SAMPLE) {
   const size = gridSizeForLevel(level);
-  const expected = Generator.generateLevel(size, Rng.createRng(level));
+  const expected = Generator.generateLevel(size, Rng.createRng(level), undefined, State.singleCellRegionCap(level));
   const built = State.buildLevel(level);
   assert(built.size === size, `level ${level}: buildLevel size matches today's algorithm`);
   assert(
@@ -163,17 +168,25 @@ const smallPool = [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 0 }];
 const over = LevelStart.pickWithoutReplacement(smallPool, 10, Rng.createRng(1));
 assert(over.length === 3, 'pickWithoutReplacement caps at the pool size when asked for more than exists');
 
-// --- rich: 2-3 given, no crosses ---
+// --- rich: 0 given flowers (never more than 1 pre-placed gingerbread,
+// which "gift" already provides), 8-12 crosses instead, never on a
+// solution cell - a distinct, generous-feeling start that doesn't blow the
+// per-level gingerbread cap. ---
 let richSamplesChecked = 0;
 for (let level = 1; level <= 300 && richSamplesChecked < 15; level++) {
   const built = State.buildLevel(level);
   if (built.startType !== START_TYPES.RICH) continue;
   richSamplesChecked++;
+  const solutionKeys = new Set(built.solution.map((p) => p.row + ',' + p.col));
+  assert(built.givenFlowers.length === 0, `level ${level} (rich): zero pre-placed flowers`);
   assert(
-    built.givenFlowers.length === 2 || built.givenFlowers.length === 3,
-    `level ${level} (rich): 2-3 pre-placed flowers (got ${built.givenFlowers.length})`
+    built.crossCells.length >= LevelStart.RICH_CROSS_MIN && built.crossCells.length <= LevelStart.RICH_CROSS_MAX,
+    `level ${level} (rich): ${LevelStart.RICH_CROSS_MIN}-${LevelStart.RICH_CROSS_MAX} pre-placed crosses (got ${built.crossCells.length})`
   );
-  assert(built.crossCells.length === 0, `level ${level} (rich): zero pre-placed crosses`);
+  assert(
+    built.crossCells.every((pos) => !solutionKeys.has(pos.row + ',' + pos.col)),
+    `level ${level} (rich): every pre-placed cross is on a non-solution cell`
+  );
 }
 assert(richSamplesChecked >= 10, `found enough 'rich' levels to sample (${richSamplesChecked})`);
 

@@ -1,10 +1,11 @@
 // Level start descriptor: decides what's pre-placed on a level's board at
-// the moment it begins - 1 flower ("gift", today's only behavior so far),
-// nothing ("none"), 2-3 flowers ("rich"), or 0-1 flowers plus 5-10
-// non-solution crosses ("notes"). Pure and Node-testable; never touches
-// rules.js/solver.js or buildLevel's own generation RNG (js/state.js), so
-// tuning this schedule can never change a level's beds or solution
-// (tests/levelstart.test.js guards this directly).
+// the moment it begins - 1 flower ("gift"), nothing ("none"), 8-12
+// non-solution crosses and no flower ("rich"), or 0-1 flowers plus 5-10
+// non-solution crosses ("notes"). A level never gets more than 1 pre-placed
+// flower, "rich" included - its generosity comes entirely from crosses.
+// Pure and Node-testable; never touches rules.js/solver.js or buildLevel's
+// own generation RNG (js/state.js), so tuning this schedule can never change
+// a level's beds or solution (tests/levelstart.test.js guards this directly).
 (function (root) {
   const START_TYPES = { GIFT: 'gift', NONE: 'none', RICH: 'rich', NOTES: 'notes' };
 
@@ -18,8 +19,13 @@
   // no pre-placed cells at all, roughly one level in five.
   const NO_HINT_INTERVAL = 5;
 
-  const RICH_GIVEN_MIN = 2;
-  const RICH_GIVEN_MAX = 3;
+  // "rich" used to pre-place 2-3 solution flowers; that's now "notes"-style
+  // crosses instead (several, more than notes' own 5-10) so a level can
+  // never have more than 1 pre-placed gingerbread (see START_TYPES and the
+  // givenCount switch in buildLevelStart below) while still feeling like a
+  // distinctly generous, friendly start.
+  const RICH_CROSS_MIN = 8;
+  const RICH_CROSS_MAX = 12;
   const NOTES_GIVEN_MIN = 0;
   const NOTES_GIVEN_MAX = 1;
   const NOTES_CROSS_MIN = 5;
@@ -86,33 +92,47 @@
   // js/state.js) - this never reruns or reseeds generation itself, only
   // reads its output, and draws every one of its own random choices from a
   // dedicated stream that buildLevel's generation RNG never touches.
+  // Every non-solution cell (never a cross on a cell that might hold a
+  // flower), shared by both "notes" and "rich" - their crosses are always
+  // true information for exactly the same reason.
+  function nonSolutionCells(solution, size) {
+    const solutionKeys = new Set(solution.map(function (pos) { return pos.row + ',' + pos.col; }));
+    const cells = [];
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        if (!solutionKeys.has(row + ',' + col)) cells.push({ row, col });
+      }
+    }
+    return cells;
+  }
+
   function buildLevelStart(level, solution, size) {
     const rng = root.Garden.rng.createRng(levelStartSeed(level));
     const type = startTypeForLevel(level, rng);
 
+    // At most 1 pre-placed gingerbread per level, every level, including
+    // milestones - "rich" gives 0 (its generosity comes from crosses
+    // instead, below), "gift" gives its usual 1, "none" gives 0, and "notes"
+    // keeps its existing 0-1 roll.
     let givenCount;
     if (type === START_TYPES.GIFT) {
       givenCount = 1;
-    } else if (type === START_TYPES.NONE) {
-      givenCount = 0;
-    } else if (type === START_TYPES.RICH) {
-      givenCount = RICH_GIVEN_MIN + Math.floor(rng() * (RICH_GIVEN_MAX - RICH_GIVEN_MIN + 1));
-    } else {
+    } else if (type === START_TYPES.NOTES) {
       givenCount = NOTES_GIVEN_MIN + Math.floor(rng() * (NOTES_GIVEN_MAX - NOTES_GIVEN_MIN + 1));
+    } else {
+      givenCount = 0; // NONE and RICH
     }
 
     const givenFlowers = pickWithoutReplacement(solution, givenCount, rng);
 
     let crossCells = [];
     if (type === START_TYPES.NOTES) {
-      const solutionKeys = new Set(solution.map(function (pos) { return pos.row + ',' + pos.col; }));
-      const eligible = [];
-      for (let row = 0; row < size; row++) {
-        for (let col = 0; col < size; col++) {
-          if (!solutionKeys.has(row + ',' + col)) eligible.push({ row, col });
-        }
-      }
+      const eligible = nonSolutionCells(solution, size);
       const crossCount = NOTES_CROSS_MIN + Math.floor(rng() * (NOTES_CROSS_MAX - NOTES_CROSS_MIN + 1));
+      crossCells = pickWithoutReplacement(eligible, crossCount, rng);
+    } else if (type === START_TYPES.RICH) {
+      const eligible = nonSolutionCells(solution, size);
+      const crossCount = RICH_CROSS_MIN + Math.floor(rng() * (RICH_CROSS_MAX - RICH_CROSS_MIN + 1));
       crossCells = pickWithoutReplacement(eligible, crossCount, rng);
     }
 
@@ -124,8 +144,8 @@
     TUTORIAL_MAX_LEVEL,
     MILESTONE_INTERVAL,
     NO_HINT_INTERVAL,
-    RICH_GIVEN_MIN,
-    RICH_GIVEN_MAX,
+    RICH_CROSS_MIN,
+    RICH_CROSS_MAX,
     NOTES_GIVEN_MIN,
     NOTES_GIVEN_MAX,
     NOTES_CROSS_MIN,

@@ -166,6 +166,40 @@
     const router = Garden.router.createRouter(dom);
     const tutorial = Garden.tutorial.createTutorial(dom);
 
+    // The level timer (see state.js's pauseTimer/resumeTimer) must not keep
+    // counting while "How to play" covers the board, same as Settings -
+    // paused for the whole time the tutorial overlay is open, regardless of
+    // which button opened it (first-launch Play, the menu's "Как играть",
+    // or Settings' "Replay tutorial"), resumed the instant it's dismissed.
+    function startTutorial(onComplete) {
+      game.pauseTimer('tutorial');
+      tutorial.start(function () {
+        game.resumeTimer('tutorial');
+        if (typeof onComplete === 'function') onComplete();
+      });
+    }
+
+    // Active-play timer: pause while the tab is hidden/backgrounded or the
+    // window loses focus, resume once it's visible/focused again - see
+    // state.js's pauseTimer/resumeTimer. No idle timeout: an uninterrupted,
+    // visible session keeps counting no matter how long it runs.
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) game.pauseTimer('visibility');
+      else game.resumeTimer('visibility');
+    });
+    window.addEventListener('pagehide', function () {
+      game.pauseTimer('pagehide');
+    });
+    window.addEventListener('pageshow', function () {
+      game.resumeTimer('pagehide');
+    });
+    window.addEventListener('blur', function () {
+      game.pauseTimer('blur');
+    });
+    window.addEventListener('focus', function () {
+      game.resumeTimer('blur');
+    });
+
     function enterGame() {
       router.showScreen('game');
       resetZoomIfStuck();
@@ -190,15 +224,16 @@
     const menuScreen = Garden.menu.createMenuScreen(dom, {
       onPlay: function () {
         if (!platform.loadTutorialDone()) {
-          tutorial.start(enterGame);
+          startTutorial(enterGame);
         } else {
           enterGame();
         }
       },
       onHowToPlay: function () {
-        tutorial.start();
+        startTutorial();
       },
       onSettings: function () {
+        game.pauseTimer('settings');
         renderer.openSettings();
       },
     });
@@ -246,7 +281,8 @@
 
     dom.replayTutorialButton.addEventListener('click', function () {
       renderer.closeSettings();
-      tutorial.start();
+      game.resumeTimer('settings');
+      startTutorial();
     });
 
     menuScreen.render();

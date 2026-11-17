@@ -10,9 +10,10 @@
   // is still playing, so one tap can never spend two charges.
   const HELPER_LOCK_MS = 400;
 
-  // Snowman always places up to this many crosses; Random's cross outcome
-  // places one of these two counts (chosen by the same roll that picked
-  // the cross outcome itself - see useRandom below).
+  // Snowman always places up to this many crosses, spread across the board
+  // (see pickSpreadCrossCells below); Random's cross outcome places one of
+  // these two counts (chosen by the same roll that picked the cross outcome
+  // itself - see useRandom below).
   const SNOWMAN_CROSS_COUNT = 3;
   const RANDOM_CROSS_COUNT_OPTIONS = [4, 5];
 
@@ -39,6 +40,20 @@
     return size;
   }
 
+  // Single-cell flower-bed regions ("tiny beds") are allowed freely during
+  // onboarding (levels 1-5, where they help new players), but from level 6
+  // on they're capped to at most 1 per board, and only on a level that's a
+  // multiple of this interval (deterministic by level number, same as every
+  // other generation choice - never a separate random roll); every other
+  // level must have zero of them (every region needs 2+ cells).
+  const SINGLE_CELL_REGION_FREE_MAX_LEVEL = 5;
+  const SINGLE_CELL_REGION_INTERVAL = 4;
+
+  function singleCellRegionCap(level) {
+    if (level <= SINGLE_CELL_REGION_FREE_MAX_LEVEL) return Infinity;
+    return level % SINGLE_CELL_REGION_INTERVAL === 0 ? 1 : 0;
+  }
+
   // Win rating (1-3 stars): based on mistakes made and time taken, scaled to
   // grid size since bigger boards naturally take longer to solve.
   const STAR3_SECONDS_PER_CELL_SIDE = 10;
@@ -60,7 +75,7 @@
   function buildLevel(levelNumber) {
     const size = gridSizeForLevel(levelNumber);
     const rng = root.Garden.rng.createRng(levelNumber);
-    const generated = root.Garden.generator.generateLevel(size, rng);
+    const generated = root.Garden.generator.generateLevel(size, rng, undefined, singleCellRegionCap(levelNumber));
     const start = root.Garden.levelstart.buildLevelStart(levelNumber, generated.solution, size);
     return {
       size,
@@ -97,6 +112,64 @@
     return chosen;
   }
 
+  // Snowman's own shuffle: deliberately Math.random-based (never the seeded
+  // level-generation RNG, and never Random helper's deterministic stream) -
+  // Snowman's placement is meant to feel truly random from use to use,
+  // unlike everything else in the game, which is seed-reproducible by design.
+  function shuffleWithMathRandom(items) {
+    const copy = items.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function cellsAdjacent(a, b) {
+    return Math.abs(a.row - b.row) <= 1 && Math.abs(a.col - b.col) <= 1;
+  }
+
+  // Preference order for spreading Snowman's crosses across the board:
+  // different rows, different columns, different bed regions, and never
+  // adjacent (including diagonally) to another cross already chosen this
+  // use. Relaxed one constraint at a time (region first, then column, then
+  // row, then adjacency last) whenever too few eligible cells satisfy the
+  // stricter combination - e.g. late in a level, once most of the board is
+  // already marked or locked. Since each relaxed level only removes a
+  // rejection rule, it can never find fewer cells than the stricter level
+  // before it.
+  const SPREAD_CONSTRAINT_LEVELS = [
+    { row: true, col: true, region: true, adjacency: true },
+    { row: true, col: true, region: false, adjacency: true },
+    { row: false, col: true, region: false, adjacency: true },
+    { row: false, col: false, region: false, adjacency: true },
+    { row: false, col: false, region: false, adjacency: false },
+  ];
+
+  function pickSpreadCrossCells(eligible, count) {
+    const shuffled = shuffleWithMathRandom(eligible);
+    let chosen = [];
+    for (const level of SPREAD_CONSTRAINT_LEVELS) {
+      chosen = [];
+      const usedRows = new Set();
+      const usedCols = new Set();
+      const usedRegions = new Set();
+      for (const cell of shuffled) {
+        if (chosen.length >= count) break;
+        if (level.row && usedRows.has(cell.row)) continue;
+        if (level.col && usedCols.has(cell.col)) continue;
+        if (level.region && usedRegions.has(cell.region)) continue;
+        if (level.adjacency && chosen.some((c) => cellsAdjacent(c, cell))) continue;
+        chosen.push(cell);
+        usedRows.add(cell.row);
+        usedCols.add(cell.col);
+        usedRegions.add(cell.region);
+      }
+      if (chosen.length >= count) break;
+    }
+    return chosen;
+  }
+
   function createGame(options) {
     options = options || {};
     const onChange = options.onChange || function () {};
@@ -128,12 +201,56 @@
     // that already happened, and reset to 0 on a fresh attempt/Retry.
     let randomUseCount = 0;
     let awardedCells = new Set(); // 'row,col' already scored this attempt - safeguard against double-awarding
-    let levelStartTime = Date.now();
+    // Active-play timer: elapsedSeconds (used for stars and best time) only
+    // counts time while the tab is visible/focused and no overlay (Settings,
+    // "How to play") is covering the board - time spent paused is never
+    // charged against the player. Several independent pause reasons can
+    // overlap (e.g. Settings opened while the tab is also backgrounded), so
+    // the timer only resumes once every reason has cleared - see
+    // pauseTimer/resumeTimer below. There is no idle timeout: an active,
+    // visible, uninterrupted session keeps counting no matter how long it runs.
+    let timerPauseReasons = new Set();
+    let timerAccumulatedMs = 0;
+    let timerSegmentStart = Date.now();
     let startType = root.Garden.levelstart.START_TYPES.GIFT; // this level's start type ('gift'|'none'|'rich'|'notes')
     let levelKindValue = 'normal'; // 'normal'|'milestone' - see Garden.levelstart.levelKind
 
     function cellKey(row, col) {
       return row + ',' + col;
+    }
+
+    function resetTimer() {
+      timerAccumulatedMs = 0;
+      timerSegmentStart = Date.now();
+    }
+
+    // Adds a pause reason (idempotent - pausing for a reason already active
+    // is a no-op). Only actually stops the clock the moment the FIRST reason
+    // is added; a second overlapping reason just gets tracked so resuming it
+    // alone can't prematurely restart the clock while another reason (e.g.
+    // the tab still hidden) is still in effect.
+    function pauseTimer(reason) {
+      reason = reason || 'default';
+      if (timerPauseReasons.has(reason)) return;
+      if (timerPauseReasons.size === 0) {
+        timerAccumulatedMs += Date.now() - timerSegmentStart;
+      }
+      timerPauseReasons.add(reason);
+    }
+
+    // Removes a pause reason; the clock only actually resumes once every
+    // reason has been cleared.
+    function resumeTimer(reason) {
+      reason = reason || 'default';
+      if (!timerPauseReasons.has(reason)) return;
+      timerPauseReasons.delete(reason);
+      if (timerPauseReasons.size === 0) {
+        timerSegmentStart = Date.now();
+      }
+    }
+
+    function activeElapsedMs() {
+      return timerAccumulatedMs + (timerPauseReasons.size > 0 ? 0 : Date.now() - timerSegmentStart);
     }
 
     function buildHelperSnapshot() {
@@ -194,7 +311,7 @@
       level = levelNumber;
       status = 'playing';
       lastTap = null;
-      levelStartTime = Date.now();
+      resetTimer();
 
       const built = buildLevel(levelNumber);
       grid = gridModule.createGrid(built.size, built.regionOf);
@@ -277,7 +394,7 @@
         }
       }
 
-      const elapsedSeconds = Math.max(0, Math.round((Date.now() - levelStartTime) / 1000));
+      const elapsedSeconds = Math.max(0, Math.round(activeElapsedMs() / 1000));
       const mistakesUsed = MAX_LIVES - lives;
       const rating = computeRating(grid.size, mistakesUsed, elapsedSeconds);
 
@@ -363,8 +480,9 @@
 
     // Cells a cross (Snowman, or Random's cross outcome) is allowed to land
     // on: empty, unmarked, unlocked, and never part of the level's one true
-    // solution. Returned in row-major order, which Snowman uses directly
-    // (its placement is otherwise deterministic, no RNG involved).
+    // solution. Returned in row-major order with each cell's bed region
+    // attached, which Snowman's spread-picker (pickSpreadCrossCells) uses to
+    // prefer cells in different regions.
     function collectEligibleCrossCells() {
       const cells = [];
       for (let row = 0; row < grid.size; row++) {
@@ -373,7 +491,7 @@
           if (cell.locked) continue;
           if (cell.state !== CellState.EMPTY) continue;
           if (solutionKeys.has(cellKey(row, col))) continue;
-          cells.push({ row, col });
+          cells.push({ row, col, region: cell.region });
         }
       }
       return cells;
@@ -443,7 +561,7 @@
 
       helperLockedUntil.snowman = Date.now() + HELPER_LOCK_MS;
       Helpers.spendCharge('snowman');
-      placeCrossCells(eligible.slice(0, SNOWMAN_CROSS_COUNT));
+      placeCrossCells(pickSpreadCrossCells(eligible, SNOWMAN_CROSS_COUNT));
       return true;
     }
 
@@ -546,15 +664,28 @@
 
     startLevel(level);
 
-    return { tapCell, markCellX, clearCellX, nextLevel, retryLevel, useHelper, canUseHelper, getSnapshot };
+    return {
+      tapCell,
+      markCellX,
+      clearCellX,
+      nextLevel,
+      retryLevel,
+      useHelper,
+      canUseHelper,
+      getSnapshot,
+      pauseTimer,
+      resumeTimer,
+    };
   }
 
   const State = {
     createGame,
     gridSizeForLevel,
+    singleCellRegionCap,
     buildLevel,
     computeRating,
     randomRollSeed,
+    pickSpreadCrossCells,
     MAX_LIVES,
     DOUBLE_TAP_WINDOW_MS,
     POINTS_PER_FLOWER,
@@ -562,6 +693,8 @@
     SNOWMAN_CROSS_COUNT,
     RANDOM_CROSS_COUNT_OPTIONS,
     MILESTONE_HELPER_REWARD,
+    SINGLE_CELL_REGION_FREE_MAX_LEVEL,
+    SINGLE_CELL_REGION_INTERVAL,
   };
 
   root.Garden = root.Garden || {};
