@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/winter-ornaments.css">
 <link rel="stylesheet" href="css/winter-popups.css">
+<link rel="stylesheet" href="css/daily-gift.css">
 </head>
 <body>
 <div id="app">
@@ -248,8 +249,8 @@
       <button class="overlay-close-button" id="settingsCloseButton" type="button"></button>
     </div>
   </div>
-  <div class="overlay checkin-overlay" id="checkinOverlay" hidden>
-    <div class="overlay-card checkin-card">
+  <div class="overlay checkin-overlay winter-plaque-overlay" id="checkinOverlay" hidden>
+    <div class="overlay-card checkin-card winter-plaque">
       <h2 id="checkinTitle"></h2>
       <div class="checkin-days" id="checkinDaysRow"></div>
       <p class="checkin-streak-line" id="checkinCurrentStreakText"></p>
@@ -258,7 +259,7 @@
         <span class="helper-reward-icons" id="checkinClaimRewardIcons"></span>
         <span id="checkinClaimRewardAmount"></span>
       </div>
-      <button id="checkinClaimButton" type="button"></button>
+      <button class="winter-plaque-primary" id="checkinClaimButton" type="button"></button>
       <button class="overlay-close-button" id="checkinCloseButton" type="button"></button>
     </div>
   </div>

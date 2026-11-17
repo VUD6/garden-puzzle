@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="../css/winter-ornaments.css">
 <link rel="stylesheet" href="../css/winter-popups.css">
+<link rel="stylesheet" href="../css/daily-gift.css">
 <style>
 :root {
   --preview-page: #efe3d4;
@@ -56,13 +57,33 @@ nav a:focus-visible { outline: var(--winter-focus-width) solid var(--pine); }
 .scene { display: grid; justify-items: center; padding: var(--winter-plaque-padding); }
 .preview-board { width: min(100%, var(--preview-board-size)); }
 .phone > .overlay { position: absolute; }
-.phone > :is(#how, #example) { display: none; }
+.phone > :is(#how, #example, #daily) { display: none; }
 body:has(#show-how:target) #how,
-body:has(#show-example:target) #example { display: flex; }
-body:has(#show-how:target, #show-example:target, #preview-closed:target) #settings { display: none; }
+body:has(#show-example:target) #example,
+body:has(#show-daily:target) #daily { display: flex; }
+body:has(#show-how:target, #show-example:target, #show-daily:target, #preview-closed:target) #settings { display: none; }
 .tutorial-board { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
 .preview-empty { min-height: calc(3 * var(--winter-touch)); }
 .preview-empty h2 { padding-inline: var(--winter-touch); }
+.preview-daily-label {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--daily-gap);
+  margin-top: var(--winter-plaque-padding);
+}
+.preview-daily-label select {
+  min-height: var(--winter-touch);
+  max-width: 100%;
+  padding-inline: var(--daily-gap);
+  color: var(--ink);
+  background: var(--panel);
+  border: var(--winter-plaque-rule) solid var(--panel-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+}
+.preview-daily-label select:focus-visible { outline: var(--winter-focus-width) solid var(--pine); }
 </style>
 </head>
 <body>
@@ -71,6 +92,7 @@ body:has(#show-how:target, #show-example:target, #preview-closed:target) #settin
   <nav aria-label="Выбор попапа">
     <a id="show-settings" href="#show-settings">Настройки</a>
     <a id="show-how" href="#show-how">Как играть</a>
+    <a id="show-daily" href="#show-daily">Награда</a>
     <a id="show-example" href="#show-example">Шаблон</a>
   </nav>
   <div class="phone">
@@ -133,6 +155,25 @@ body:has(#show-how:target, #show-example:target, #preview-closed:target) #settin
         </div>
       </div>
     </div>
+    <div class="overlay checkin-overlay daily-popup winter-plaque-overlay" id="daily">
+      <div class="overlay-card checkin-card winter-plaque">
+        <h2 id="checkinTitle"></h2>
+        <div class="checkin-days" id="checkinDaysRow"></div>
+        <p class="checkin-streak-line" id="checkinCurrentStreakText"></p>
+        <p class="checkin-streak-line" id="checkinBestStreakText" hidden></p>
+        <button class="winter-plaque-primary" id="checkinClaimButton" type="button"></button>
+        <button class="overlay-close-button" type="button" aria-label="Закрыть" data-preview-close></button>
+        <label class="preview-daily-label">
+          Превью
+          <select id="preview-daily-state">
+            <option value="1">Доступна</option>
+            <option value="claimed">Получена</option>
+            <option value="4">День 4</option>
+            <option value="7">День 7</option>
+          </select>
+        </label>
+      </div>
+    </div>
     <div class="overlay winter-plaque-overlay" id="example">
       <div class="overlay-card winter-plaque preview-empty">
         <h2>Шаблон</h2>
@@ -141,9 +182,56 @@ body:has(#show-how:target, #show-example:target, #preview-closed:target) #settin
     </div>
   </div>
 </main>
+<script src="../js/i18n.js"></script>
 <script src="../js/themes.js"></script>
+<script src="../js/checkin.js"></script>
 <script>
   Garden.themes.applyTheme('winter');
+  const { checkin, themes, i18n } = Garden;
+  const dailyState = document.getElementById('preview-daily-state');
+  const claimButton = document.getElementById('checkinClaimButton');
+  const plan = {
+    day3Helper: 'snowman',
+    day4Helper: 'random',
+    day7Helpers: ['finder', 'random', 'snowman'],
+  };
+
+  let lastPreviewClaim = 1;
+
+  function renderDailyPreview() {
+    const claimed = dailyState.value === 'claimed';
+    const next = claimed ? checkin.nextPositionAfter(lastPreviewClaim) : Number(dailyState.value);
+    document.getElementById('checkinTitle').textContent = i18n.t('dailyCheckinButtonLabel');
+    document.getElementById('checkinCurrentStreakText').textContent = i18n.t('dailyGiftDayLabel', { day: next });
+    const tomorrow = document.getElementById('checkinBestStreakText');
+    tomorrow.textContent = i18n.t('dailyGiftComeBackTomorrow');
+    tomorrow.hidden = !claimed;
+    claimButton.disabled = claimed;
+    claimButton.textContent = i18n.t(claimed ? 'checkinClaimedButton' : 'checkinClaimButton');
+    const cards = [];
+    for (let day = 1; day <= checkin.CYCLE_LENGTH; day++) {
+      const alreadyClaimed = claimed ? day <= lastPreviewClaim : day < next;
+      const state = alreadyClaimed ? 'claimed' : day !== next ? 'upcoming' : claimed ? 'paused' : 'today';
+      const rewards = checkin.rewardForDay(day, plan).map(({helperId, amount}) =>
+        '<span class="daily-day-reward-item"><span class="helper-reward-icons">' +
+        themes.getCurrentTheme().helperIconSvg(helperId) + '</span><span>+' + amount + '</span></span>'
+      ).join('');
+      cards.push('<div class="daily-day" data-day="' + day + '" data-special="' + checkin.isSpecialDay(day) +
+        '" data-state="' + state + '"><div class="daily-day-mark">' + day +
+        '</div><div class="daily-day-reward">' + rewards + '</div></div>');
+    }
+    document.getElementById('checkinDaysRow').innerHTML = cards.join('');
+  }
+  dailyState.addEventListener('change', () => {
+    lastPreviewClaim = 1;
+    renderDailyPreview();
+  });
+  claimButton.addEventListener('click', () => {
+    lastPreviewClaim = Number(dailyState.value);
+    dailyState.value = 'claimed';
+    renderDailyPreview();
+  });
+  renderDailyPreview();
   document.getElementById('replayTutorialButton').addEventListener('click', () => { location.hash = 'show-how'; });
   document.querySelectorAll('[data-preview-close]').forEach(button => {
     button.addEventListener('click', () => { location.hash = 'preview-closed'; });
