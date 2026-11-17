@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru" data-theme="winter"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Клумба — зимнее поле, уровень 20</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/winter-ornaments.css">
+<link rel="stylesheet" href="../css/winter-popups.css">
+<link rel="stylesheet" href="../css/winter-win.css">
+<style>
+:root { --preview-cell-gap: 2px; }
+#board { grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); }
+.preview-cross-key {
+ position: fixed; bottom: var(--winter-helper-size); left: 0; right: 0;
+ text-align: center; color: var(--ink); font-size: var(--winter-win-time);
+ pointer-events: none;
+}
+</style></head><body><div id="app">
+<div class="ambient-particles" id="ambientParticles" aria-hidden="true"></div>
+  <div class="screen game-screen" id="gameScreen">
+  <header class="topbar">
+    <button class="icon-button back-button" id="backButton" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <div class="topbar-center">
+      <div class="pill level-pill" id="levelIndicator"></div>
+      <div class="pill score-pill">
+        <svg class="leaf-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20C4 11 11 4 20 4C20 13 13 20 4 20Z"/><path d="M4 20L14 10" stroke="#16311f" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+        <span id="scoreDisplay"></span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="lives" id="livesContainer"></div>
+      <button class="icon-button settings-button" id="settingsButton" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+  <div class="milestone-banner" id="milestoneBanner">
+    <span class="milestone-banner-title" id="milestoneBannerTitle"></span>
+    <span class="milestone-banner-caption" id="milestoneBannerCaption"></span>
+  </div>
+  <div class="rules-area" id="rulesArea">
+    <button class="rules-help-button" id="rulesHelpButton" type="button" hidden>?</button>
+    <section class="rules-bar" id="rulesBar">
+      <button class="overlay-close-button rules-popup-close" id="rulesCloseButton" type="button" hidden></button>
+      <h2 class="rules-popup-title" id="rulesPopupTitle" hidden></h2>
+      <div class="rule-card">
+        <div class="rule-diagram">
+          <div class="rule-cell bed x"><span class="mark-x"></span></div>
+          <div class="rule-cell bed x"><span class="mark-x"></span></div>
+          <div class="rule-cell bed x"><span class="mark-x"></span></div>
+          <div class="rule-cell bed x"><span class="mark-x"></span></div>
+          <div class="rule-cell bed flower"><span class="dot"></span></div>
+          <div class="rule-cell"></div>
+          <div class="rule-cell bed x"><span class="mark-x"></span></div>
+          <div class="rule-cell"></div>
+          <div class="rule-cell"></div>
+        </div>
+        <p class="rule-text" id="ruleTextBed"></p>
+      </div>
+      <div class="rule-card">
+        <div class="rule-diagram">
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell flower"><span class="dot"></span></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell"></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell"></div>
+          <div class="rule-cell"></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell"></div>
+        </div>
+        <p class="rule-text" id="ruleTextRowCol"></p>
+      </div>
+      <div class="rule-card">
+        <div class="rule-diagram">
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell flower"><span class="dot"></span></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+          <div class="rule-cell x"><span class="mark-x"></span></div>
+        </div>
+        <p class="rule-text" id="ruleTextTouch"></p>
+      </div>
+    </section>
+  </div>
+  <div class="bed-tracker" id="bedTracker"></div>
+  <div class="helpers-row" id="helpersRow">
+    <div class="helper-item">
+      <button class="helper-button" id="helperButtonFinder" data-helper="finder" type="button">
+        <span class="helper-icon" id="helperIconFinder" aria-hidden="true"></span>
+        <span class="helper-charge-badge" id="helperBadgeFinder"></span>
+      </button>
+      <span class="helper-lock-caption" id="helperLockCaptionFinder" hidden></span>
+    </div>
+    <div class="helper-item">
+      <button class="helper-button" id="helperButtonRandom" data-helper="random" type="button">
+        <span class="helper-icon" id="helperIconRandom" aria-hidden="true"></span>
+        <span class="helper-charge-badge" id="helperBadgeRandom"></span>
+      </button>
+      <span class="helper-lock-caption" id="helperLockCaptionRandom" hidden></span>
+    </div>
+    <div class="helper-item">
+      <button class="helper-button" id="helperButtonSnowman" data-helper="snowman" type="button">
+        <span class="helper-icon" id="helperIconSnowman" aria-hidden="true"></span>
+        <span class="helper-charge-badge" id="helperBadgeSnowman"></span>
+      </button>
+      <span class="helper-lock-caption" id="helperLockCaptionSnowman" hidden></span>
+    </div>
+  </div>
+  <main class="board-wrap">
+    <div class="board" id="board"></div>
+  </main>
+  </div>
+
+</div>
+<script src="../js/themes.js"></script>
+<script>
+Garden.themes.applyTheme('winter');
+document.getElementById('levelIndicator').textContent = 'Уровень 20';
+document.getElementById('scoreDisplay').textContent = '0';
+document.getElementById('milestoneBannerTitle').textContent = 'Праздничный уровень!';
+document.getElementById('rulesBar').hidden = true;
+document.getElementById('rulesHelpButton').hidden = false;
+const board = document.getElementById('board');
+const cross = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+for(let i = 0; i < 64; i++) {
+ const cell = document.createElement('div');
+ cell.className = 'cell region-' + (Math.floor(i / 8) % 8);
+ const given = i === 0;
+ if(given) { cell.dataset.given = 'true'; cell.classList.add('locked'); }
+ const mark = document.createElement('div');
+ mark.className = 'cell-mark';
+ if(i === 0 || i === 1) mark.innerHTML = cross;
+ cell.setAttribute('aria-label', given ? 'Подаренный крестик' : i === 1 ? 'Обычный крестик' : 'Клетка');
+ cell.appendChild(mark);
+ board.appendChild(cell);
+}
+['finder','random','snowman'].forEach((id,i)=>{
+ const suffix = ['Finder','Random','Snowman'][i];
+ document.getElementById('helperIcon'+suffix).innerHTML = Garden.themes.getCurrentTheme().helperIconSvg(id);
+ document.getElementById('helperBadge'+suffix).textContent = '3';
+});
+for(let i=0;i<10;i++){
+ const flake=document.createElement('span');
+ flake.className='particle';
+ flake.style.left=(i*10+2)+'%';
+ flake.style.setProperty('--dur',(20+i)+'s');
+ flake.style.setProperty('--delay',(-i*3)+'s');
+ document.getElementById('ambientParticles').appendChild(flake);
+}
+</script></body></html>
