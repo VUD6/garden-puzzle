@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Клумба — общая зимняя сцена</title>
+<style>
+:root { --preview-bg:#70584c; --preview-cream:#fbf2e4; --preview-ink:#4a3220; --preview-pine:#35684f; --preview-bar:56px; --preview-gap:6px; --preview-touch:44px; --preview-border:2px; }
+* {box-sizing:border-box}
+body {margin:0;background:var(--preview-bg);color:var(--preview-cream);font-family:system-ui,sans-serif}
+nav {display:flex;align-items:center;justify-content:center;gap:var(--preview-gap);min-height:var(--preview-bar)}
+button {min-height:var(--preview-touch);padding-inline:var(--preview-touch);border:0;border-radius:var(--preview-touch);background:var(--preview-cream);color:var(--preview-ink);cursor:pointer}
+button:focus-visible {outline:var(--preview-border) solid var(--preview-cream);outline-offset:var(--preview-border);background:var(--preview-pine);color:var(--preview-cream)}
+iframe {display:block;border:0;width:100%;height:calc(100dvh - var(--preview-bar))}
+@media(max-width:430px){button{padding-inline:var(--preview-gap);flex:1}}
+</style></head><body>
+<nav aria-label="Экран превью"><button data-view="menu">Меню</button><button data-view="loading">Загрузка</button><button data-view="tutorial">Обучение</button></nav>
+<iframe title="Зимняя сцена" src="../index.html"></iframe>
+<script>
+const frame=document.querySelector('iframe');
+document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>{
+ const doc=frame.contentDocument;
+ const game=frame.contentWindow.Garden;
+ game.themes.applyTheme('winter');
+ doc.querySelector('#tutorialOverlay').hidden=true;
+ doc.querySelector('#gameScreen').hidden=true;
+ doc.querySelector('#loadingScreen').hidden=button.dataset.view!=='loading';
+ doc.querySelector('#loadingScreen').classList.remove('screen-fade-out');
+ doc.querySelector('#menuScreen').hidden=button.dataset.view==='loading';
+ if(button.dataset.view==='tutorial')doc.querySelector('#howToPlayButton').click();
+}));
+</script></body></html>
