@@ -6,7 +6,7 @@ Project: "Клумба: цветочная головоломка" (short name "
 - Plain HTML5, CSS, JavaScript only. No bundlers, no build step, no external dependencies/libraries.
 - `index.html` must be in the project root and be directly openable/playable.
 - Total build size must stay under 100 MB (Yandex Games limit).
-- The shippable build/archive (what gets uploaded to Yandex Games) is only what `index.html` actually loads: `index.html`, `css/`, `js/`. Never include `/dev` (standalone dev-only tools/previews, e.g. `dev/flower-styles.html`) or `/tests` (Node test scripts) in that archive.
+- The shippable build/archive (what gets uploaded to Yandex Games) is only what `index.html` actually loads: `index.html`, `css/`, `js/`. Never include `/dev` (standalone dev-only tools/previews, e.g. `dev/flower-styles.html`), `/tests` (Node test scripts), or `/tools` (release-helper scripts, e.g. `tools/stamp-version.ps1`) in that archive.
 
 ## Architecture
 - Keep **game logic** (grid, rules, generator, solver, state) separate from **platform code** (ads, saves, leaderboards).

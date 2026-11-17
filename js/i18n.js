@@ -7,8 +7,14 @@
       levelLabel: 'Уровень {level}',
       winMessage: 'Все цветы посажены правильно.',
       nextLevelButton: 'Следующий уровень',
-      failTitle: 'Капли закончились',
+      failTitle: 'Леденцы закончились',
       failMessage: 'Попробуйте снова.',
+      // Lives are candy canes, not water drops - these three cover the
+      // Russian singular/few/many plural forms (see I18n.pluralRu), used
+      // for the lives aria-label (e.g. "Осталось 2 леденца").
+      livesAriaLabelOne: 'Осталось {count} леденец',
+      livesAriaLabelFew: 'Осталось {count} леденца',
+      livesAriaLabelMany: 'Осталось {count} леденцов',
       retryButton: 'Повторить',
       patternsToggleLabel: 'Узоры на клумбах',
       scoreLabel: 'Очки: {score}',
@@ -87,8 +93,14 @@
       levelLabel: 'Level {level}',
       winMessage: 'Every flower is planted correctly.',
       nextLevelButton: 'Next level',
-      failTitle: 'Out of water drops',
+      failTitle: 'Out of candy canes',
       failMessage: 'Try again.',
+      // English only needs singular vs. plural, but reuses the same
+      // 3-slot pluralRu lookup (see I18n.pluralRu) by repeating the plural
+      // form for both the "few" and "many" slots.
+      livesAriaLabelOne: '{count} candy cane left',
+      livesAriaLabelFew: '{count} candy canes left',
+      livesAriaLabelMany: '{count} candy canes left',
       retryButton: 'Retry',
       patternsToggleLabel: 'Bed patterns',
       scoreLabel: 'Score: {score}',
@@ -191,7 +203,25 @@
     return str;
   }
 
-  const I18n = { t, setLang, getLang, setTheme };
+  // Russian pluralization: picks forms[0] ("one") for n=1/21/31/... (not
+  // 11), forms[1] ("few") for n=2-4/22-24/... (not 12-14), and forms[2]
+  // ("many") for everything else (0, 5-20, 25-30, ...), matching the
+  // standard Slavic singular/few/many split - callers only need to pass
+  // plain, count-agnostic word forms (e.g. ['леденец', 'леденца',
+  // 'леденцов']); `count` itself is never appended here, since callers
+  // combine the returned form with their own "{count} ..." template via
+  // I18n.t(). English has no "few" distinction, so a caller only needs to
+  // repeat the same plural string for forms[1] and forms[2] to get a
+  // correct 2-way singular/plural split from the exact same function.
+  function pluralRu(n, forms) {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return forms[0];
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+    return forms[2];
+  }
+
+  const I18n = { t, setLang, getLang, setTheme, pluralRu };
 
   root.Garden = root.Garden || {};
   root.Garden.i18n = I18n;

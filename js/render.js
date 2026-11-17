@@ -424,6 +424,9 @@
     }
 
     function syncLives(lives, maxLives, losingIndex) {
+      const livesAriaKey = I18n.pluralRu(lives, ['livesAriaLabelOne', 'livesAriaLabelFew', 'livesAriaLabelMany']);
+      dom.lives.setAttribute('aria-label', I18n.t(livesAriaKey, { count: lives }));
+
       for (let i = 0; i < maxLives; i++) {
         const el = dropEls[i];
         const filled = i < lives;
