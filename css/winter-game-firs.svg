@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 84" preserveAspectRatio="xMidYMax meet">
+<defs><g id="fir"><path d="M25 67v13" stroke="#805a3a" stroke-width="5" stroke-linecap="round"/><path d="m25 5 16 22-7 1 12 18-9 1 12 20H1l12-20-9-1 12-18-7-1Z" fill="#35684f" stroke="#fbf2e4" stroke-width="2" stroke-linejoin="round"/><path d="m25 5 10 14-10-3-10 3Zm-9 23 9 3 9-3 7 11-16-3-16 3Zm-3 19 12 3 12-3 7 12-19-4-19 4Z" fill="#fbf2e4"/></g></defs>
+<use href="#fir" x="4"/><use href="#fir" x="63" y="22" transform="translate(16 0) scale(.7)"/>
+<use href="#fir" x="506"/><use href="#fir" x="650" y="22" transform="scale(.7)"/>
+<path d="M0 78q70-13 140 0t140 0 140 0 140 0v6H0Z" fill="#fbf2e4"/>
+</svg>

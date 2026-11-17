@@ -79,3 +79,78 @@ html[data-theme="winter"] .milestone-banner {
 html[data-theme="winter"] .milestone-banner-title {
   font-weight: 700;
 }
+
+/* Winter game atmosphere. All decoration is painted behind game content. */
+:root {
+  --winter-game-snow-art: url("winter-game-snow.svg");
+  --winter-game-firs-art: url("winter-game-firs.svg");
+  --winter-garland-art: url("winter-milestone-garland.svg");
+  --winter-frame-gold: #dbac55;
+  --winter-frame-gold-edge: #89602e;
+  --winter-given-ink: #30251c;
+  --winter-given-snow: #fbf2e4;
+  --winter-given-corner: 10px;
+  --winter-given-inset: 2px;
+  --winter-garland-height: 9px;
+  --winter-game-tree-height: 84px;
+}
+
+html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .game-screen {
+  isolation: isolate;
+  position: relative;
+}
+
+html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .game-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    var(--winter-game-firs-art) bottom / 100% var(--winter-game-tree-height) no-repeat,
+    var(--winter-game-snow-art) center / 100% 100% no-repeat;
+}
+
+html[data-theme="winter"] #app:has(.game-screen:not([hidden])) > .winter-decor {
+  display: none;
+}
+
+html[data-theme="winter"] #app:has(.game-screen:not([hidden])) .particle {
+  box-shadow: none;
+}
+
+html[data-theme="winter"] .game-screen:has(#milestoneBanner:not([hidden])) .board {
+  --board-frame-bg: linear-gradient(var(--winter-frame-gold), var(--winter-frame-gold-edge));
+}
+
+html[data-theme="winter"] .game-screen:has(#milestoneBanner:not([hidden])) .board::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--winter-frame-width);
+  right: var(--winter-frame-width);
+  height: var(--winter-garland-height);
+  background: var(--winter-garland-art) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+html[data-theme="winter"] .game-screen .cell[data-given="true"]:has(> .cell-mark > svg > line) {
+  color: var(--winter-given-ink);
+}
+
+html[data-theme="winter"] .game-screen .cell[data-given="true"] > .cell-mark > svg:has(> line) {
+  stroke: var(--winter-given-ink);
+}
+
+html[data-theme="winter"] .game-screen .cell[data-given="true"]:has(> .cell-mark > svg > line)::after {
+  content: '';
+  position: absolute;
+  top: var(--winter-given-inset);
+  right: var(--winter-given-inset);
+  width: var(--winter-given-corner);
+  height: var(--winter-given-corner);
+  background: var(--winter-status-snow) center / contain no-repeat;
+  background-color: var(--winter-given-snow);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
