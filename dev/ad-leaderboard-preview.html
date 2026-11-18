@@ -1,0 +1,64 @@
+<!doctype html><html lang="ru" data-theme="winter"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Реклама помощников и лидеры</title>
+<link rel="stylesheet" href="../css/style.css"><link rel="stylesheet" href="../css/winter-ornaments.css">
+<link rel="stylesheet" href="../css/winter-popups.css"><link rel="stylesheet" href="../css/winter-win.css">
+<style>
+:root { --preview-gap:16px; --preview-max:900px; --preview-stage-height:660px; --preview-focus:2px; }
+html,body {height:auto;min-height:100%;overflow:auto}
+body {padding:var(--preview-gap)}
+main {max-width:var(--preview-max);margin:auto}
+nav {display:flex;flex-wrap:wrap;gap:var(--preview-gap);margin-bottom:var(--preview-gap)}
+nav button {min-height:var(--winter-touch);background:var(--panel);color:var(--ink);border:var(--winter-plaque-rule) solid var(--panel-border);border-radius:var(--radius-pill);padding:var(--winter-ui-gap) var(--preview-gap)}
+nav button:focus-visible {outline:var(--preview-focus) solid var(--pine)}
+h1 {font-size:1.2rem}
+.examples {display:flex;flex-wrap:wrap;gap:var(--preview-gap);justify-content:center;padding:var(--preview-gap);background:var(--panel-soft);border-radius:var(--radius-lg)}
+.example {display:grid;justify-items:center;gap:var(--winter-ui-gap)}
+.stage {position:relative;isolation:isolate;height:min(var(--preview-stage-height),90dvh);margin-top:var(--preview-gap);background:var(--bg-bottom);border-radius:var(--radius-lg)}
+.stage .overlay {position:absolute}
+.stage .leaderboard-popup[hidden] {display:none}
+.game-screen.toast-example {max-width:100%}
+.ad-message {position:static}
+</style></head><body><main>
+<h1>Помощники и таблица лидеров</h1>
+<nav><button id="theme">Тема · Зима / Сад</button><button id="empty">Показать пустую таблицу</button><button id="rows">Показать игроков</button></nav>
+<section class="examples" aria-label="Состояния помощников">
+<div class="example"><button class="helper-button"><span class="helper-icon"></span><span class="helper-charge-badge">3</span></button><span>3 заряда</span></div>
+<div class="example"><button class="helper-button" data-ad="true"><span class="helper-icon"></span><span class="helper-charge-badge">+1</span><span class="helper-ad-icon"></span></button><span>Реклама</span></div>
+<div class="example"><button class="helper-button" data-ad="true" aria-busy="true"><span class="helper-icon"></span><span class="helper-charge-badge">+1</span><span class="helper-ad-icon"></span></button><span>Загрузка</span></div>
+</section>
+<div class="game-screen toast-example"><p class="ad-message" id="message"></p></div>
+<button class="menu-button menu-secondary-button leaderboard-btn" id="previewLeaderboard"></button>
+<div class="stage">
+<div class="overlay leaderboard-popup winter-plaque-overlay">
+<div class="overlay-card leaderboard-card winter-plaque">
+<h2 id="title"></h2><div class="leaderboard-rows"></div><p class="leaderboard-empty" hidden></p>
+<button class="overlay-close-button" aria-label="Закрыть" type="button"></button>
+</div></div></div>
+</main>
+<script src="../js/i18n.js"></script><script src="../js/themes.js"></script>
+<script>
+let theme='winter';
+function apply(){
+ Garden.themes.applyTheme(theme);
+ document.querySelectorAll('.helper-icon').forEach(el=>{el.innerHTML=Garden.themes.getCurrentTheme().helperIconSvg('finder')||'<span>?</span>';});
+}
+apply();
+document.getElementById('theme').onclick=()=>{theme=theme==='winter'?'garden':'winter';apply();};
+const dict=Garden.i18n;
+document.getElementById('message').textContent=dict.t('adUnavailableMessage');
+document.getElementById('title').textContent=dict.t('leaderboardTitle');
+document.getElementById('previewLeaderboard').textContent=dict.t('leaderboardButtonLabel');
+document.querySelector('.leaderboard-empty').textContent=dict.t('leaderboardEmpty');
+const rows=document.querySelector('.leaderboard-rows');
+for(let i=1;i<=11;i++){
+ const row=document.createElement('div');row.className='leaderboard-row'+(i===11?' leaderboard-me':'');
+ for(const [className,text]of [['leaderboard-rank',i===11?'24':String(i)],['leaderboard-name',i===11?'Вы':'Игрок '+i],['leaderboard-score',String(12500-i*300)]]){
+  const span=document.createElement('span');span.className=className;span.textContent=text;row.appendChild(span);
+ }
+ rows.appendChild(row);
+}
+document.getElementById('empty').onclick=()=>{rows.hidden=true;document.querySelector('.leaderboard-empty').hidden=false;};
+document.getElementById('rows').onclick=()=>{rows.hidden=false;document.querySelector('.leaderboard-empty').hidden=true;};
+document.querySelector('.overlay-close-button').onclick=()=>document.querySelector('.leaderboard-popup').hidden=true;
+document.getElementById('previewLeaderboard').onclick=()=>document.querySelector('.leaderboard-popup').hidden=false;
+</script></body></html>

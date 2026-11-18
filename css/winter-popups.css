@@ -194,3 +194,210 @@ html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) .togg
 html[data-theme="winter"] .winter-plaque :is(.setting-sfx, .setting-music) [aria-pressed="true"] .toggle-knob::after {
   background-image: var(--winter-audio-check);
 }
+
+/* Rewarded helpers and leaderboard, shared by Winter and Garden. */
+:root {
+  --ad-pine: #35684f;
+  --ad-cream: #fbf2e4;
+  --ad-ink: #4a3220;
+  --ad-pill-height: 24px;
+  --ad-play-size: 12px;
+  --ad-pill-gap: 3px;
+  --ad-pill-padding: 5px;
+  --ad-rim: 1px;
+  --ad-shadow: 0 2px 5px rgba(55, 34, 23, .23);
+  --ad-pulse-time: 2.8s;
+  --ad-play-art: url("helper-ad-play.svg");
+  --leader-trophy-art: url("leaderboard-trophy.svg");
+  --leader-empty-art: url("leaderboard-snow.svg");
+  --leader-gold: #edba53;
+  --leader-silver: #c9d1d1;
+  --leader-bronze: #c9956b;
+  --leader-me-fill: #f5e5ba;
+  --leader-me-ink: #4a3220;
+  --leader-row-gap: 8px;
+  --leader-medal-size: 24px;
+  --leader-empty-size: 90px;
+  --leader-toast-frame: 4px;
+}
+.helper-button[data-ad="true"] .helper-ad-icon { display: none; }
+.helper-button[data-ad="true"] .helper-icon { opacity: .72; }
+.helper-button[data-ad="true"] .helper-charge-badge {
+  height: var(--ad-pill-height);
+  min-width: var(--ad-pill-height);
+  padding: 0 var(--ad-pill-padding);
+  gap: var(--ad-pill-gap);
+  border: var(--ad-rim) solid var(--ad-cream);
+  border-radius: var(--radius-pill);
+  background: var(--ad-pine);
+  color: var(--ad-cream);
+  box-shadow: var(--ad-shadow);
+  pointer-events: none;
+}
+.helper-button[data-ad="true"] .helper-charge-badge::before {
+  content: '';
+  width: var(--ad-play-size);
+  height: var(--ad-play-size);
+  background: var(--ad-play-art) center / contain no-repeat;
+}
+.helper-button:focus-visible, .leaderboard-btn:focus-visible,
+.leaderboard-popup button:focus-visible {
+  outline: var(--winter-focus-width) solid var(--pine, var(--accent));
+  outline-offset: var(--winter-focus-width);
+}
+.helper-button[data-ad="true"]:active:not(:disabled) .helper-charge-badge {
+  transform: scale(.96);
+}
+.helper-button[data-ad="true"]:is([aria-busy="true"], [data-busy="true"], :disabled) .helper-charge-badge {
+  opacity: 1;
+  border-style: dashed;
+  animation: none;
+}
+@media(prefers-reduced-motion: no-preference) {
+  html:not(.reduce-motion) .helper-button[data-ad="true"]:not([aria-busy="true"]):not([data-busy="true"]):not(:disabled) .helper-charge-badge {
+    animation: helper-ad-breathe var(--ad-pulse-time) ease-in-out infinite;
+  }
+}
+@keyframes helper-ad-breathe { 50% { transform: scale(1.04); } }
+.game-screen .ad-message:not([hidden]) {
+  order: 0;
+  flex: none;
+  grid-column: 1;
+  align-self: center;
+  box-sizing: border-box;
+  max-width: calc(100% - 2 * var(--winter-plaque-margin));
+  margin: var(--winter-ui-gap) auto;
+  padding: var(--winter-ui-gap) var(--winter-plaque-padding);
+  border: var(--leader-toast-frame) solid transparent;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(var(--ad-cream), var(--ad-cream)) padding-box,
+    repeating-linear-gradient(45deg, var(--ad-berry) 0 var(--winter-ui-gap), var(--ad-cream) var(--winter-ui-gap) calc(2 * var(--winter-ui-gap))) border-box;
+  color: var(--ad-ink);
+  font-size: var(--winter-tutorial-text);
+  line-height: 1.3;
+  text-align: center;
+  box-shadow: var(--ad-shadow);
+  pointer-events: none;
+}
+.leaderboard-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--winter-ui-gap);
+}
+.leaderboard-btn::before {
+  content: '';
+  flex: none;
+  width: var(--winter-menu-icon);
+  height: var(--winter-menu-icon);
+  background: var(--leader-trophy-art) center / contain no-repeat;
+}
+.leaderboard-popup .leaderboard-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.leaderboard-card h2 {
+  padding-inline: var(--winter-touch);
+  min-height: var(--winter-touch);
+  margin-bottom: var(--winter-ui-gap);
+  overflow-wrap: anywhere;
+}
+.leaderboard-popup .overlay-close-button {
+  width: var(--winter-touch);
+  height: var(--winter-touch);
+  min-width: var(--winter-touch);
+  min-height: var(--winter-touch);
+}
+.leaderboard-rows {
+  display: grid;
+  gap: var(--winter-ui-gap);
+}
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: var(--leader-medal-size) minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+  gap: var(--leader-row-gap);
+  min-height: var(--winter-touch);
+  padding: var(--winter-ui-gap);
+  border: var(--winter-plaque-rule) solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--winter-tutorial-text);
+}
+.leaderboard-name, .leaderboard-score { overflow-wrap: anywhere; min-width: 0; }
+.leaderboard-score { text-align: end; font-weight: 700; }
+.leaderboard-rank { text-align: center; font-weight: 700; }
+.leaderboard-row:nth-child(-n+3) .leaderboard-rank {
+  display: grid;
+  place-items: center;
+  height: var(--leader-medal-size);
+  border-radius: var(--radius-pill);
+  background: var(--leader-gold);
+  color: var(--ad-ink);
+  box-shadow: inset 0 0 0 var(--ad-rim) var(--ad-ink);
+}
+.leaderboard-row:nth-child(2) .leaderboard-rank { background: var(--leader-silver); }
+.leaderboard-row:nth-child(3) .leaderboard-rank { background: var(--leader-bronze); }
+.leaderboard-row.leaderboard-me {
+  border-color: var(--winter-frame-gold-edge);
+  background: var(--leader-me-fill);
+  color: var(--leader-me-ink);
+}
+.leaderboard-empty:not([hidden]) {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.leaderboard-empty::before {
+  content: '';
+  display: block;
+  width: var(--leader-empty-size);
+  height: var(--leader-empty-size);
+  margin: var(--winter-ui-gap) auto var(--winter-plaque-padding);
+  background: var(--leader-empty-art) center / contain no-repeat;
+}
+
+:root {
+  --leader-medal-gold: url("leaderboard-medal-gold.svg");
+  --leader-medal-silver: url("leaderboard-medal-silver.svg");
+  --leader-medal-bronze: url("leaderboard-medal-bronze.svg");
+  --ad-berry: #b8413f;
+}
+.leaderboard-row:nth-child(-n+3) .leaderboard-rank {
+  background: var(--leader-medal-gold) center / contain no-repeat;
+  border-radius: 0;
+  box-shadow: none;
+  padding-top: var(--ad-pill-padding);
+}
+.leaderboard-row:nth-child(2) .leaderboard-rank { background-image: var(--leader-medal-silver); }
+.leaderboard-row:nth-child(3) .leaderboard-rank { background-image: var(--leader-medal-bronze); }
+.leaderboard-popup {
+  padding: var(--winter-plaque-margin);
+  background: var(--winter-plaque-backdrop);
+}
+.leaderboard-popup .leaderboard-card {
+  max-width: var(--winter-plaque-width);
+  border: var(--winter-plaque-band) solid transparent;
+  border-radius: var(--winter-plaque-radius);
+  padding: var(--winter-plaque-padding);
+  background: linear-gradient(var(--panel-soft), var(--panel-soft)) padding-box,
+    repeating-linear-gradient(45deg, var(--ad-berry) 0 var(--winter-plaque-band), var(--ad-cream) var(--winter-plaque-band) calc(2 * var(--winter-plaque-band))) border-box;
+}
+
+.leaderboard-rows[hidden] { display: none; }
+
+html[data-theme="garden"] :is(.helper-button, .leaderboard-btn, .leaderboard-popup button):focus-visible {
+  outline-color: var(--ad-cream);
+}
+
+/* Garden's renderer fixes board dimensions inline before a toast appears. */
+html[data-theme="garden"] .game-screen:has(> .ad-message:not([hidden])) .board-wrap {
+  container-type: size;
+}
+html[data-theme="garden"] .game-screen:has(> .ad-message:not([hidden])) .board {
+  width: min(100cqw, 100cqh) !important;
+  height: min(100cqw, 100cqh) !important;
+}
