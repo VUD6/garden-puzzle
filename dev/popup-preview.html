@@ -58,14 +58,15 @@ nav a:focus-visible { outline: var(--winter-focus-width) solid var(--pine); }
 .scene { display: grid; justify-items: center; padding: var(--winter-plaque-padding); }
 .preview-board { width: min(100%, var(--preview-board-size)); }
 .phone > .overlay { position: absolute; }
-.phone > :is(#how, #example, #daily, #winPreview, #losePreview, #starsPreview) { display: none; }
+.phone > :is(#how, #example, #daily, #winPreview, #losePreview, #starsPreview, #challengePreview) { display: none; }
 body:has(#show-how:target) #how,
 body:has(#show-example:target) #example,
 body:has(#show-daily:target) #daily,
 body:has(#show-win:target) #winPreview,
 body:has(#show-lose:target) #losePreview,
-body:has(#show-stars:target) #starsPreview { display: flex; }
-body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:target, #show-lose:target, #show-stars:target, #preview-closed:target) #settings { display: none; }
+body:has(#show-stars:target) #starsPreview,
+body:has(#show-challenge:target) #challengePreview { display: flex; }
+body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:target, #show-lose:target, #show-stars:target, #show-challenge:target, #preview-closed:target) #settings { display: none; }
 .tutorial-board { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
 .preview-empty { min-height: calc(3 * var(--winter-touch)); }
 .preview-empty h2 { padding-inline: var(--winter-touch); }
@@ -102,6 +103,7 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
     <a id="show-win" href="#show-win">Победа</a>
     <a id="show-lose" href="#show-lose">Проигрыш</a>
     <a id="show-stars" href="#show-stars">Звёзды</a>
+    <a id="show-challenge" href="#show-challenge">Испытание</a>
     <a id="show-example" href="#show-example">Шаблон</a>
   </nav>
   <div class="phone">
@@ -214,13 +216,14 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
         <p class="win-streak-hint" id="previewStreakHint" hidden></p>
         <div class="winter-streak-dots" id="previewStreakDots" hidden></div>
         <div class="reward-badge win-streak-bonus" id="previewStreakBonus" hidden></div>
+<div class="reward-badge challenge-reward" id="previewChallengeReward" hidden></div><p class="challenge-come-back-tomorrow" id="previewChallengeTomorrow" hidden></p>
         <button class="winter-plaque-primary" id="previewWinNext" type="button" data-preview-close></button>
         <label class="preview-daily-label">Превью
           <select id="preview-win-state">
             <option value="1">1 звезда</option>
             <option value="2">2 звезды</option>
             <option value="3">3 звезды</option>
-            <option value="streak2">Серия 2</option><option value="streak4">Серия 4</option><option value="streak5">Серия 5 · бонус</option>
+            <option value="challenge">Победа в испытании</option><option value="streak2">Серия 2</option><option value="streak4">Серия 4</option><option value="streak5">Серия 5 · бонус</option>
             <option value="milestone">Праздничный уровень</option>
           </select>
         </label>
@@ -237,6 +240,16 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
       <div class="overlay-card winter-plaque">
         <p class="menu-total-stars is-updated">★ 0</p>
         <p class="menu-total-stars is-updated">★ 999999</p>
+      </div>
+    </div>
+    <div class="overlay winter-plaque-overlay" id="challengePreview">
+      <div class="overlay-card winter-plaque">
+        <h2>Ежедневное испытание</h2>
+        <div class="menu-card">
+          <button class="menu-button menu-daily-button daily-challenge-btn" data-state="locked" disabled><svg class="daily-challenge-icon" data-icon="lock" viewBox="0 0 24 24"></svg>Откроется на уровне 15</button>
+          <button class="menu-button menu-daily-button daily-challenge-btn" data-state="available"><svg class="daily-challenge-icon" data-icon="gift" viewBox="0 0 24 24"></svg>Ежедневное испытание</button>
+          <button class="menu-button menu-daily-button daily-challenge-btn" data-state="done" disabled><svg class="daily-challenge-icon" data-icon="check" viewBox="0 0 24 24"></svg>Испытание выполнено</button>
+        </div>
       </div>
     </div>
     <div class="overlay winter-plaque-overlay" id="example">
@@ -305,7 +318,7 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
   function renderWinPreview() {
     const milestone = winSelect.value === 'milestone';
     const streak = winSelect.value.startsWith('streak') ? Number(winSelect.value.slice(6)) : 0;
-    const rating = milestone || streak ? 3 : Number(winSelect.value);
+    const rating = milestone || streak || winSelect.value === 'challenge' ? 3 : Number(winSelect.value);
     const starPath = 'M12 2l2.9 6.26L22 9.27l-5 5.13L18.18 22 12 18.56 5.82 22 7 14.4l-5-5.13 7.1-1.01L12 2z';
     document.getElementById('previewWinPiece').innerHTML = themes.getCurrentTheme().pieceArt();
     document.getElementById('previewWinTitle').textContent = i18n.t(rating === 3 ? 'resultPerfect' : 'resultDone');
@@ -327,7 +340,12 @@ body:has(#show-how:target, #show-example:target, #show-daily:target, #show-win:t
     document.getElementById('previewStreakDots').innerHTML = Array.from({length: 5}, (_, i) =>
       '<span class="' + (i < streak ? 'filled' : '') + '"></span>').join('');
     document.getElementById('previewStreakBonus').innerHTML = themes.getCurrentTheme().helperIconSvg('finder') + '<span>+1</span>';
-    document.getElementById('previewWinNext').textContent = i18n.t('nextLevelButton');
+    const challenge = winSelect.value === 'challenge';
+    document.getElementById('previewChallengeReward').hidden = !challenge;
+    document.getElementById('previewChallengeTomorrow').hidden = !challenge;
+    document.getElementById('previewChallengeReward').innerHTML = '<span class="helper-reward-icons">' + themes.getCurrentTheme().helperIconSvg('finder') + '</span><span>+1</span>';
+    document.getElementById('previewChallengeTomorrow').textContent = i18n.t('dailyGiftComeBackTomorrow');
+    document.getElementById('previewWinNext').textContent = i18n.t(challenge ? 'challengeBackToMenuButton' : 'nextLevelButton');
   }
   winSelect.addEventListener('change', renderWinPreview);
   renderWinPreview();

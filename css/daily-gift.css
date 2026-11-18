@@ -136,3 +136,135 @@ html[data-theme="garden"] .daily-popup .checkin-card {
   overflow: auto;
   overscroll-behavior: contain;
 }
+
+/* Daily challenge presentation uses the existing state and icon hooks. */
+:root {
+  --challenge-done-bg: #e4ecdc;
+  --challenge-done-ink: #31523b;
+  --challenge-gold: #edba53;
+  --challenge-cream: #fbf2e4;
+  --challenge-ink: #573421;
+  --challenge-outline: 1px;
+  --challenge-gap: 8px;
+  --challenge-icon: 24px;
+  --challenge-fold: 7px;
+  --challenge-ribbon-height: 44px;
+  --challenge-shimmer-time: 700ms;
+  --challenge-gift-art: url("winter-challenge-gift.svg");
+  --challenge-check-art: url("winter-toggle-check.svg");
+  --challenge-lock-art: url("winter-challenge-lock.svg");
+}
+html[data-theme="winter"] .daily-challenge-btn {
+  position: relative;
+  min-height: var(--winter-touch);
+  opacity: 1;
+  font-weight: 600;
+}
+html[data-theme="winter"] .daily-challenge-btn[data-state="locked"] {
+  border-style: dashed;
+  background: var(--panel-soft);
+  color: var(--ink);
+}
+html[data-theme="winter"] .daily-challenge-btn[data-state="available"] {
+  border-style: solid;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+html[data-theme="winter"] .daily-challenge-btn[data-state="done"] {
+  border-style: solid;
+  border-color: var(--challenge-done-ink);
+  background: var(--challenge-done-bg);
+  color: var(--challenge-done-ink);
+}
+html[data-theme="winter"] .daily-challenge-icon {
+  flex: none;
+  width: var(--challenge-icon);
+  height: var(--challenge-icon);
+  background: var(--challenge-lock-art) center / contain no-repeat;
+}
+html[data-theme="winter"] .daily-challenge-icon > * { display: none; }
+html[data-theme="winter"] .daily-challenge-icon[data-icon="gift"] {
+  background-image: var(--challenge-gift-art);
+}
+html[data-theme="winter"] .daily-challenge-icon[data-icon="check"] {
+  background-image: var(--challenge-check-art);
+}
+html[data-theme="winter"] .daily-challenge-badge {
+  width: var(--daily-dot);
+  height: var(--daily-dot);
+  border: var(--daily-dot-rim) solid var(--challenge-cream);
+  border-radius: var(--radius-pill);
+  background: var(--winter-candy-red);
+}
+html[data-theme="winter"] .daily-challenge-btn:focus-visible {
+  outline: var(--winter-focus-width) solid var(--winter-primary-edge);
+  outline-offset: var(--winter-focus-width);
+}
+html[data-theme="winter"] .game-screen .challenge-banner:not([hidden]) {
+  position: relative;
+  flex: none;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--challenge-gap);
+  width: fit-content;
+  max-width: calc(100% - 4 * var(--challenge-gap));
+  min-height: var(--challenge-ribbon-height);
+  box-sizing: border-box;
+  margin: var(--challenge-gap) auto;
+  padding: var(--winter-ui-gap) var(--winter-plaque-padding);
+  border: var(--challenge-outline) solid var(--challenge-ink);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(var(--challenge-gold), var(--challenge-cream));
+  color: var(--challenge-ink);
+  font: 700 var(--winter-tutorial-text)/1.3 var(--font-ui);
+  text-align: center;
+  isolation: isolate;
+}
+html[data-theme="winter"] .challenge-banner::before {
+  content: '';
+  flex: none;
+  width: var(--challenge-icon);
+  height: var(--challenge-icon);
+  background: var(--challenge-gift-art) center / contain no-repeat;
+}
+html[data-theme="winter"] .challenge-banner::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: var(--challenge-gap) calc(-1 * var(--challenge-fold));
+  border-inline: var(--challenge-fold) solid var(--challenge-gold);
+  border-radius: var(--challenge-fold);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme="winter"]:not(.reduce-motion) .challenge-banner:not([hidden]) {
+    animation: challenge-ribbon-appear var(--challenge-shimmer-time) ease-out both;
+  }
+}
+html[data-theme="winter"] .winter-win .challenge-come-back-tomorrow {
+  color: var(--winter-plaque-secondary-ink);
+  margin-block: var(--challenge-gap) var(--winter-plaque-padding);
+}
+html[data-theme="winter"] :is(.menu-title, .menu-subtitle, .loading-title) {
+  background: transparent;
+  text-shadow: 0 2px 4px var(--winter-evening-top), 0 0 12px var(--winter-evening-top);
+}
+
+:root { --challenge-shimmer-light: rgba(251, 242, 228, .7); }
+html[data-theme="winter"] .game-screen .challenge-banner:not([hidden]) {
+  background-image:
+    linear-gradient(110deg, transparent 40%, var(--challenge-shimmer-light) 50%, transparent 60%),
+    linear-gradient(var(--challenge-gold), var(--challenge-cream));
+  background-size: 250% 100%, 100% 100%;
+  background-position: -100% 0, 0 0;
+}
+@keyframes challenge-ribbon-appear {
+  from { background-position: 100% 0, 0 0; }
+  to { background-position: -100% 0, 0 0; }
+}
+@media (orientation: landscape) and (min-width: 600px) and (max-height: 500px) {
+  html[data-theme="winter"] .game-screen > .challenge-banner { grid-column: 1; }
+}

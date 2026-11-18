@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="../css/winter-ornaments.css">
 <link rel="stylesheet" href="../css/winter-popups.css">
 <link rel="stylesheet" href="../css/winter-win.css">
+<link rel="stylesheet" href="../css/daily-gift.css">
 <style>
 :root { --preview-cell-gap: 2px; }
 #board { grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); }
@@ -123,6 +124,14 @@
 Garden.themes.applyTheme('winter');
 document.getElementById('levelIndicator').textContent = 'Уровень 20';
 document.getElementById('scoreDisplay').textContent = '0';
+if (new URLSearchParams(location.search).has('challenge')) {
+ document.getElementById('milestoneBanner').hidden = true;
+ const ribbon = document.createElement('div');
+ ribbon.className = 'challenge-banner';
+ ribbon.textContent = 'Ежедневное испытание';
+ document.getElementById('milestoneBanner').after(ribbon);
+ document.getElementById('levelIndicator').textContent = 'Испытание';
+}
 document.getElementById('milestoneBannerTitle').textContent = 'Праздничный уровень!';
 document.getElementById('rulesBar').hidden = true;
 document.getElementById('rulesHelpButton').hidden = false;
