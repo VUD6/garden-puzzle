@@ -69,6 +69,16 @@
     return id === 'snowman' ? isSnowmanUnlocked() : true;
   }
 
+  // Whether a helper button should show its "watch an ad for +1 charge"
+  // state (js/render.js's data-ad attribute/.helper-ad-icon, js/input.js's
+  // tap routing into the rewarded-ad flow instead of useHelper) - true only
+  // once the helper is actually unlocked and genuinely out of charges, so a
+  // still-locked Snowman shows its existing lock state instead, never the
+  // ad state.
+  function needsAd(id) {
+    return isUnlocked(id) && getCharges(id) <= 0;
+  }
+
   const Helpers = {
     HELPER_IDS,
     STARTING_CHARGES,
@@ -77,6 +87,7 @@
     addCharges,
     spendCharge,
     isUnlocked,
+    needsAd,
   };
 
   root.Garden = root.Garden || {};

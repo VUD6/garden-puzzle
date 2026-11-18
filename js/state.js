@@ -305,6 +305,11 @@
           charges: Helpers.getCharges(id),
           locked: !Helpers.isUnlocked(id),
           canUse: canUseHelper(id),
+          // Only ever true mid-level (never on a finished/won/lost board,
+          // and never for a still-locked helper - Helpers.needsAd already
+          // folds in isUnlocked) - see js/render.js's data-ad hook and
+          // js/input.js's tap routing into the rewarded-ad flow.
+          needsAd: status === 'playing' && Helpers.needsAd(id),
         };
       });
       return snap;

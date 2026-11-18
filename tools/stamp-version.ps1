@@ -11,6 +11,11 @@
 .DESCRIPTION
   - Only touches LOCAL tags (a relative href/src, no scheme like http:/
     https:/data: and no leading "//") - external URLs are left untouched.
+  - One specific exception within those local-looking tags: the Yandex
+    Games SDK tag (<script src="/sdk.js">) is never touched either, in
+    stamping OR -Check, even though "/sdk.js" is itself a local-looking
+    path - Yandex serves it from a fixed path and expects it exactly as
+    written, with no query string this script invented.
   - Only touches <link> tags whose rel="stylesheet", and <script src="...">
     tags - no other tags exist in index.html today, and none are added here.
   - The token is the current local date-time, formatted yyyyMMdd-HHmm.
@@ -67,6 +72,17 @@ function Test-LocalUrl {
     return $true
 }
 
+# The Yandex Games SDK tag - "/sdk.js" looks local by Test-LocalUrl's own
+# rule (no scheme, no leading "//"), but it's actually Yandex's fixed CDN
+# path, not one of our own cache-busted assets, so it's carved out here as
+# its own explicit exception rather than folded into Test-LocalUrl (which
+# stays a plain "is this relative" check, nothing more).
+function Test-SdkTag {
+    param([string]$Url)
+    if ([string]::IsNullOrEmpty($Url)) { return $false }
+    return $Url.Split('?')[0] -eq '/sdk.js'
+}
+
 # Finds every LOCAL <link rel="stylesheet" href="..."> / <script src="...">
 # opening tag in $Text and returns one object per qualifying tag with
 # everything needed to either rewrite it or inspect its current token.
@@ -97,6 +113,7 @@ function Get-VersionableTags {
         $urlGroup = $attrMatch.Groups[1]
         $url = $urlGroup.Value
         if (-not (Test-LocalUrl $url)) { continue }
+        if (Test-SdkTag $url) { continue } # never stamped - see Test-SdkTag's own comment
 
         $queryIndex = $url.IndexOf('?')
         $baseUrl = if ($queryIndex -ge 0) { $url.Substring(0, $queryIndex) } else { $url }

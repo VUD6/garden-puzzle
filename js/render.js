@@ -189,15 +189,42 @@
       });
     }
 
+    // Lazily creates the "+1 via ad" icon slot inside a helper button - no
+    // slot in index.html for it (CLAUDE.md/this feature's own hard rule only
+    // allows adding one new script tag there, not markup), same "build once
+    // in JS" convention every other no-slot addition in this codebase
+    // already uses. Left genuinely empty (Codex draws the ad/play glyph via
+    // CSS) - the "+1" text itself is shown via the existing charge badge
+    // (see renderHelperButton below), not duplicated here.
+    function ensureHelperAdIcon(els) {
+      if (els.adIcon) return els.adIcon;
+      const span = document.createElement('span');
+      span.className = 'helper-ad-icon';
+      span.hidden = true;
+      els.button.appendChild(span);
+      els.adIcon = span;
+      return span;
+    }
+
     function renderHelperButton(id, info) {
       const els = helperEls[id];
+      const adIcon = ensureHelperAdIcon(els);
       els.button.classList.toggle('is-locked', info.locked);
-      els.button.classList.toggle('is-disabled', !info.locked && info.charges <= 0);
-      els.button.disabled = !info.canUse;
+      els.button.classList.toggle('is-disabled', !info.locked && info.charges <= 0 && !info.needsAd);
+      els.button.classList.toggle('is-ad', info.needsAd);
+      if (info.needsAd) els.button.dataset.ad = 'true';
+      else delete els.button.dataset.ad;
+      adIcon.hidden = !info.needsAd;
+      // A 0-charge-but-unlocked helper stays tappable (it starts the
+      // rewarded-ad flow instead of using the helper - see js/input.js), so
+      // it must not be disabled just because canUse (normal-use eligibility)
+      // is false; a genuinely locked helper (Snowman below level 10) still
+      // disables exactly as before.
+      els.button.disabled = !info.canUse && !info.needsAd;
 
       els.icon.innerHTML = info.locked ? HELPER_LOCK_SVG : helperIconFor(id);
       els.badge.hidden = info.locked;
-      if (!info.locked) els.badge.textContent = String(info.charges);
+      if (!info.locked) els.badge.textContent = info.needsAd ? I18n.t('helperAdChargeLabel') : String(info.charges);
       els.lockCaption.hidden = !info.locked;
 
       if (info.locked) {
@@ -206,6 +233,8 @@
           'aria-label',
           I18n.t('helperLockedAriaLabel', { name: I18n.t(HELPER_NAME_KEY[id]), level: Helpers.SNOWMAN_UNLOCK_LEVEL })
         );
+      } else if (info.needsAd) {
+        els.button.setAttribute('aria-label', I18n.t('helperAdAriaLabel', { name: I18n.t(HELPER_NAME_KEY[id]) }));
       } else {
         els.button.setAttribute('aria-label', I18n.t('helperAriaLabel', { name: I18n.t(HELPER_NAME_KEY[id]), count: info.charges }));
       }
@@ -606,6 +635,7 @@
 
     function showWinOverlay(snapshot) {
       AudioFx.playEffect('win', { rating: snapshot.rating });
+      setWinBeatPercent(null);
       dom.winFlower.innerHTML = pieceSvgFor(0);
       triggerOneShotAnim(dom.winFlower, 'mark-bloom');
 
@@ -815,6 +845,66 @@
       dom.settingsOverlay.hidden = true;
     }
 
+    // Short, non-blocking "ad unavailable" notice (js/input.js's rewarded-ad
+    // flow, onError/no-ad-available case per GAME_DESIGN.md) - no slot in
+    // index.html, built once and appended to the game screen, same "no
+    // slot" convention every other dynamically-created hook in this file
+    // already uses. Functional only: a plain auto-hiding text node, styling
+    // is a later pass (hook: .ad-message).
+    const AD_MESSAGE_VISIBLE_MS = 2600;
+    let adMessageEl = null;
+    let adMessageTimer = null;
+    function ensureAdMessageEl() {
+      if (adMessageEl) return adMessageEl;
+      adMessageEl = document.createElement('p');
+      adMessageEl.className = 'ad-message';
+      adMessageEl.hidden = true;
+      adMessageEl.setAttribute('aria-live', 'polite');
+      dom.gameScreen.appendChild(adMessageEl);
+      return adMessageEl;
+    }
+
+    function showAdUnavailableMessage() {
+      const el = ensureAdMessageEl();
+      el.textContent = I18n.t('adUnavailableMessage');
+      el.hidden = false;
+      if (adMessageTimer) clearTimeout(adMessageTimer);
+      adMessageTimer = setTimeout(function () {
+        el.hidden = true;
+      }, AD_MESSAGE_VISIBLE_MS);
+    }
+
+    // Win-screen "beat N%" line (GAME_DESIGN.md/the Yandex leaderboard
+    // integration) - no slot in index.html, built once and inserted into
+    // the existing win card, same pattern as ensureWinStreakEls/
+    // ensureChallengeEls above. Populated asynchronously, separately from
+    // showWinOverlay itself: computing it needs a leaderboard round trip
+    // (js/yandex.js's fetchBeatPercentForWinScreen), which can't be ready
+    // the instant the win screen appears - see js/main.js's win handler.
+    // Hidden by default on every new win (setWinBeatPercent(null)) so a
+    // slow-arriving result from a PREVIOUS win can never be shown next to
+    // the wrong level.
+    let beatPercentEl = null;
+    function ensureBeatPercentEl() {
+      if (beatPercentEl) return beatPercentEl;
+      beatPercentEl = document.createElement('p');
+      beatPercentEl.className = 'win-beat-percent';
+      beatPercentEl.hidden = true;
+      const card = dom.nextLevelButton.parentElement;
+      card.insertBefore(beatPercentEl, dom.nextLevelButton);
+      return beatPercentEl;
+    }
+
+    function setWinBeatPercent(percent) {
+      const el = ensureBeatPercentEl();
+      if (typeof percent !== 'number') {
+        el.hidden = true;
+        return;
+      }
+      el.hidden = false;
+      el.textContent = I18n.t('winBeatPercentLabel', { percent: percent });
+    }
+
     function spawnParticles() {
       for (let i = 0; i < PARTICLE_COUNT; i++) {
         const duration = 14 + Math.random() * 10;
@@ -843,6 +933,8 @@
       closeRulesPopup,
       openSettings,
       closeSettings,
+      showAdUnavailableMessage,
+      setWinBeatPercent,
     };
   }
 

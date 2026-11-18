@@ -73,14 +73,82 @@
   const DAILY_CHALLENGE_KEY = 'garden.dailyChallenge';
   const DAILY_CHALLENGE_SCHEMA_VERSION = 1;
   const DAILY_CHALLENGE_SCHEMA_VERSION_KEY = 'garden.dailyChallengeSchemaVersion';
+  // Best (highest-ever) win streak - new, max-merged field for cloud-save
+  // reconciliation (js/yandex.js). Distinct from the plain win-streak
+  // counter above, which can legitimately drop back to 0 on a loss;
+  // bestWinStreak only ever goes up, bumped as a side effect of
+  // saveWinStreak below (same "dumb writer + automatic side effect"
+  // convention saveBestStars already uses for totalStars).
+  const BEST_WIN_STREAK_KEY = 'garden.bestWinStreak';
+  // Index of every level that currently has a best-stars rating saved -
+  // same purpose and shape as BEST_TIME_LEVELS_KEY above, needed so cloud-
+  // save merge (js/yandex.js) can enumerate every per-level best-stars
+  // entry without depending on localStorage.key()/length().
+  const BEST_STARS_LEVELS_KEY = 'garden.bestStarsLevels';
+  // Last-local-write marker for cloud-save merge (js/yandex.js): a single
+  // real wall-clock timestamp (Date.now(), deliberately NOT the
+  // debug-shiftable Platform.now() clock below, since this is about
+  // comparing device write recency, not calendar-date game logic), bumped
+  // by touchSavedAt() whenever any field in the "take the newer device's
+  // value" merge group changes (helper charges, win streak, daily gift,
+  // daily challenge, sound/theme settings - see GAME_DESIGN.md's cloud-save
+  // section for the exact field list and why). A brand-new/never-touched
+  // save defaults to 0 (the oldest possible value) rather than "now", so a
+  // player updating from a pre-cloud-save version always loses a first-sync
+  // tie to any real cloud data rather than clobbering it - same "establish
+  // once, nothing fabricated" stance as migrateStars.
+  const SAVED_AT_KEY = 'garden.savedAt';
+  const SAVED_AT_SCHEMA_VERSION = 1;
+  const SAVED_AT_SCHEMA_VERSION_KEY = 'garden.savedAtSchemaVersion';
 
   function hasStorage() {
     return typeof localStorage !== 'undefined';
   }
 
+  // Soft dependency on js/yandex.js: platform.js must stay usable (and
+  // Node-testable) with no cloud-save module loaded at all, so this never
+  // throws if Garden.yandex isn't present - it's a plain no-op then, and
+  // js/yandex.js's own debounced scheduler is what actually decides when to
+  // talk to the SDK.
+  function notifyCloudDirty() {
+    if (root.Garden && root.Garden.yandex && typeof root.Garden.yandex.scheduleCloudSave === 'function') {
+      root.Garden.yandex.scheduleCloudSave();
+    }
+  }
+
+  function touchSavedAt() {
+    if (!hasStorage()) return;
+    localStorage.setItem(SAVED_AT_KEY, String(Date.now()));
+    notifyCloudDirty();
+  }
+
+  function loadSavedAt() {
+    if (!hasStorage()) return 0;
+    const raw = localStorage.getItem(SAVED_AT_KEY);
+    const n = parseInt(raw, 10);
+    return Number.isInteger(n) && n >= 0 ? n : 0;
+  }
+
+  // One-time setup, same idempotent "establish once" shape as migrateStars/
+  // migrateAudioSettings: there is no historical write-recency data to
+  // recover, so this just establishes garden.savedAt at 0 once, if nothing
+  // is stored yet - never touches progress, score, stars, best times, or
+  // charges.
+  function migrateSavedAt() {
+    if (!hasStorage()) return;
+    const storedVersion = parseInt(localStorage.getItem(SAVED_AT_SCHEMA_VERSION_KEY), 10);
+    if (Number.isInteger(storedVersion) && storedVersion >= SAVED_AT_SCHEMA_VERSION) return;
+
+    if (localStorage.getItem(SAVED_AT_KEY) === null) {
+      localStorage.setItem(SAVED_AT_KEY, '0');
+    }
+    localStorage.setItem(SAVED_AT_SCHEMA_VERSION_KEY, String(SAVED_AT_SCHEMA_VERSION));
+  }
+
   function saveProgress(level) {
     if (!hasStorage()) return;
     localStorage.setItem(LEVEL_KEY, String(level));
+    notifyCloudDirty();
   }
 
   function loadProgress() {
@@ -105,6 +173,7 @@
   function saveTheme(id) {
     if (!hasStorage()) return;
     localStorage.setItem(THEME_KEY, String(id));
+    touchSavedAt();
   }
 
   // Returns the raw stored value (or null if nothing stored) and does no
@@ -119,6 +188,7 @@
   function saveTotalScore(score) {
     if (!hasStorage()) return;
     localStorage.setItem(TOTAL_SCORE_KEY, String(score));
+    notifyCloudDirty();
   }
 
   function loadTotalScore() {
@@ -172,6 +242,7 @@
     if (!hasStorage()) return;
     localStorage.setItem(BEST_TIME_KEY_PREFIX + level, String(seconds));
     rememberBestTimeLevel(level);
+    notifyCloudDirty();
   }
 
   function loadBestTime(level) {
@@ -202,12 +273,33 @@
 
   function saveWinStreak(n) {
     if (!hasStorage()) return;
-    localStorage.setItem(WIN_STREAK_KEY, String(Math.max(0, n)));
+    const clamped = Math.max(0, n);
+    localStorage.setItem(WIN_STREAK_KEY, String(clamped));
+    // Best-ever streak auto-tracks every write here, same "dumb writer plus
+    // automatic side effect" shape saveBestStars already uses for
+    // totalStars - callers never need to compute/pass the max themselves.
+    if (clamped > loadBestWinStreak()) saveBestWinStreakRaw(clamped);
+    touchSavedAt();
   }
 
   function loadWinStreak() {
     if (!hasStorage()) return 0;
     const raw = localStorage.getItem(WIN_STREAK_KEY);
+    const n = parseInt(raw, 10);
+    return Number.isInteger(n) && n >= 0 ? n : 0;
+  }
+
+  // Raw writer, no further side effects - used by saveWinStreak's own
+  // auto-bump above and by cloud-save merge (js/yandex.js), which computes
+  // the max across both devices itself and just needs a plain write.
+  function saveBestWinStreakRaw(n) {
+    if (!hasStorage()) return;
+    localStorage.setItem(BEST_WIN_STREAK_KEY, String(Math.max(0, n)));
+  }
+
+  function loadBestWinStreak() {
+    if (!hasStorage()) return 0;
+    const raw = localStorage.getItem(BEST_WIN_STREAK_KEY);
     const n = parseInt(raw, 10);
     return Number.isInteger(n) && n >= 0 ? n : 0;
   }
@@ -232,6 +324,26 @@
     return Number.isInteger(stars) && stars >= 0 && stars <= 3 ? stars : null;
   }
 
+  function loadBestStarsLevels() {
+    if (!hasStorage()) return [];
+    const raw = localStorage.getItem(BEST_STARS_LEVELS_KEY);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((n) => Number.isInteger(n)) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function rememberBestStarsLevel(level) {
+    const levels = loadBestStarsLevels();
+    if (levels.indexOf(level) === -1) {
+      levels.push(level);
+      localStorage.setItem(BEST_STARS_LEVELS_KEY, JSON.stringify(levels));
+    }
+  }
+
   // A dumb writer, same as saveBestTime - the caller (state.js) is the one
   // that decides the value to write (e.g. Math.max against the previous
   // best), not this function. The only thing this does on top of a plain
@@ -241,8 +353,39 @@
     if (!hasStorage()) return;
     const previous = loadBestStars(level);
     localStorage.setItem(BEST_STARS_KEY_PREFIX + level, String(stars));
+    rememberBestStarsLevel(level);
     const delta = stars - (previous || 0);
     if (delta !== 0) saveTotalStars(loadTotalStars() + delta);
+    notifyCloudDirty();
+  }
+
+  // Raw writer with none of saveBestStars's totalStars delta side effect -
+  // used exclusively by cloud-save merge (js/yandex.js), which writes every
+  // merged per-level value first and then calls recomputeTotalStars() once
+  // at the end, rather than letting N individual deltas accumulate (any of
+  // which could double-count against a totalStars that's itself also being
+  // merged independently - see GAME_DESIGN.md's cloud-save section).
+  function writeBestStarsRaw(level, stars) {
+    if (!hasStorage()) return;
+    localStorage.setItem(BEST_STARS_KEY_PREFIX + level, String(stars));
+    rememberBestStarsLevel(level);
+  }
+
+  // Recomputes totalStars from scratch as sum(best stars per level) +
+  // accumulated daily-challenge stars - the exact same invariant
+  // GAME_DESIGN.md's "Total stars" section already documents for normal
+  // play, just rebuilt from authoritative per-level/per-challenge data
+  // instead of trusted incrementally. Only ever needed after cloud-save
+  // merge rewrites a batch of per-level values directly (writeBestStarsRaw)
+  // and needs totalStars to catch back up in one shot.
+  function recomputeTotalStars() {
+    if (!hasStorage()) return;
+    let sum = 0;
+    loadBestStarsLevels().forEach(function (level) {
+      sum += loadBestStars(level) || 0;
+    });
+    sum += loadDailyChallenge().challengeStars || 0;
+    saveTotalStars(sum);
   }
 
   // One-time setup: per-level best stars were never recorded before this
@@ -297,6 +440,7 @@
   function saveSfxEnabled(enabled) {
     if (!hasStorage()) return;
     localStorage.setItem(SFX_ENABLED_KEY, enabled ? '1' : '0');
+    touchSavedAt();
   }
 
   function loadSfxEnabled() {
@@ -308,6 +452,7 @@
   function saveMusicEnabled(enabled) {
     if (!hasStorage()) return;
     localStorage.setItem(MUSIC_ENABLED_KEY, enabled ? '1' : '0');
+    touchSavedAt();
   }
 
   function loadMusicEnabled() {
@@ -334,6 +479,7 @@
   function saveHelperCharges(charges) {
     if (!hasStorage()) return;
     localStorage.setItem(HELPER_CHARGES_KEY, JSON.stringify(charges));
+    touchSavedAt();
   }
 
   // Raw charge-object storage: corruption-tolerant (a missing/negative/non-
@@ -363,6 +509,7 @@
   function saveHighestLevel(level) {
     if (!hasStorage()) return;
     localStorage.setItem(HIGHEST_LEVEL_KEY, String(level));
+    notifyCloudDirty();
   }
 
   function loadHighestLevel() {
@@ -399,16 +546,23 @@
   }
 
   // The single clock entry point for anything date-based (the daily gift
-  // feature). Tests override this directly (Platform.now = () => ...) to
-  // simulate arbitrary days without waiting for real ones. In the real app,
-  // defaults to the real device clock; under explicit debug mode (?debug=1
-  // - see isDebugEnabled) a persisted day offset can shift it instead, so
-  // the daily gift's day-by-day logic can be tested without waiting on real
-  // calendar days. Swapping this for a Yandex SDK server-time call later
-  // (roadmap step 8) needs no changes at any call site - every date-based
-  // feature already goes through here.
+  // and daily challenge features). Tests override this directly
+  // (Platform.now = () => ...) to simulate arbitrary days without waiting
+  // for real ones. In the real app, prefers the Yandex SDK's server time
+  // (js/yandex.js's getServerTimeOffsetMs(), cached there - see its own
+  // comment) over the device clock whenever it's available, so the
+  // existing clock-backwards tamper guard in js/checkin.js/js/daily-
+  // challenge.js is judging against a clock the player can't just set back
+  // themselves; falls back to the plain device clock if the SDK/mock never
+  // reported an offset (not yet ready, or running with no SDK at all -
+  // never blocks or throws either way). Under explicit debug mode
+  // (?debug=1 - see isDebugEnabled) a persisted day offset still shifts
+  // whichever base clock was picked, exactly as before, so the daily gift's
+  // day-by-day logic stays testable without waiting on real calendar days.
   function now() {
-    const real = new Date();
+    const Yandex = root.Garden && root.Garden.yandex;
+    const offsetMs = Yandex && typeof Yandex.getServerTimeOffsetMs === 'function' ? Yandex.getServerTimeOffsetMs() : null;
+    const real = offsetMs === null ? new Date() : new Date(Date.now() + offsetMs);
     if (!isDebugEnabled()) return real;
     const offsetDays = loadDebugDayOffset();
     if (!offsetDays) return real;
@@ -422,6 +576,7 @@
   function saveDailyGift(record) {
     if (!hasStorage()) return;
     localStorage.setItem(DAILY_GIFT_KEY, JSON.stringify(record));
+    touchSavedAt();
   }
 
   // A plan's shape (see js/checkin.js's computePlan) - kept structural
@@ -506,6 +661,7 @@
   function saveDailyChallenge(record) {
     if (!hasStorage()) return;
     localStorage.setItem(DAILY_CHALLENGE_KEY, JSON.stringify(record));
+    touchSavedAt();
   }
 
   // Corruption-tolerant, same shape as loadDailyGift: anything missing,
@@ -556,10 +712,18 @@
     return typeof navigator !== 'undefined' && 'vibrate' in navigator;
   }
 
-  // Called once after boot (i18n/settings/saves ready). Stub for now;
-  // step 8 will hook Yandex LoadingAPI.ready() into it without changing
-  // the call site in main.js.
-  function gameReady() {}
+  // Called once after boot (i18n/settings/saves ready, right as the menu
+  // becomes interactive - see js/main.js). Hooks Yandex's
+  // features.LoadingAPI.ready() (via js/yandex.js, never window.YaGames
+  // directly) exactly as this function's old stub comment promised,
+  // without needing any change at the main.js call site - a no-op with no
+  // SDK present. js/yandex.js's own ready() queues this if Yandex.init()'s
+  // own async SDK handshake hasn't resolved yet, so it's safe to call this
+  // as early as the menu is actually ready, regardless of which finishes
+  // first.
+  function gameReady() {
+    if (root.Garden.yandex) root.Garden.yandex.ready();
+  }
 
   // Stubs for the Yandex Games SDK integration (roadmap step 7). Calling code
   // elsewhere should only ever go through these, never touch ads directly.
@@ -585,11 +749,17 @@
     clearBoard,
     saveBestTime,
     loadBestTime,
+    loadBestTimeLevels,
     migrateBestTimes,
     saveWinStreak,
     loadWinStreak,
+    saveBestWinStreakRaw,
+    loadBestWinStreak,
     saveBestStars,
     loadBestStars,
+    loadBestStarsLevels,
+    writeBestStarsRaw,
+    recomputeTotalStars,
     saveTotalStars,
     loadTotalStars,
     migrateStars,
@@ -620,6 +790,8 @@
     saveDailyChallenge,
     loadDailyChallenge,
     migrateDailyChallenge,
+    loadSavedAt,
+    migrateSavedAt,
     gameReady,
     showRewardedAd,
     showInterstitialAd,
@@ -632,6 +804,7 @@
   migrateStars();
   migrateAudioSettings();
   migrateDailyChallenge();
+  migrateSavedAt();
 
   root.Garden = root.Garden || {};
   root.Garden.platform = Platform;

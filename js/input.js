@@ -45,6 +45,61 @@
   function attach(dom, game, renderer, handlers) {
     let drag = null; // { pointerId, startRow, startCol, mode, moved, visited }
 
+    // Set for the whole time a rewarded ad is open (see startHelperAdFlow
+    // below) - checked at the top of every handler that would otherwise let
+    // the player keep interacting with the board/chrome while the ad
+    // overlay covers it, per GAME_DESIGN.md's "game input is blocked while
+    // an ad is open" rule.
+    let inputBlocked = false;
+
+    // The helper-button-with-0-charges "watch an ad for +1" flow (see
+    // js/helpers.js's needsAd, js/render.js's data-ad hook, and
+    // js/yandex.js's showRewardedAd). Pause/stop/mute happen BEFORE the ad
+    // is requested; the charge is granted ONLY inside onRewarded; applying
+    // the helper (since tapping the ad-state button always means "I want to
+    // use this helper") happens only after onClose, and only if this
+    // session actually rewarded - never on an error or an early close.
+    function startHelperAdFlow(id) {
+      const Yandex = root.Garden.yandex;
+      const Helpers = root.Garden.helpers;
+      if (!Yandex || inputBlocked || Yandex.isAdInProgress()) return;
+
+      inputBlocked = true;
+      game.pauseTimer('ad');
+      Yandex.gameplayStop();
+      AudioFx.setExternalMute('ad', true);
+
+      const started = Yandex.showRewardedAd({
+        onRewarded: function () {
+          Helpers.addCharges(id, 1);
+        },
+        onClose: function (rewarded) {
+          inputBlocked = false;
+          AudioFx.setExternalMute('ad', false);
+          game.resumeTimer('ad');
+          Yandex.gameplayStart();
+          if (rewarded && game.useHelper(id)) AudioFx.playEffect('helperUse');
+        },
+        onError: function () {
+          inputBlocked = false;
+          AudioFx.setExternalMute('ad', false);
+          game.resumeTimer('ad');
+          Yandex.gameplayStart();
+          renderer.showAdUnavailableMessage();
+        },
+      });
+
+      // Belt-and-suspenders: showRewardedAd's own internal guard also
+      // refuses a second concurrent ad and returns false without touching
+      // anything - undo the pause/mute/stop this call just applied.
+      if (!started) {
+        inputBlocked = false;
+        game.resumeTimer('ad');
+        AudioFx.setExternalMute('ad', false);
+        Yandex.gameplayStart();
+      }
+    }
+
     function applyDragAction(row, col, el) {
       if (drag.mode === 'mark') game.markCellX(row, col);
       else if (drag.mode === 'clear') game.clearCellX(row, col);
@@ -52,6 +107,7 @@
     }
 
     dom.board.addEventListener('pointerdown', function (event) {
+      if (inputBlocked) return;
       const hit = cellFromElement(event.target);
       if (!hit) return;
 
@@ -104,6 +160,7 @@
     dom.board.addEventListener('pointercancel', endDrag);
 
     dom.nextLevelButton.addEventListener('click', function () {
+      if (inputBlocked) return;
       tapTick();
       // Daily challenge: there is no "next level" for a once-a-day puzzle -
       // the button is repurposed to "В меню" (see js/render.js's
@@ -116,11 +173,13 @@
     });
 
     dom.retryButton.addEventListener('click', function () {
+      if (inputBlocked) return;
       tapTick();
       game.retryLevel();
     });
 
     dom.backButton.addEventListener('click', function () {
+      if (inputBlocked) return;
       tapTick();
       handlers.onBack();
     });
@@ -134,6 +193,18 @@
     Object.keys(helperButtonsById).forEach(function (id) {
       const buttonEl = helperButtonsById[id];
       buttonEl.addEventListener('click', function () {
+        if (inputBlocked) return;
+
+        // A 0-charge, unlocked helper button is in its "watch an ad for +1"
+        // state (see js/helpers.js's needsAd/js/render.js's data-ad hook) -
+        // tapping it directly starts the rewarded-ad flow instead of
+        // useHelper(), no confirmation dialog, per GAME_DESIGN.md.
+        const helperInfo = game.getSnapshot().helpers[id];
+        if (helperInfo && helperInfo.needsAd) {
+          startHelperAdFlow(id);
+          return;
+        }
+
         // useHelper() is itself the single source of truth on whether this
         // is allowed right now (charges, lock state, solved state, and the
         // per-helper double-spend lock window all live in state.js) - a
@@ -156,20 +227,34 @@
       });
     });
 
+    // GameplayAPI.start() only makes sense while an actual level/challenge
+    // is open and still in progress - never from the menu's own Settings
+    // button (game.pauseTimer('settings') there pauses a timer that isn't
+    // even running yet). Idempotent either way (Garden.yandex.gameplayStart
+    // itself no-ops if already started), so it's always safe to call.
+    function maybeResumeGameplay() {
+      const Yandex = root.Garden.yandex;
+      if (Yandex && !dom.gameScreen.hidden && game.getSnapshot().status === 'playing') Yandex.gameplayStart();
+    }
+
     // The level timer (see state.js's pauseTimer/resumeTimer) must not keep
     // counting while Settings covers the board - paused here regardless of
     // which button opened it, resumed the moment it's actually closed.
     function closeSettingsAndResumeTimer() {
       renderer.closeSettings();
       game.resumeTimer('settings');
+      maybeResumeGameplay();
     }
 
     dom.settingsButton.addEventListener('click', function () {
+      if (inputBlocked) return;
       tapTick();
       game.pauseTimer('settings');
+      if (root.Garden.yandex) root.Garden.yandex.gameplayStop();
       renderer.openSettings();
     });
     dom.settingsCloseButton.addEventListener('click', function () {
+      if (inputBlocked) return;
       tapTick();
       closeSettingsAndResumeTimer();
     });
