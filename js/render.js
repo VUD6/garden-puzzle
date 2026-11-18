@@ -489,8 +489,13 @@
       dom.starsContainer.classList.add('star-pop');
     }
 
-    function renderLevel(level) {
-      dom.levelIndicator.textContent = I18n.t('levelLabel', { level });
+    // In challenge mode the top pill reads "Испытание" instead of a level
+    // number - the difficulty level the challenge happens to be built from
+    // (Garden.dailyChallenge.difficultyLevelForDate) is an implementation
+    // detail, never a real progression level, so showing it as "Уровень N"
+    // would be misleading. Normal levels are completely unaffected.
+    function renderLevel(level, mode) {
+      dom.levelIndicator.textContent = mode === 'challenge' ? I18n.t('challengeLevelLabel') : I18n.t('levelLabel', { level });
     }
 
     function renderScore(totalScore) {
@@ -614,8 +619,22 @@
       syncStars(snapshot.rating);
       dom.rankTitle.textContent = I18n.t(RANK_KEY_BY_RATING[snapshot.rating]);
 
-      dom.winMessage.textContent = I18n.t('scoreEarnedLabel', { amount: snapshot.levelScore });
-      dom.bestTimeLine.textContent = I18n.t('bestTimeLabel', { time: formatTime(snapshot.bestTimeSeconds) });
+      // Challenge mode shows this attempt's own time ("Время: m:ss"), never
+      // a "best time" - the daily challenge has no per-level best-time
+      // identity and js/state.js's finishLevel never calls
+      // platform.saveBestTime for it (see its own mode==='normal' guard),
+      // so there is nothing to overwrite or pollute in garden.bestTime.*
+      // either way. snapshot.elapsedSeconds is this run's own clock
+      // reading, used directly rather than snapshot.bestTimeSeconds (which
+      // happens to equal it in challenge mode today, but isn't the
+      // semantically right field to read here).
+      if (snapshot.mode === 'challenge') {
+        dom.winMessage.textContent = I18n.t('challengeScoreEarnedLabel', { amount: snapshot.levelScore });
+        dom.bestTimeLine.textContent = I18n.t('challengeTimeLabel', { time: formatTime(snapshot.elapsedSeconds) });
+      } else {
+        dom.winMessage.textContent = I18n.t('scoreEarnedLabel', { amount: snapshot.levelScore });
+        dom.bestTimeLine.textContent = I18n.t('bestTimeLabel', { time: formatTime(snapshot.bestTimeSeconds) });
+      }
 
       // Milestone reward: +1 charge of each helper, shown only on the
       // milestone level's first-ever completion (see state.js's
@@ -696,7 +715,7 @@
     }
 
     function render(snapshot) {
-      renderLevel(snapshot.level);
+      renderLevel(snapshot.level, snapshot.mode);
       renderScore(snapshot.totalScore);
       // canUse already folds in each helper's double-spend lock window (see
       // state.js canUseHelper/HELPER_LOCK_MS), so this is the only check needed.

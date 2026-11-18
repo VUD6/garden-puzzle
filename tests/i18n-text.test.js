@@ -65,5 +65,24 @@ assert(I18n.t(I18n.pluralRu(3, LIVES_FORMS), { count: 3 }) === 'Осталось
 
 I18n.setLang('ru'); // restore default for any later-loaded module in the same process
 
+// --- Daily-challenge-only text variants (js/render.js): the top pill and
+// win-screen score/time lines read differently in challenge mode, never
+// touching the normal-level strings they're an alternative to. ---
+I18n.setLang('ru');
+assert(I18n.t('challengeLevelLabel') === 'Испытание', `challenge top-pill text is "Испытание" (got "${I18n.t('challengeLevelLabel')}")`);
+assert(I18n.t('challengeScoreEarnedLabel', { amount: 40 }) === 'Очки за испытание: +40', 'challenge score line reads "Очки за испытание: +N"');
+assert(I18n.t('challengeTimeLabel', { time: '1:23' }) === 'Время: 1:23', 'challenge time line reads "Время: m:ss" (no "лучшее")');
+assert(!/лучшее/i.test(I18n.t('challengeTimeLabel', { time: '0:00' })), 'the challenge time line never says "лучшее" (best) - it is this attempt\'s own time');
+assert(I18n.t('levelLabel', { level: 23 }) === 'Уровень 23', 'a normal level\'s top-pill text is unaffected ("Уровень N")');
+assert(I18n.t('scoreEarnedLabel', { amount: 40 }) === 'Очки за уровень: +40', 'a normal level\'s score line is unaffected ("Очки за уровень: +N")');
+assert(I18n.t('bestTimeLabel', { time: '1:23' }) === 'Лучшее время: 1:23', 'a normal level\'s time line is unaffected ("Лучшее время: m:ss")');
+
+I18n.setLang('en');
+assert(I18n.t('challengeLevelLabel') === 'Challenge', 'EN challenge top-pill text is "Challenge"');
+assert(I18n.t('challengeScoreEarnedLabel', { amount: 40 }) === 'Challenge score: +40', 'EN challenge score line reads "Challenge score: +N"');
+assert(I18n.t('challengeTimeLabel', { time: '1:23' }) === 'Time: 1:23', 'EN challenge time line reads "Time: m:ss"');
+
+I18n.setLang('ru'); // restore default for any later-loaded module in the same process
+
 console.log(`${checks} checks run, ${failures} failed.`);
 process.exit(failures === 0 ? 0 : 1);

@@ -145,6 +145,9 @@ function main() {
   menuLocked.render();
   assert(dom.dailyChallengeButton.dataset.state === 'locked', 'rendered state is locked below level 15');
   assert(dom.dailyChallengeButton.disabled === true, 'the button is natively disabled while locked');
+  assert(dom.dailyChallengeButton.classList.contains('daily-challenge-btn'), '.daily-challenge-btn hook is present');
+  assert(dom.dailyChallengeButton._iconChild.classList.contains('daily-challenge-icon'), '.daily-challenge-icon hook is present on the icon element');
+  assert(dom.dailyChallengeButton._iconChild.dataset.icon === 'lock', 'locked state shows the lock icon (data-icon="lock")');
 
   clickButton(dom);
   assert(h.calls() === 0, 'clicking a locked button never calls onDailyChallenge');
@@ -168,6 +171,7 @@ function main() {
   assert(dom.dailyChallengeButton.dataset.state === 'done', 'rendered state is done after already winning today');
   assert(dom.dailyChallengeButton.disabled === true, 'the button is natively disabled while done');
   assert(dom.dailyChallengeButton.getAttribute('aria-disabled') === 'true', 'aria-disabled reflects the done state too');
+  assert(dom.dailyChallengeButton._iconChild.dataset.icon === 'check', 'done state shows the check icon (data-icon="check")');
 
   const scoreBefore = Platform.loadTotalScore();
   const starsBefore = Platform.loadTotalStars();
@@ -191,9 +195,11 @@ function main() {
   h = makeHandlers();
   const menuAvailable = Menu.createMenuScreen(dom, h.handlers);
   menuAvailable.render();
-  assert(dom.dailyChallengeButton.dataset.state === 'available', 'rendered state is available once unlocked and not yet won today');
+  assert(dom.dailyChallengeButton.dataset.state === 'available', 'rendered state is "available", NOT "locked", once unlocked and not yet won today');
+  assert(dom.dailyChallengeButton.dataset.state !== 'locked', 'explicitly not "locked" once past the unlock level');
   assert(dom.dailyChallengeButton.disabled === false, 'the button is natively enabled while available');
   assert(dom.dailyChallengeButton.getAttribute('aria-disabled') === 'false', 'aria-disabled reflects the available state too');
+  assert(dom.dailyChallengeButton._iconChild.dataset.icon === 'gift', 'available state shows the gift icon (data-icon="gift")');
 
   clickButton(dom);
   assert(h.calls() === 1, 'clicking an available button calls onDailyChallenge exactly once');

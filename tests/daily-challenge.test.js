@@ -284,6 +284,16 @@ function main() {
   assert(DailyChallenge.isDoneToday() === true, 'the challenge is marked done for today after the first win');
   assert(Platform.loadWinStreak() === 0, 'a challenge win never touches the win streak (never incremented from its starting 0)');
 
+  // --- Challenge time is never written to per-level best-time storage ---
+  // snapshot.level for a challenge attempt is just that day's difficulty
+  // pick (15-30) - a number that can very much coincide with a REAL level
+  // the player has played or will play, so this specifically checks that
+  // js/state.js's finishLevel never calls platform.saveBestTime under that
+  // numeric key for a challenge win (see its own mode==='normal' guard).
+  assert(typeof wonSnapshot.elapsedSeconds === 'number', 'the win snapshot carries this attempt\'s own elapsed time');
+  assert(Platform.loadBestTime(wonSnapshot.level) === null, 'a challenge win never writes a per-level best time under its difficulty-level number');
+  assert(Platform.loadBestStars(wonSnapshot.level) === null, 'a challenge win never writes per-level best stars under its difficulty-level number either');
+
   // --- Idempotent: a reload/double-tap re-delivering the same 'won' snapshot grants nothing more ---
   const secondHandle = DailyChallenge.handleSnapshot(wonSnapshot);
   assert(secondHandle.challengeReward === null, 'handling the same win snapshot again grants no second reward');

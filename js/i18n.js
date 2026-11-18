@@ -5,6 +5,12 @@
       appTitle: 'Клумба',
       appFullTitle: 'Клумба: цветочная головоломка',
       levelLabel: 'Уровень {level}',
+      // Challenge-mode-only variants (js/render.js): the top pill and the
+      // win screen's score/time lines read differently for a daily
+      // challenge attempt - never used for a normal level.
+      challengeLevelLabel: 'Испытание',
+      challengeScoreEarnedLabel: 'Очки за испытание: +{amount}',
+      challengeTimeLabel: 'Время: {time}',
       winMessage: 'Все цветы посажены правильно.',
       nextLevelButton: 'Следующий уровень',
       failTitle: 'Леденцы закончились',
@@ -96,6 +102,9 @@
       appTitle: 'Garden Bed',
       appFullTitle: 'Garden Bed: a flower puzzle',
       levelLabel: 'Level {level}',
+      challengeLevelLabel: 'Challenge',
+      challengeScoreEarnedLabel: 'Challenge score: +{amount}',
+      challengeTimeLabel: 'Time: {time}',
       winMessage: 'Every flower is planted correctly.',
       nextLevelButton: 'Next level',
       failTitle: 'Out of candy canes',
