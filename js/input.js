@@ -55,11 +55,29 @@
     // The helper-button-with-0-charges "watch an ad for +1" flow (see
     // js/helpers.js's needsAd, js/render.js's data-ad hook, and
     // js/yandex.js's showRewardedAd). Pause/stop/mute happen BEFORE the ad
-    // is requested; the charge is granted ONLY inside onRewarded; applying
-    // the helper (since tapping the ad-state button always means "I want to
-    // use this helper") happens only after onClose, and only if this
-    // session actually rewarded - never on an error or an early close.
-    function startHelperAdFlow(id) {
+    // is requested.
+    //
+    // Fixed a real bug reported from a live Yandex Games draft (see
+    // GAME_DESIGN.md): after a real ad closed, the tapped helper button
+    // stayed visually "stuck" (a dashed focus ring that also seemed to
+    // swallow taps) until the player tapped elsewhere. Two independent
+    // causes, both fixed here:
+    //  1. Cleanup (unblock input, unmute, resume the timer/GameplayAPI) used
+    //     to live ONLY inside onClose/onError - if a real SDK fired neither
+    //     (a dropped callback) or fired onRewarded AFTER onClose, cleanup
+    //     could be skipped or the reward silently missed. Now `endAdSession`
+    //     is the single guaranteed cleanup path (idempotent - fires at most
+    //     once, from whichever of onClose/onError/js/yandex.js's own
+    //     safety-timeout actually runs first), and `applyHelperIfRewarded`
+    //     reacts to "ad done" and "reward granted" independently, however
+    //     they end up ordered, so a reward that arrives after the ad has
+    //     already closed is still applied instead of dropped.
+    //  2. The ad overlay can leave the tapped <button> holding native
+    //     browser focus (the dashed outline is the browser's own default
+    //     focus ring - no CSS in this codebase styles a dashed look for a
+    //     helper button) - `endAdSession` now explicitly blurs it rather
+    //     than waiting for an unrelated tap elsewhere to do that instead.
+    function startHelperAdFlow(id, buttonEl) {
       const Yandex = root.Garden.yandex;
       const Helpers = root.Garden.helpers;
       if (!Yandex || inputBlocked || Yandex.isAdInProgress()) return;
@@ -69,22 +87,52 @@
       Yandex.gameplayStop();
       AudioFx.setExternalMute('ad', true);
 
+      let adDone = false;
+      let rewardGranted = false;
+      let helperApplied = false;
+
+      function applyHelperIfRewarded() {
+        if (!adDone || !rewardGranted || helperApplied) return;
+        helperApplied = true;
+        if (game.useHelper(id)) AudioFx.playEffect('helperUse');
+      }
+
+      // The one guaranteed cleanup path - idempotent, so it's safe to call
+      // from onClose, onError, AND js/yandex.js's own internal safety
+      // timeout (whichever actually ends up firing) without double-undoing
+      // anything.
+      function endAdSession() {
+        if (adDone) return;
+        adDone = true;
+        inputBlocked = false;
+        AudioFx.setExternalMute('ad', false);
+        game.resumeTimer('ad');
+        // Defensive: the ad overlay may have triggered a real
+        // blur/visibilitychange/pagehide on the page without its matching
+        // resume ever firing back (hypothesis checked per the bug report -
+        // not confirmed either way without a live SDK session, see
+        // GAME_DESIGN.md) - resumeTimer is a no-op for a reason that isn't
+        // currently set, so clearing these unconditionally here is always
+        // safe and can only help, never hurt.
+        game.resumeTimer('visibility');
+        game.resumeTimer('blur');
+        game.resumeTimer('pagehide');
+        Yandex.gameplayStart();
+        if (buttonEl && document.activeElement === buttonEl) buttonEl.blur();
+        applyHelperIfRewarded();
+      }
+
       const started = Yandex.showRewardedAd({
         onRewarded: function () {
           Helpers.addCharges(id, 1);
+          rewardGranted = true;
+          applyHelperIfRewarded(); // covers a reward that arrives AFTER the ad has already closed
         },
-        onClose: function (rewarded) {
-          inputBlocked = false;
-          AudioFx.setExternalMute('ad', false);
-          game.resumeTimer('ad');
-          Yandex.gameplayStart();
-          if (rewarded && game.useHelper(id)) AudioFx.playEffect('helperUse');
+        onClose: function () {
+          endAdSession();
         },
         onError: function () {
-          inputBlocked = false;
-          AudioFx.setExternalMute('ad', false);
-          game.resumeTimer('ad');
-          Yandex.gameplayStart();
+          endAdSession();
           renderer.showAdUnavailableMessage();
         },
       });
@@ -201,7 +249,7 @@
         // useHelper(), no confirmation dialog, per GAME_DESIGN.md.
         const helperInfo = game.getSnapshot().helpers[id];
         if (helperInfo && helperInfo.needsAd) {
-          startHelperAdFlow(id);
+          startHelperAdFlow(id, buttonEl);
           return;
         }
 

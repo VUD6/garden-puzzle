@@ -2,11 +2,21 @@
 // Covers js/yandex.js: the cloud-save merge policy (several conflict cases
 // plus the cross-device idempotent-daily-claim guard), the rewarded-ad
 // callback state machine (reward granted only on onRewarded, no reward on
-// error/an early close, the double-tap guard), the server-time offset and
-// its device-clock fallback (including Platform.now()'s own integration),
-// the leaderboard submit-score throttle, and the not-authorized flow never
-// nagging automatically. Every scenario here uses an injected fake backend
-// (Yandex._configureForTests) - no window, no document, no real SDK.
+// error/an early close, a reward signaled AFTER the ad already closed, the
+// double-tap guard, and the safety-timeout recovery when the backend never
+// calls a terminal callback at all - the stuck-helper-button bug reported
+// from a live Yandex Games draft, see GAME_DESIGN.md), the server-time
+// offset and its device-clock fallback (including Platform.now()'s own
+// integration), the leaderboard submit-score throttle, and the
+// not-authorized flow never nagging automatically. Most scenarios use an
+// injected fake backend (Yandex._configureForTests) - no window, no
+// document, no real SDK; the one exception is a static textual wiring check
+// of js/input.js's DOM-only ad-flow cleanup, the same technique
+// tests/audio-hooks.test.js already uses for things that need a real
+// document.
+const fs = require('fs');
+const path = require('path');
+
 function makeMemoryStorage() {
   const map = new Map();
   return {
@@ -307,6 +317,66 @@ async function main() {
     assert(closeArg === false, 'onClose reports rewarded=false for an early close');
   }
 
+  // --- Reward signaled AFTER the ad has already closed (some real ad
+  // networks do this) - onClose fires first with rewarded=false (nothing
+  // known yet), but the later onRewarded is still delivered, never dropped
+  // just because the ad is already "closed" from the SDK's point of view.
+  // This is exactly the ordering named in the real bug report that caused
+  // js/input.js's helper-apply step to never run. ---
+  {
+    const backend = makeFakeBackend({
+      showRewardedVideo: (callbacks) => {
+        callbacks.onOpen();
+        callbacks.onClose();
+        callbacks.onRewarded();
+      },
+    });
+    Yandex._configureForTests(backend);
+    let rewardedCount = 0;
+    let closeArg = 'unset';
+    Yandex.showRewardedAd({
+      onRewarded: () => { rewardedCount++; },
+      onClose: (rewarded) => { closeArg = rewarded; },
+    });
+    assert(closeArg === false, 'onClose reports rewarded=false at the moment it fires (the reward has not happened yet)');
+    assert(rewardedCount === 1, 'onRewarded still fires once, even though it arrives after onClose');
+    assert(Yandex.isAdInProgress() === false, 'the ad-in-progress flag is already clear by the time the late reward arrives');
+  }
+
+  // --- Safety timeout: if the backend never calls onClose, onError, OR
+  // onRewarded at all (a dropped/lost SDK callback), the ad is force-
+  // settled after a bounded wait instead of staying stuck forever - the
+  // actual root cause of the live bug report (the helper button stayed
+  // input-blocked with no event ever left to release it). ---
+  {
+    const backend = makeFakeBackend({
+      showRewardedVideo: (callbacks) => { callbacks.onOpen(); /* then nothing, ever */ },
+    });
+    Yandex._configureForTests(backend, { adSafetyTimeoutMs: 20 });
+    let closeArg = 'unset';
+    let errorCount = 0;
+    Yandex.showRewardedAd({
+      onClose: (rewarded) => { closeArg = rewarded; },
+      onError: () => { errorCount++; },
+    });
+    assert(Yandex.isAdInProgress() === true, 'the ad is still considered open immediately after starting, before the safety timeout fires');
+    await delay(60);
+    assert(closeArg === false, 'the safety timeout force-settles through the same onClose(rewarded=false) path a real close would have used');
+    assert(errorCount === 0, 'the safety timeout settles via onClose, not onError');
+    assert(Yandex.isAdInProgress() === false, 'the ad-in-progress flag is cleared once the safety timeout force-settles it');
+
+    // And it never double-fires once a real callback DOES eventually arrive late.
+    Yandex._configureForTests(backend, { adSafetyTimeoutMs: 20 });
+    let closeCount = 0;
+    let captured = null;
+    Yandex._configureForTests(makeFakeBackend({ showRewardedVideo: (callbacks) => { captured = callbacks; } }), { adSafetyTimeoutMs: 20 });
+    Yandex.showRewardedAd({ onClose: () => { closeCount++; } });
+    await delay(60);
+    assert(closeCount === 1, 'the safety timeout fires onClose exactly once');
+    captured.onClose(); // a stray, very-late real callback arriving after the safety timeout already settled
+    assert(closeCount === 1, 'a late real onClose after the safety timeout already settled is ignored, never double-firing the caller');
+  }
+
   // --- Double-tap guard: a second concurrent call is refused outright,
   // and a later call succeeds once the first has genuinely finished ---
   {
@@ -411,6 +481,23 @@ async function main() {
     assert(authCalls === 2, 'a fresh explicit call prompts again - a past decline never blocks it');
     assert(secondResult === true, 'accepting reports true');
     assert(Yandex.isAuthorized() === true, 'isAuthorized() reflects the acceptance');
+  }
+
+  // --- Static wiring check for js/input.js's ad-flow cleanup (DOM-only
+  // logic, same technique tests/audio-hooks.test.js already uses for things
+  // that need a real document - a textual presence check, not real
+  // behavior, but enough to catch "the fix was reverted/never wired" ---
+  {
+    const inputJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'input.js'), 'utf8');
+    const assertContains = (snippet, message) => assert(inputJs.includes(snippet), message + ` (looking for: ${snippet})`);
+
+    assertContains('startHelperAdFlow(id, buttonEl)', 'the ad flow is handed the actual button element it was tapped on');
+    assertContains('buttonEl.blur()', 'the stuck-focus fix (dashed outline after a real ad) blurs the tapped button');
+    assertContains("game.resumeTimer('blur')", "the ad-close cleanup defensively resumes a stray 'blur' timer-pause reason");
+    assertContains("game.resumeTimer('visibility')", "the ad-close cleanup defensively resumes a stray 'visibility' timer-pause reason");
+    assertContains("game.resumeTimer('pagehide')", "the ad-close cleanup defensively resumes a stray 'pagehide' timer-pause reason");
+    assertContains('applyHelperIfRewarded', 'the helper-apply step is its own guarded function, reachable from both onRewarded and the ad-done path');
+    assertContains('function endAdSession', 'cleanup lives in one single, idempotent, guaranteed function');
   }
 
   console.log(`${checks} checks run, ${failures} failed.`);

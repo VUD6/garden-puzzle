@@ -27,6 +27,11 @@
   const MOCK_AD_DELAY_MS = 2000;
   const CLOUD_SAVE_DEBOUNCE_MS = 1500;
   const DEFAULT_LEADERBOARD_THROTTLE_MS = 1000;
+  // Generous upper bound on a real rewarded video (open -> watch -> close) -
+  // see showRewardedAd's own comment for why this exists at all: a dropped
+  // onClose/onError from the real SDK must never leave the game paused and
+  // input-blocked forever.
+  const DEFAULT_AD_SAFETY_TIMEOUT_MS = 90000;
 
   // --- 1. generic helpers ---------------------------------------------
 
@@ -389,8 +394,18 @@
   function createMockBackend() {
     const MOCK_CLOUD_KEY = 'garden.mockCloudData';
     let authorized = false;
-    let forceAdErrorOnce = false;
     let adDelayMs = MOCK_AD_DELAY_MS;
+    // One-shot override for the NEXT showRewardedVideo call only (reset to
+    // null as soon as it's consumed), so a debug/console tool can dial in
+    // exactly one unusual callback order at a time without otherwise
+    // disturbing the normal "always succeeds" mock behavior - see
+    // Garden.yandex.debugSetAdSequence / window.GardenDebug.simulateAdSequence.
+    // One of: null/'rewarded-close' (default), 'close-then-rewarded' (the
+    // reward signal arrives AFTER the ad has already closed - some real ad
+    // networks do this), 'error', 'close-no-reward' (closed/declined with
+    // no reward at all), 'stuck' (never calls onClose/onError/onRewarded at
+    // all - exercises showRewardedAd's own safety-timeout recovery).
+    let forcedAdSequence = null;
 
     function readMockCloud() {
       if (typeof localStorage === 'undefined') return null;
@@ -430,16 +445,34 @@
     }
 
     // Spec: "rewarded ad = 2-second fake with success." Always rewards and
-    // closes after the delay, UNLESS a one-shot error was requested (see
-    // Garden.yandex.debugSimulateAdError / window.GardenDebug).
+    // closes after the delay, UNLESS a one-shot sequence override is in
+    // effect (see forcedAdSequence's own comment above) - lets a real bug
+    // report's exact SDK callback ordering be reproduced on demand rather
+    // than guessed at.
     function showRewardedVideo(callbacks) {
+      const sequence = forcedAdSequence || 'rewarded-close';
+      forcedAdSequence = null; // one-shot, consumed right here regardless of outcome
       if (callbacks.onOpen) callbacks.onOpen();
+
+      if (sequence === 'stuck') return; // deliberately never calls anything else again
+
       setTimeout(function () {
-        if (forceAdErrorOnce) {
-          forceAdErrorOnce = false;
+        if (sequence === 'error') {
           if (callbacks.onError) callbacks.onError();
           return;
         }
+        if (sequence === 'close-no-reward') {
+          if (callbacks.onClose) callbacks.onClose();
+          return;
+        }
+        if (sequence === 'close-then-rewarded') {
+          if (callbacks.onClose) callbacks.onClose();
+          setTimeout(function () {
+            if (callbacks.onRewarded) callbacks.onRewarded();
+          }, Math.min(150, adDelayMs));
+          return;
+        }
+        // default 'rewarded-close'
         if (callbacks.onRewarded) callbacks.onRewarded();
         if (callbacks.onClose) callbacks.onClose();
       }, adDelayMs);
@@ -484,7 +517,8 @@
       serverTime: serverTime,
       leaderboards: { setScore: setScore, getEntries: getEntries, getTotalEntries: getTotalEntries },
       _setAdDelayMs: function (ms) { adDelayMs = ms; },
-      _forceAdErrorOnce: function () { forceAdErrorOnce = true; },
+      _setAdSequence: function (name) { forcedAdSequence = name; },
+      _forceAdErrorOnce: function () { forcedAdSequence = 'error'; }, // kept as a thin alias - see debugSimulateAdError
       _setAuthorized: function (value) { authorized = !!value; },
     };
   }
@@ -498,6 +532,7 @@
   let serverTimeOffsetMs = null;
   let gameplayActive = false;
   let adInProgress = false;
+  let adSafetyTimeoutMs = DEFAULT_AD_SAFETY_TIMEOUT_MS;
   let pendingPauseResumeHandlers = null;
   let cloudReady = false;
   let cloudSaveTimer = null;
@@ -644,15 +679,55 @@
   // Single entry point for every rewarded-ad placement in the game (today,
   // only the helper "+1 charge" tap - see js/input.js). Guards: only one ad
   // open at a time (a second call while one is already open returns false
-  // and touches nothing - the double-tap guard), and the reward itself can
-  // only ever fire once per showRewardedAd() call even if the backend's
-  // onRewarded somehow fired more than once (defensive - real SDKs
-  // shouldn't do this, but the cost of guarding is one boolean).
+  // and touches nothing - the double-tap guard), the reward itself can only
+  // ever fire once per showRewardedAd() call even if the backend's
+  // onRewarded somehow fired more than once, and - the fix for a real bug
+  // reported from a live Yandex Games draft (see GAME_DESIGN.md) - the
+  // terminal callback (onClose/onError) is GUARANTEED to fire exactly once,
+  // through exactly one path (`settle`), no matter what order the backend
+  // calls things in or whether it calls them at all:
+  //  - onRewarded may legitimately fire before OR after onClose (some real
+  //    SDKs/ad networks signal the reward only once the overlay is already
+  //    gone) - it is always still delivered to the caller whenever it
+  //    actually arrives, never dropped just because `settle` already ran.
+  //  - if the backend never calls onClose OR onError at all (a dropped/lost
+  //    callback - the actual root cause of the live bug report: the helper
+  //    button stayed input-blocked and visually stuck forever with no event
+  //    left to ever clear it), a safety timeout force-settles exactly as
+  //    onClose would have, so every caller's own cleanup (js/input.js:
+  //    unblocking input, unmuting, resuming the timer/GameplayAPI, dropping
+  //    stale focus) always eventually runs.
   function showRewardedAd(handlers) {
     handlers = handlers || {};
     if (!backend || adInProgress) return false;
     adInProgress = true;
     let rewarded = false;
+    let settled = false;
+    let safetyTimer = null;
+
+    function settle(isError) {
+      if (settled) return;
+      settled = true;
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+      adInProgress = false;
+      if (isError) {
+        if (handlers.onError) handlers.onError();
+      } else if (handlers.onClose) {
+        // Passes along whether THIS session has rewarded SO FAR, so the
+        // caller can apply an already-known reward immediately - a reward
+        // that arrives LATER (after this fires) still reaches the caller
+        // separately via onRewarded below, never silently dropped.
+        handlers.onClose(rewarded);
+      }
+    }
+
+    safetyTimer = setTimeout(function () {
+      settle(false);
+    }, adSafetyTimeoutMs);
+
     backend.showRewardedVideo({
       onOpen: function () { if (handlers.onOpen) handlers.onOpen(); },
       onRewarded: function () {
@@ -660,17 +735,8 @@
         rewarded = true;
         if (handlers.onRewarded) handlers.onRewarded();
       },
-      onClose: function () {
-        adInProgress = false;
-        // Passes along whether THIS session actually rewarded, so the
-        // caller can decide "apply the helper now" vs. "nothing to apply"
-        // without keeping its own separate flag.
-        if (handlers.onClose) handlers.onClose(rewarded);
-      },
-      onError: function () {
-        adInProgress = false;
-        if (handlers.onError) handlers.onError();
-      },
+      onClose: function () { settle(false); },
+      onError: function () { settle(true); },
     });
     return true;
   }
@@ -685,6 +751,18 @@
   // a real failure.
   function debugSimulateAdError() {
     if (backend && backend.isMock && typeof backend._forceAdErrorOnce === 'function') backend._forceAdErrorOnce();
+  }
+
+  // Console/debug helper (mock mode only - a no-op in real mode, same as
+  // debugSimulateAdError) - forces the NEXT rewarded ad to resolve through
+  // one specific callback order instead of the normal "always succeeds"
+  // mock sequence, so the exact orders a live SDK was reported to use (see
+  // GAME_DESIGN.md) can be reproduced on demand: 'rewarded-close' (default),
+  // 'close-then-rewarded', 'error', 'close-no-reward', 'stuck' (never calls
+  // any terminal callback at all - exercises the safety-timeout recovery;
+  // see showRewardedAd's own comment).
+  function debugSetAdSequence(name) {
+    if (backend && backend.isMock && typeof backend._setAdSequence === 'function') backend._setAdSequence(name);
   }
 
   function getServerTimeOffsetMs() { return serverTimeOffsetMs; }
@@ -930,6 +1008,7 @@
     serverTimeOffsetMs = null;
     gameplayActive = false;
     adInProgress = false;
+    adSafetyTimeoutMs = opts.adSafetyTimeoutMs || DEFAULT_AD_SAFETY_TIMEOUT_MS;
     cloudReady = !!opts.cloudReady;
     if (cloudSaveTimer) { clearTimeout(cloudSaveTimer); cloudSaveTimer = null; }
     if (lbTimer) { clearTimeout(lbTimer); lbTimer = null; }
@@ -953,6 +1032,7 @@
     showRewardedAd,
     isAdInProgress,
     debugSimulateAdError,
+    debugSetAdSequence,
     getServerTimeOffsetMs,
     refreshServerTimeOffset,
     submitScore,

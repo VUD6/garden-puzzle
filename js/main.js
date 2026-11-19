@@ -477,6 +477,28 @@
         simulateAdError: function () {
           Yandex.debugSimulateAdError();
         },
+        // Forces the NEXT rewarded ad (mock mode only) to resolve through
+        // one specific callback order instead of the normal "always
+        // succeeds" sequence - lets the exact orders a live SDK was once
+        // reported to use be reproduced on demand (see GAME_DESIGN.md):
+        // 'rewarded-close' (default/normal), 'close-then-rewarded' (the
+        // reward arrives AFTER the ad already closed), 'error',
+        // 'close-no-reward' (declined, no reward), 'stuck' (never calls any
+        // terminal callback at all - exercises the safety-timeout recovery).
+        simulateAdSequence: function (name) {
+          Yandex.debugSetAdSequence(name);
+        },
+        // Manual QA only, real-browser-only: simulates an ad overlay
+        // stealing window focus without ever giving it back via a real
+        // 'focus' event (one of the hypotheses behind the stuck-helper-
+        // button bug report - see GAME_DESIGN.md). Not meaningful to
+        // automate in the Node test suite (no real window/focus model
+        // there); use this after simulateAdSequence(...) in a real browser
+        // with ?debug=1 to confirm the fix still leaves everything
+        // interactive.
+        simulateAdFocusSteal: function () {
+          window.dispatchEvent(new Event('blur'));
+        },
         state: function () {
           return {
             today: Garden.checkin.getTodayKey(),
@@ -493,7 +515,7 @@
       };
       // eslint-disable-next-line no-console
       console.log(
-        '[Garden] Debug mode: window.GardenDebug is available - advanceDays(n), jumpToDay(k), resetDailyGift(), setWinStreak(n), setTotalStars(n), resetDailyChallenge(), setUnlockedLevel(n), simulateAdError(), state()'
+        '[Garden] Debug mode: window.GardenDebug is available - advanceDays(n), jumpToDay(k), resetDailyGift(), setWinStreak(n), setTotalStars(n), resetDailyChallenge(), setUnlockedLevel(n), simulateAdError(), simulateAdSequence(name), simulateAdFocusSteal(), state()'
       );
     }
   });
