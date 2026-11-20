@@ -27,6 +27,15 @@
   branch below for the one platform so far that needs anything beyond the
   shared "insert one config <script> tag" step every platform gets.
 
+  'playgama' also copies platform/playgama/playgama-bridge-config.json
+  (validated as real JSON first) to the ARCHIVE ROOT, next to index.html -
+  never into js/, since Bridge fetches it as a plain HTTP request relative
+  to the page, not a <script>. After zipping, the archive's own real file
+  list is printed and checked: index.html at the root on every platform,
+  playgama-bridge-config.json at the root for 'playgama' (Playgama's own
+  upload validation requires this), and absent entirely from any other
+  platform's zip.
+
 .PARAMETER Platform
   Which platform to build for. Defaults to 'yandex'.
 
@@ -70,6 +79,15 @@ if (-not $platformConfigById.ContainsKey($Platform)) {
 # /tools, or any repo-root doc file).
 $shippedItems = @('index.html', 'css', 'js', 'fonts')
 
+# Playgama-only: the Bridge SDK's own config file. Lives in platform/playgama/
+# in the repo (NOT in js/ - it's data Bridge fetches as a plain HTTP request
+# to "./playgama-bridge-config.json" next to index.html, not a script) so it
+# can never accidentally end up copied into the Yandex build alongside the
+# rest of js/. See GAME_DESIGN.md's "Platform layer" section for exactly
+# which fields are in it and why.
+$playgamaBridgeConfigSourcePath = Join-Path $repoRoot (Join-Path 'platform' (Join-Path 'playgama' 'playgama-bridge-config.json'))
+$playgamaBridgeConfigFileName = 'playgama-bridge-config.json'
+
 $distDir = Join-Path $repoRoot 'dist'
 if (-not (Test-Path -LiteralPath $distDir)) {
     New-Item -ItemType Directory -Path $distDir | Out-Null
@@ -93,6 +111,33 @@ try {
     $configRelativePath = Join-Path 'js' 'platform-config.js'
     $configStagedPath = Join-Path $stagingDir $configRelativePath
     [System.IO.File]::WriteAllText($configStagedPath, $platformConfigById[$Platform], (New-Object System.Text.UTF8Encoding($false)))
+
+    # $zipEntries (not $shippedItems) is what actually gets passed to tar
+    # below - identical to $shippedItems for every platform except
+    # 'playgama', which adds exactly one more root-level entry.
+    $zipEntries = $shippedItems
+
+    if ($Platform -eq 'playgama') {
+        # Bridge loads this file as "./playgama-bridge-config.json" - a
+        # plain HTTP fetch relative to the PAGE, not a <script> - so it must
+        # sit at the archive root next to index.html, never inside js/.
+        # Validated here (exists + parses as JSON) rather than left to fail
+        # silently at runtime or opaquely on Playgama's own upload check -
+        # see GAME_DESIGN.md's "Platform layer" section for exactly which
+        # fields it declares and why they must match js/platform-playgama.js's
+        # own LEADERBOARD_ID/REWARDED_PLACEMENT_ID constants exactly.
+        if (-not (Test-Path -LiteralPath $playgamaBridgeConfigSourcePath)) {
+            throw "Playgama build requires '$playgamaBridgeConfigSourcePath' but it doesn't exist - see GAME_DESIGN.md's 'Platform layer' section for what belongs in it."
+        }
+        $configJsonText = [System.IO.File]::ReadAllText($playgamaBridgeConfigSourcePath, [System.Text.Encoding]::UTF8)
+        try {
+            $null = $configJsonText | ConvertFrom-Json
+        } catch {
+            throw "'$playgamaBridgeConfigSourcePath' is not valid JSON: $($_.Exception.Message)"
+        }
+        Copy-Item -LiteralPath $playgamaBridgeConfigSourcePath -Destination (Join-Path $stagingDir $playgamaBridgeConfigFileName)
+        $zipEntries = $shippedItems + $playgamaBridgeConfigFileName
+    }
 
     # Rewrites the STAGED index.html only - the repo's own index.html is
     # never opened for writing here. Read via [System.IO.File]::ReadAllText
@@ -153,12 +198,39 @@ try {
     # Windows 10/Server 2019+ bundles as tar.exe) does this by default.
     Push-Location $stagingDir
     try {
-        & tar -a -cf $zipPath @shippedItems
+        & tar -a -cf $zipPath @zipEntries
         if ($LASTEXITCODE -ne 0) {
             throw "tar exited with code $LASTEXITCODE while building '$zipPath'."
         }
     } finally {
         Pop-Location
+    }
+
+    # Post-zip check: print the archive's own real file list (read back from
+    # the zip itself, not just "what we asked tar to add" - catches tar
+    # silently doing something unexpected) and verify index.html is at the
+    # archive ROOT on every platform, playgama-bridge-config.json is at the
+    # root for 'playgama' specifically (the exact complaint this round's
+    # task started from - "the config must be a file in the archive", i.e.
+    # at its root, not nested under any folder), and that file is ABSENT
+    # entirely from any other platform's archive (it's Playgama-specific
+    # data, has no business in a Yandex build).
+    $archiveEntries = & tar -tf $zipPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "tar exited with code $LASTEXITCODE while listing '$zipPath'."
+    }
+    Write-Host "Archive contents of '$zipPath':" -ForegroundColor Cyan
+    $archiveEntries | ForEach-Object { Write-Host "  $_" }
+
+    if ($archiveEntries -notcontains 'index.html') {
+        throw "'$zipPath' does not contain 'index.html' at the archive root - got: $($archiveEntries -join ', ')"
+    }
+    if ($Platform -eq 'playgama') {
+        if ($archiveEntries -notcontains $playgamaBridgeConfigFileName) {
+            throw "'$zipPath' does not contain '$playgamaBridgeConfigFileName' at the archive root - Playgama's own upload check requires it there (see this script's own comment above)."
+        }
+    } elseif ($archiveEntries -contains $playgamaBridgeConfigFileName) {
+        throw "'$zipPath' (platform '$Platform') unexpectedly contains '$playgamaBridgeConfigFileName' - that file is Playgama-only."
     }
 
     $fileCount = (Get-ChildItem -LiteralPath $stagingDir -Recurse -File).Count

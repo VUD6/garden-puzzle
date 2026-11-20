@@ -1,0 +1,13 @@
+{
+  "advertisement": {
+    "rewarded": {
+      "placementFallback": "helper_charge",
+      "placements": [
+        { "id": "helper_charge" }
+      ]
+    }
+  },
+  "leaderboards": [
+    { "id": "points" }
+  ]
+}

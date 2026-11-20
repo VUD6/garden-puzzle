@@ -154,6 +154,22 @@ async function main() {
     assert(PlatformPlaygama.capabilities.cloudSave === true, 'an unrelated capability (cloudSave) is unaffected by the other two being off');
   }
 
+  // --- Rewarded ads: showRewarded() is called with the EXACT placement id
+  // declared in platform/playgama/playgama-bridge-config.json
+  // (advertisement.rewarded.placements[0].id / placementFallback -
+  // "helper_charge") - passed explicitly rather than left to the config's
+  // own placementFallback, so this stays correct even if that fallback is
+  // ever edited independently of this file. ---
+  {
+    let placementArg = 'unset';
+    const bridge = makeFakeBridge({ advertisement: { showRewarded: (placement) => { placementArg = placement; } } });
+    await PlatformPlaygama._configureForTests(bridge);
+    const adPromise = PlatformPlaygama.showRewardedAd();
+    assert(placementArg === 'helper_charge', `showRewarded() is called with the config's own placement id (got "${placementArg}")`);
+    bridge._fireRewardedState('closed');
+    await adPromise;
+  }
+
   // --- Rewarded ads: the documented mandatory order, rewarded then closed,
   // resolves {rewarded:true} ---
   {
@@ -278,14 +294,20 @@ async function main() {
     assert(savedPayload && typeof savedPayload === 'object', 'saveData() calls storage.set() with the object-form payload');
   }
 
-  // --- Leaderboard submit: forwards to leaderboards.setScore() when
-  // supported, is a silent no-op when leaderboards.type is "not_available" ---
+  // --- Leaderboard submit: forwards to leaderboards.setScore() with the
+  // EXACT leaderboard id declared in
+  // platform/playgama/playgama-bridge-config.json (leaderboards[0].id -
+  // "points", also the same technical id every other platform already
+  // submits under) when supported, is a silent no-op when leaderboards.type
+  // is "not_available" ---
   {
+    let lastId = null;
     let lastScore = null;
-    const bridge = makeFakeBridge({ leaderboards: { type: 'in_game', setScore: (id, score) => { lastScore = score; return Promise.resolve(); } } });
+    const bridge = makeFakeBridge({ leaderboards: { type: 'in_game', setScore: (id, score) => { lastId = id; lastScore = score; return Promise.resolve(); } } });
     await PlatformPlaygama._configureForTests(bridge);
     PlatformPlaygama.submitScore('points', 42);
     await delay(0);
+    assert(lastId === 'points', `submitScore() calls setScore() with the config's own leaderboard id (got "${lastId}")`);
     assert(lastScore === 42, 'submitScore() forwards the score to leaderboards.setScore()');
   }
   {

@@ -42,7 +42,12 @@
 // remote-config, analytics, and player.name/photos/extra (no UI surface
 // for them today).
 (function (root) {
-  const LEADERBOARD_ID = 'points'; // same technical id js/main.js already submits under for every platform
+  // These two ids MUST match platform/playgama/playgama-bridge-config.json
+  // exactly - Bridge only recognizes a leaderboard/placement id that was
+  // pre-declared in that file (see GAME_DESIGN.md's "Platform layer"
+  // section and the config file's own comments-equivalent in that doc).
+  const LEADERBOARD_ID = 'points'; // same technical id js/main.js already submits under for every platform; config: leaderboards[0].id
+  const REWARDED_PLACEMENT_ID = 'helper_charge'; // the game's only rewarded placement (the helper "+1 charge" ad); config: advertisement.rewarded.placements[0].id / placementFallback
   // Generous upper bound on a real rewarded video (open -> watch -> close) -
   // same reasoning as js/platform-yandex.js's own DEFAULT_AD_SAFETY_TIMEOUT_MS:
   // a dropped/never-fired terminal state must never leave the game paused
@@ -353,7 +358,11 @@
       adInProgress = true;
       pendingAd = { resolve: resolve, reject: reject, rewarded: false, settled: false, safetyTimer: null };
       pendingAd.safetyTimer = setTimeout(settlePendingAd, adSafetyTimeoutMs);
-      safeCall(function () { bridge.advertisement.showRewarded(); });
+      // Passed explicitly rather than relying on the config's own
+      // placementFallback - this way the call is correct even if the
+      // config's fallback is ever edited/removed, and `grep`ping this file
+      // for REWARDED_PLACEMENT_ID finds every real use of that id.
+      safeCall(function () { bridge.advertisement.showRewarded(REWARDED_PLACEMENT_ID); });
     });
   }
 
