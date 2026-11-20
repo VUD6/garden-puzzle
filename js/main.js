@@ -23,15 +23,15 @@
   // waiting on a specific element) since they're independent of the DOM
   // build below and need to be live as early as possible.
 
-  // Starts the Yandex SDK handshake (or its mock twin) as early as
-  // possible - well before DOMContentLoaded, so the real SDK's own
-  // getPlayer()/serverTime() round trips have the most possible time to
-  // resolve before anything (gameReady()'s LoadingAPI.ready() call,
-  // cloud-save merge) actually needs them. Never blocks anything here
-  // either way - the callback is empty on purpose; every later call site
-  // (gameReady, cloudSaveInit, ...) checks Garden.yandex's own ready state
-  // itself rather than waiting on this callback.
-  root.Garden.yandex.init(function () {});
+  // Starts the active platform adapter's handshake (the real SDK or its
+  // mock twin, picked by js/platform-adapter.js from window.GAME_PLATFORM)
+  // as early as possible - well before DOMContentLoaded, so a real SDK's
+  // own getPlayer()/serverTime() round trips have the most possible time to
+  // resolve before anything (gameReady()'s ready() call, the cloud-save
+  // merge) actually needs them. Never blocks anything here either way -
+  // init() itself never rejects, but a .catch is kept anyway as cheap
+  // insurance against an unhandled-rejection warning.
+  root.Garden.platformAdapter.init().catch(function () {});
 
   // Safe pinch-zoom reset (no visible UI): if the page is still visually
   // zoomed in from a pinch inside a popup (visualViewport.scale > 1),
@@ -157,7 +157,12 @@
 
     const platform = Garden.platform;
     const audio = Garden.audio;
-    const Yandex = Garden.yandex;
+    // Named distinctly from the pre-existing lowercase `platform` (the
+    // local-storage save module, js/platform.js) - this is the SDK-facing
+    // facade, js/platform-adapter.js, a deliberately different thing that
+    // happens to sound similar; see GAME_DESIGN.md's "Platform layer"
+    // section for why the two are separate modules.
+    const PlatformAdapter = Garden.platformAdapter;
     audio.init();
     const renderer = Garden.render.createRenderer(dom);
     const prefersReducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -190,21 +195,24 @@
         const enriched = Garden.dailyChallenge.handleSnapshot(snapshot);
         renderer.render(enriched);
 
-        // GameplayAPI.stop() on win/lose - Garden.yandex.gameplayStop() is
+        // GameplayAPI.stop() on win/lose - PlatformAdapter.gameplayStop() is
         // idempotent (a no-op once already stopped), so this can run on
         // every single snapshot with no separate "did we already stop"
         // tracking of our own.
-        if (enriched.status === 'won' || enriched.status === 'lost') Yandex.gameplayStop();
+        if (enriched.status === 'won' || enriched.status === 'lost') PlatformAdapter.gameplayStop();
 
         if (enriched.status === 'won') {
           // Reads the fresh total straight from storage rather than
           // enriched.totalScore: a daily-challenge win's own point reward
           // is credited above (Garden.dailyChallenge.handleSnapshot, via
-          // Platform.saveTotalScore) entirely outside state.js's own
+          // platform.saveTotalScore) entirely outside state.js's own
           // committedScore bookkeeping, so the snapshot field itself can be
           // stale for a challenge win specifically - see GAME_DESIGN.md.
-          Yandex.submitScore(platform.loadTotalScore());
-          Yandex.fetchBeatPercentForWinScreen(renderer.setWinBeatPercent);
+          // "points" is the leaderboard's pinned technical name (see
+          // GAME_DESIGN.md/the Yandex Games Console setup) - submitScore is
+          // a safe no-op on any adapter/mode that doesn't support it.
+          PlatformAdapter.submitScore('points', platform.loadTotalScore());
+          PlatformAdapter.fetchBeatPercentForWinScreen(renderer.setWinBeatPercent);
         }
       },
     });
@@ -219,7 +227,7 @@
     // or Settings' "Replay tutorial"), resumed the instant it's dismissed.
     function startTutorial(onComplete) {
       game.pauseTimer('tutorial');
-      Yandex.gameplayStop();
+      PlatformAdapter.gameplayStop();
       audio.setMusicTrack('menu');
       tutorial.start(function () {
         game.resumeTimer('tutorial');
@@ -229,7 +237,7 @@
         // js/input.js's own maybeResumeGameplay uses, when the tutorial was
         // opened from the menu instead (first launch, or its "How to play"
         // button), where there was never a gameplay session to resume.
-        if (!dom.gameScreen.hidden && game.getSnapshot().status === 'playing') Yandex.gameplayStart();
+        if (!dom.gameScreen.hidden && game.getSnapshot().status === 'playing') PlatformAdapter.gameplayStart();
         audio.setMusicTrack(musicTrackForCurrentScreen());
         if (typeof onComplete === 'function') onComplete();
       });
@@ -246,14 +254,14 @@
         // scheduler) the moment the tab goes background/hidden - the page
         // could be frozen or killed at any point after this, so anything
         // still only debounced would be lost.
-        Yandex.flushCloudSaveNow();
+        Garden.cloudsave.flushNow();
       } else {
         game.resumeTimer('visibility');
       }
     });
     window.addEventListener('pagehide', function () {
       game.pauseTimer('pagehide');
-      Yandex.flushCloudSaveNow();
+      Garden.cloudsave.flushNow();
     });
     window.addEventListener('pageshow', function () {
       game.resumeTimer('pagehide');
@@ -270,7 +278,7 @@
     // timer and audio mute as every other pause reason above, per
     // GAME_DESIGN.md/the Yandex integration spec. A no-op with no SDK
     // present (the mock backend never emits these).
-    Yandex.onPauseResume({
+    PlatformAdapter.onPauseResume({
       onPause: function () {
         game.pauseTimer('platform');
         audio.setExternalMute('platform', true);
@@ -291,7 +299,7 @@
       // GameplayAPI.start() - a level or challenge attempt begins or
       // resumes here, whether this is a fresh level, a reload mid-level, or
       // coming back from the menu to a still-in-progress attempt.
-      Yandex.gameplayStart();
+      PlatformAdapter.gameplayStart();
     }
 
     function returnToMenu() {
@@ -308,7 +316,7 @@
       // Leaving to the menu always ends the GameplayAPI session (idempotent
       // if a win/lose already stopped it) - per GAME_DESIGN.md/the Yandex
       // integration spec.
-      Yandex.gameplayStop();
+      PlatformAdapter.gameplayStop();
     }
 
     const checkinScreen = Garden.checkin.createDailyGiftScreen(dom, {
@@ -330,7 +338,7 @@
       },
       onSettings: function () {
         game.pauseTimer('settings');
-        Yandex.gameplayStop();
+        PlatformAdapter.gameplayStop();
         renderer.openSettings();
       },
       onDailyChallenge: function () {
@@ -391,11 +399,12 @@
 
     audio.createSettingsRows(dom);
 
-    // Leaderboard popup (see js/yandex.js's createLeaderboardScreen) - a
-    // menu-only entry point, self-contained (builds its own button/overlay,
-    // index.html has no slot for either), so nothing further needs wiring
-    // here beyond creating it once.
-    Yandex.createLeaderboardScreen(dom);
+    // Leaderboard popup (see js/platform-yandex.js's createLeaderboardScreen,
+    // reached only via the generic facade) - a menu-only entry point,
+    // self-contained (builds its own button/overlay, index.html has no slot
+    // for either), so nothing further needs wiring here beyond creating it
+    // once.
+    PlatformAdapter.createLeaderboardScreen(dom);
 
     menuScreen.render();
     checkinScreen.render();
@@ -410,7 +419,7 @@
     // changed anything visible (progress, helper charges, daily-gift/
     // challenge state, ...), re-render the menu/daily-gift badge so it's
     // never showing stale pre-merge data.
-    Yandex.cloudSaveInit(function (changed) {
+    Garden.cloudsave.init(function (changed) {
       if (changed) {
         menuScreen.render();
         checkinScreen.render();
@@ -471,11 +480,11 @@
           menuScreen.render();
         },
         // Forces the NEXT rewarded ad (mock mode only - see
-        // js/yandex.js's debugSimulateAdError) to resolve as an error
-        // instead of granting a reward, so the "ad unavailable" message
-        // path can be exercised on demand.
+        // js/platform-yandex.js's debugSimulateAdError) to resolve as an
+        // error instead of granting a reward, so the "ad unavailable"
+        // message path can be exercised on demand.
         simulateAdError: function () {
-          Yandex.debugSimulateAdError();
+          PlatformAdapter.debugSimulateAdError();
         },
         // Forces the NEXT rewarded ad (mock mode only) to resolve through
         // one specific callback order instead of the normal "always
@@ -486,7 +495,7 @@
         // 'close-no-reward' (declined, no reward), 'stuck' (never calls any
         // terminal callback at all - exercises the safety-timeout recovery).
         simulateAdSequence: function (name) {
-          Yandex.debugSetAdSequence(name);
+          PlatformAdapter.debugSetAdSequence(name);
         },
         // Manual QA only, real-browser-only: simulates an ad overlay
         // stealing window focus without ever giving it back via a real

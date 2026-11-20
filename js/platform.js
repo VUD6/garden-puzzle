@@ -105,14 +105,14 @@
     return typeof localStorage !== 'undefined';
   }
 
-  // Soft dependency on js/yandex.js: platform.js must stay usable (and
+  // Soft dependency on js/cloudsave.js: platform.js must stay usable (and
   // Node-testable) with no cloud-save module loaded at all, so this never
-  // throws if Garden.yandex isn't present - it's a plain no-op then, and
-  // js/yandex.js's own debounced scheduler is what actually decides when to
-  // talk to the SDK.
+  // throws if Garden.cloudsave isn't present - it's a plain no-op then, and
+  // js/cloudsave.js's own debounced scheduler is what actually decides when
+  // to talk to the active platform adapter.
   function notifyCloudDirty() {
-    if (root.Garden && root.Garden.yandex && typeof root.Garden.yandex.scheduleCloudSave === 'function') {
-      root.Garden.yandex.scheduleCloudSave();
+    if (root.Garden && root.Garden.cloudsave && typeof root.Garden.cloudsave.scheduleSave === 'function') {
+      root.Garden.cloudsave.scheduleSave();
     }
   }
 
@@ -548,20 +548,22 @@
   // The single clock entry point for anything date-based (the daily gift
   // and daily challenge features). Tests override this directly
   // (Platform.now = () => ...) to simulate arbitrary days without waiting
-  // for real ones. In the real app, prefers the Yandex SDK's server time
-  // (js/yandex.js's getServerTimeOffsetMs(), cached there - see its own
-  // comment) over the device clock whenever it's available, so the
-  // existing clock-backwards tamper guard in js/checkin.js/js/daily-
-  // challenge.js is judging against a clock the player can't just set back
-  // themselves; falls back to the plain device clock if the SDK/mock never
-  // reported an offset (not yet ready, or running with no SDK at all -
-  // never blocks or throws either way). Under explicit debug mode
-  // (?debug=1 - see isDebugEnabled) a persisted day offset still shifts
-  // whichever base clock was picked, exactly as before, so the daily gift's
-  // day-by-day logic stays testable without waiting on real calendar days.
+  // for real ones. In the real app, prefers the active platform's server
+  // time (js/platform-adapter.js's getServerTimeOffsetMs(), a synchronous
+  // cached-offset accessor - see its own comment on why this is sync while
+  // the generic getServerTime() contract method is a Promise) over the
+  // device clock whenever it's available, so the existing clock-backwards
+  // tamper guard in js/checkin.js/js/daily-challenge.js is judging against
+  // a clock the player can't just set back themselves; falls back to the
+  // plain device clock if the platform never reported an offset (not yet
+  // ready, or running with no adapter loaded at all - never blocks or
+  // throws either way). Under explicit debug mode (?debug=1 - see
+  // isDebugEnabled) a persisted day offset still shifts whichever base
+  // clock was picked, exactly as before, so the daily gift's day-by-day
+  // logic stays testable without waiting on real calendar days.
   function now() {
-    const Yandex = root.Garden && root.Garden.yandex;
-    const offsetMs = Yandex && typeof Yandex.getServerTimeOffsetMs === 'function' ? Yandex.getServerTimeOffsetMs() : null;
+    const Platform = root.Garden && root.Garden.platformAdapter;
+    const offsetMs = Platform && typeof Platform.getServerTimeOffsetMs === 'function' ? Platform.getServerTimeOffsetMs() : null;
     const real = offsetMs === null ? new Date() : new Date(Date.now() + offsetMs);
     if (!isDebugEnabled()) return real;
     const offsetDays = loadDebugDayOffset();
@@ -713,16 +715,16 @@
   }
 
   // Called once after boot (i18n/settings/saves ready, right as the menu
-  // becomes interactive - see js/main.js). Hooks Yandex's
-  // features.LoadingAPI.ready() (via js/yandex.js, never window.YaGames
-  // directly) exactly as this function's old stub comment promised,
-  // without needing any change at the main.js call site - a no-op with no
-  // SDK present. js/yandex.js's own ready() queues this if Yandex.init()'s
-  // own async SDK handshake hasn't resolved yet, so it's safe to call this
-  // as early as the menu is actually ready, regardless of which finishes
-  // first.
+  // becomes interactive - see js/main.js). Hooks the active platform
+  // adapter's ready() signal (e.g. Yandex's features.LoadingAPI.ready(),
+  // via js/platform-adapter.js, never any SDK directly) exactly as this
+  // function's old stub comment promised, without needing any change at
+  // the main.js call site - a no-op with no adapter loaded. The concrete
+  // adapter's own ready() queues this if its init()'s async SDK handshake
+  // hasn't resolved yet, so it's safe to call this as early as the menu is
+  // actually ready, regardless of which finishes first.
   function gameReady() {
-    if (root.Garden.yandex) root.Garden.yandex.ready();
+    if (root.Garden.platformAdapter) root.Garden.platformAdapter.ready();
   }
 
   // Stubs for the Yandex Games SDK integration (roadmap step 7). Calling code

@@ -307,9 +307,20 @@
           canUse: canUseHelper(id),
           // Only ever true mid-level (never on a finished/won/lost board,
           // and never for a still-locked helper - Helpers.needsAd already
-          // folds in isUnlocked) - see js/render.js's data-ad hook and
-          // js/input.js's tap routing into the rewarded-ad flow.
-          needsAd: status === 'playing' && Helpers.needsAd(id),
+          // folds in isUnlocked), AND only on a platform that actually
+          // supports rewarded ads (Garden.platformAdapter.capabilities -
+          // see GAME_DESIGN.md's "Platform layer" section; a platform
+          // without this capability just leaves a 0-charge helper disabled
+          // instead of showing a dead ad-tap state). Defaults to allowed
+          // when no platform adapter is loaded at all (e.g. this file's own
+          // Node tests, which never require js/platform-adapter.js) - the
+          // real game always loads it, and today's only real platform
+          // (Yandex) always reports this capability as true anyway, so this
+          // guard changes nothing about real behavior.
+          needsAd:
+            status === 'playing' &&
+            Helpers.needsAd(id) &&
+            (!root.Garden.platformAdapter || root.Garden.platformAdapter.capabilities.rewardedAds),
         };
       });
       return snap;

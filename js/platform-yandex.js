@@ -1,37 +1,48 @@
-// Yandex Games SDK integration: the ONLY place in the game that is allowed
-// to touch window.YaGames - every other module talks exclusively to
-// Garden.yandex, so the rest of the game works identically whether a real
-// SDK is present (Yandex Games), absent (GitHub Pages, a local file open),
-// or deliberately forced into its mock twin for testing (?mock=1).
+// The Yandex Games concrete platform adapter: the ONLY place in the game
+// that is allowed to touch window.YaGames - js/platform-adapter.js (the
+// generic facade every other module actually calls) forwards to whichever
+// concrete adapter is active; today that's always this one, since Yandex
+// is the only shipped platform (see GAME_DESIGN.md's "Platform layer"
+// section for how a future adapter, e.g. Playgama, plugs in next to this).
 //
 // Shape of this file, top to bottom:
 //   1. Small generic promise/async helpers.
-//   2. Pure, side-effect-free logic (cloud-save merge policy, the
-//      leaderboard "beat N%" math) - exported directly, Node-testable with
-//      no DOM/SDK/window at all, same convention every other feature module
-//      in this game already follows (checkin.js, daily-challenge.js, ...).
-//   3. The REAL backend: a thin adapter around window.YaGames's actual
+//   2. The REAL backend: a thin adapter around window.YaGames's actual
 //      methods, defensive about every single call (try/catch + duck-typed
 //      Promise handling) because a 3rd-party SDK's exact method shapes
 //      can't be verified from outside a live Yandex Games session - see
 //      GAME_DESIGN.md's integration notes for what's confirmed vs. assumed.
-//   4. The MOCK backend: a 2-second fake rewarded ad that always succeeds,
+//   3. The MOCK backend: a 2-second fake rewarded ad that always succeeds,
 //      an in-memory/localStorage-backed "cloud", and clearly-fake
 //      leaderboard data for visual testing - every mock-only fabrication is
 //      commented as such and NEVER reachable from the real backend.
-//   5. Orchestration: which backend got picked, ad/gameplay/leaderboard
-//      state machines, cloud-save scheduling, and the leaderboard popup's
-//      DOM glue.
+//   4. Orchestration: which backend got picked, the adapter-contract
+//      methods (init/ready/gameplayStart/Stop/showRewardedAd/loadData/
+//      saveData/submitScore/getServerTime/getLanguage/capabilities) plus
+//      Yandex-specific extras beyond that generic contract (leaderboard
+//      entries/popup, auth, debug hooks) - all still only ever reached
+//      through this module, never raw ysdk, from anywhere else in the game.
+//
+// NOTE: the cloud-save MERGE POLICY (which side's value wins per field) is
+// deliberately NOT in this file - that's game logic, not a platform
+// concern, and lives in js/cloudsave.js, which calls this adapter's generic
+// loadData()/saveData() rather than anything Yandex-specific.
 (function (root) {
   const LEADERBOARD_NAME = 'points';
   const MOCK_AD_DELAY_MS = 2000;
-  const CLOUD_SAVE_DEBOUNCE_MS = 1500;
   const DEFAULT_LEADERBOARD_THROTTLE_MS = 1000;
   // Generous upper bound on a real rewarded video (open -> watch -> close) -
   // see showRewardedAd's own comment for why this exists at all: a dropped
   // onClose/onError from the real SDK must never leave the game paused and
   // input-blocked forever.
   const DEFAULT_AD_SAFETY_TIMEOUT_MS = 90000;
+  // Short grace window after the ad closes, before the showRewardedAd()
+  // Promise actually resolves, ONLY entered when the close arrived before
+  // any reward signal did (some real ad networks confirm the reward
+  // slightly after the overlay is already gone - see showRewardedAd's own
+  // comment). Never applied on the common path (reward already known by
+  // the time close fires resolves immediately, no artificial delay).
+  const DEFAULT_REWARD_GRACE_MS = 1500;
 
   // --- 1. generic helpers ---------------------------------------------
 
@@ -52,190 +63,7 @@
     }
   }
 
-  // --- 2. pure logic: cloud-save merge policy -------------------------
-  //
-  // See GAME_DESIGN.md's "Cloud saves" section for the full written policy
-  // this implements. Every function here takes plain data in, returns plain
-  // data out - no Garden.platform, no SDK, no DOM - so mergeSnapshots itself
-  // is trivially unit-testable; only buildLocalSnapshot/applyMergedSnapshot
-  // below (which DO read/write Garden.platform) need a fake localStorage,
-  // the same convention every other Node test in this repo already uses.
-
-  // Lexicographic max of two 'YYYY-MM-DD' keys (or null) - safe because the
-  // format is fixed-width and zero-padded (see js/checkin.js's
-  // dateKeyFromParts). Used to make sure a daily reward's claim/reward date
-  // can never regress across a merge, which is exactly what would let the
-  // same day's reward be claimed twice on two different devices.
-  function laterDateKey(a, b) {
-    if (!a) return b || null;
-    if (!b) return a;
-    return a >= b ? a : b;
-  }
-
-  // Unions two {level: value} maps, applying `pick(a, b)` only where BOTH
-  // sides have a value for that level; a level present on only one side
-  // just keeps that side's value untouched (there is nothing to reconcile).
-  function mergeByLevelMaps(a, b, pick) {
-    a = a || {};
-    b = b || {};
-    const result = {};
-    const keys = {};
-    Object.keys(a).forEach(function (k) { keys[k] = true; });
-    Object.keys(b).forEach(function (k) { keys[k] = true; });
-    Object.keys(keys).forEach(function (key) {
-      const av = a[key];
-      const bv = b[key];
-      if (av == null) { result[key] = bv; return; }
-      if (bv == null) { result[key] = av; return; }
-      result[key] = pick(av, bv);
-    });
-    return result;
-  }
-
-  // The actual merge. `cloud` may be null/undefined (nothing in the cloud
-  // yet) - the local snapshot wins outright in that case, nothing to do.
-  //
-  // Field-by-field policy (see GAME_DESIGN.md for the "why"):
-  //  - progress/highestLevel/totalScore/bestWinStreak: max (never regress).
-  //  - bestTimes: min per level (a smaller time is always the better one).
-  //  - bestStars: max per level.
-  //  - dailyChallenge.challengeStars: max (independent of the rest of that
-  //    same record - see below).
-  //  - everything else (helper charges, the live win streak counter, the
-  //    rest of the daily-gift record, the rest of the daily-challenge
-  //    record, sound/theme settings): taken wholesale from whichever side
-  //    has the later `savedAt` - these can legitimately go DOWN (spent
-  //    charges, a streak reset by a loss), so "max" would be wrong for them;
-  //    "most recently written, on either device" is the right rule instead.
-  //    One shared savedAt governs this whole group (see platform.js's
-  //    touchSavedAt) rather than a separate timestamp per field, a
-  //    deliberate simplification - see GAME_DESIGN.md.
-  //  - lastClaimDate/lastRewardDate get one extra override on top of the
-  //    savedAt-side pick: whichever of the two is chronologically LATER
-  //    always wins, specifically so a device that's behind on savedAt but
-  //    genuinely claimed a later calendar day's reward can never have that
-  //    claim marker rolled back - the one case where losing the savedAt-side
-  //    pick would let the same reward be claimed twice.
-  function mergeSnapshots(local, cloud) {
-    if (!cloud) return local;
-
-    const localSavedAt = local.savedAt || 0;
-    const cloudSavedAt = cloud.savedAt || 0;
-    const savedAtSide = localSavedAt >= cloudSavedAt ? local : cloud;
-
-    const localGift = local.dailyGift || {};
-    const cloudGift = cloud.dailyGift || {};
-    const dailyGift = Object.assign({}, savedAtSide.dailyGift || {}, {
-      lastClaimDate: laterDateKey(localGift.lastClaimDate, cloudGift.lastClaimDate),
-    });
-
-    const localChallenge = local.dailyChallenge || {};
-    const cloudChallenge = cloud.dailyChallenge || {};
-    const challengeStars = Math.max(localChallenge.challengeStars || 0, cloudChallenge.challengeStars || 0);
-    const dailyChallenge = Object.assign({}, savedAtSide.dailyChallenge || {}, {
-      lastRewardDate: laterDateKey(localChallenge.lastRewardDate, cloudChallenge.lastRewardDate),
-      challengeStars: challengeStars,
-    });
-
-    return {
-      progress: Math.max(local.progress || 1, cloud.progress || 1),
-      highestLevel: Math.max(local.highestLevel || 1, cloud.highestLevel || 1),
-      totalScore: Math.max(local.totalScore || 0, cloud.totalScore || 0),
-      bestTimes: mergeByLevelMaps(local.bestTimes, cloud.bestTimes, Math.min),
-      bestStars: mergeByLevelMaps(local.bestStars, cloud.bestStars, Math.max),
-      bestWinStreak: Math.max(local.bestWinStreak || 0, cloud.bestWinStreak || 0),
-      winStreak: savedAtSide.winStreak || 0,
-      helperCharges: savedAtSide.helperCharges || {},
-      dailyGift: dailyGift,
-      dailyChallenge: dailyChallenge,
-      sfxEnabled: savedAtSide.sfxEnabled,
-      musicEnabled: savedAtSide.musicEnabled,
-      theme: savedAtSide.theme,
-    };
-  }
-
-  // Reads everything the cloud-save policy cares about straight out of
-  // Garden.platform - deliberately NOT the in-progress board state (never
-  // part of this payload; see GAME_DESIGN.md for why), and deliberately NOT
-  // patternsEnabled/reduceMotion/vibrationEnabled/tutorialDone (accessibility
-  // and device-specific prefs, left local-only on purpose - same doc).
-  function buildLocalSnapshot() {
-    const Platform = root.Garden.platform;
-    const bestTimes = {};
-    Platform.loadBestTimeLevels().forEach(function (level) {
-      bestTimes[level] = Platform.loadBestTime(level);
-    });
-    const bestStars = {};
-    Platform.loadBestStarsLevels().forEach(function (level) {
-      bestStars[level] = Platform.loadBestStars(level);
-    });
-    return {
-      progress: Platform.loadProgress(),
-      highestLevel: Platform.loadHighestLevel(),
-      totalScore: Platform.loadTotalScore(),
-      bestTimes: bestTimes,
-      bestStars: bestStars,
-      bestWinStreak: Platform.loadBestWinStreak(),
-      winStreak: Platform.loadWinStreak(),
-      helperCharges: Platform.loadHelperCharges() || {},
-      dailyGift: Platform.loadDailyGift(),
-      dailyChallenge: Platform.loadDailyChallenge(),
-      sfxEnabled: Platform.loadSfxEnabled(),
-      musicEnabled: Platform.loadMusicEnabled(),
-      theme: Platform.loadTheme(),
-      savedAt: Platform.loadSavedAt(),
-    };
-  }
-
-  // Writes a merged snapshot (see mergeSnapshots) back into Garden.platform.
-  // Per-level best stars go through writeBestStarsRaw (no per-call totalStars
-  // delta) followed by one recomputeTotalStars() at the end, rather than
-  // saveBestStars's normal delta bookkeeping - see platform.js's own comment
-  // on writeBestStarsRaw for why: totalStars is ALSO being reconstructed
-  // wholesale here (sum of per-level bests + challengeStars), so letting N
-  // individual deltas apply on top of that would double-count.
-  function applyMergedSnapshot(merged) {
-    const Platform = root.Garden.platform;
-    Platform.saveProgress(merged.progress);
-    Platform.saveHighestLevel(merged.highestLevel);
-    Platform.saveTotalScore(merged.totalScore);
-    Object.keys(merged.bestTimes || {}).forEach(function (level) {
-      const value = merged.bestTimes[level];
-      if (value != null) Platform.saveBestTime(Number(level), value);
-    });
-    Object.keys(merged.bestStars || {}).forEach(function (level) {
-      const value = merged.bestStars[level];
-      if (value != null) Platform.writeBestStarsRaw(Number(level), value);
-    });
-    Platform.saveBestWinStreakRaw(merged.bestWinStreak);
-    Platform.saveWinStreak(merged.winStreak);
-    Platform.saveHelperCharges(merged.helperCharges);
-    Platform.saveDailyGift(merged.dailyGift);
-    // Written BEFORE recomputeTotalStars() below, which reads
-    // loadDailyChallenge().challengeStars - the merged record must already
-    // be in storage or the recompute would sum against the stale
-    // pre-merge challengeStars instead of the just-merged one.
-    Platform.saveDailyChallenge(merged.dailyChallenge);
-    Platform.recomputeTotalStars();
-    if (typeof merged.sfxEnabled === 'boolean') Platform.saveSfxEnabled(merged.sfxEnabled);
-    if (typeof merged.musicEnabled === 'boolean') Platform.saveMusicEnabled(merged.musicEnabled);
-    if (merged.theme) Platform.saveTheme(merged.theme);
-  }
-
-  // --- 2b. pure logic: leaderboard "beat N%" ---------------------------
-  //
-  // See the module-level comment and GAME_DESIGN.md: the real SDK exposes
-  // no "total number of entries on the board" call that this file could
-  // find documented anywhere, so getLeaderboardTotalEntries() (real backend,
-  // below) always returns null and this line never renders in real mode -
-  // exactly the "don't fake it, show nothing" behavior the spec asked for.
-  function computeBeatPercent(rank, total) {
-    if (typeof rank !== 'number' || typeof total !== 'number' || total <= 0 || rank <= 0) return null;
-    const beaten = Math.max(0, total - rank);
-    return Math.max(0, Math.min(100, Math.round((beaten / total) * 100)));
-  }
-
-  // --- 3. real backend: the only code in this file allowed to touch
+  // --- 2. real backend: the only code in this file allowed to touch
   // window.YaGames -----------------------------------------------------
 
   function createRealBackend(win) {
@@ -352,6 +180,18 @@
       return ysdk.serverTime();
     }
 
+    // Best-effort BCP-47-ish short code (e.g. 'ru', 'en') from the SDK's
+    // environment info - the exact field path couldn't be confirmed without
+    // a live SDK session (see GAME_DESIGN.md), so this is guarded the same
+    // defensive way as everything else here: any shape mismatch degrades to
+    // "language unknown" rather than throwing.
+    function language() {
+      return safeCall(function () {
+        const lang = ysdk && ysdk.environment && ysdk.environment.i18n && ysdk.environment.i18n.lang;
+        return typeof lang === 'string' && lang ? lang : null;
+      }, null);
+    }
+
     function setScore(name, score) {
       if (!ysdk || !ysdk.leaderboards || typeof ysdk.leaderboards.setScore !== 'function') return Promise.resolve();
       return toPromise(ysdk.leaderboards.setScore(name, score)).catch(function () {});
@@ -362,9 +202,9 @@
       return toPromise(ysdk.leaderboards.getEntries(name, options)).catch(function () { return null; });
     }
 
-    // See computeBeatPercent's comment: no confirmed real-SDK call for this,
-    // so the real backend always reports "unknown" rather than inventing a
-    // number.
+    // No confirmed real-SDK call for "total entries on a leaderboard" (see
+    // computeBeatPercent's own comment below), so the real backend always
+    // reports "unknown" rather than inventing a number.
     function getTotalEntries() {
       return null;
     }
@@ -383,11 +223,12 @@
       setPlayerData: setPlayerData,
       showRewardedVideo: showRewardedVideo,
       serverTime: serverTime,
+      language: language,
       leaderboards: { setScore: setScore, getEntries: getEntries, getTotalEntries: getTotalEntries },
     };
   }
 
-  // --- 4. mock backend: used whenever window.YaGames is absent, or
+  // --- 3. mock backend: used whenever window.YaGames is absent, or
   // ?mock=1 forces it even when the real SDK IS present (dev testing inside
   // a real Yandex Games preview iframe) -------------------------------
 
@@ -399,7 +240,7 @@
     // null as soon as it's consumed), so a debug/console tool can dial in
     // exactly one unusual callback order at a time without otherwise
     // disturbing the normal "always succeeds" mock behavior - see
-    // Garden.yandex.debugSetAdSequence / window.GardenDebug.simulateAdSequence.
+    // debugSetAdSequence / window.GardenDebug.simulateAdSequence.
     // One of: null/'rewarded-close' (default), 'close-then-rewarded' (the
     // reward signal arrives AFTER the ad has already closed - some real ad
     // networks do this), 'error', 'close-no-reward' (closed/declined with
@@ -433,7 +274,7 @@
     // Dev convenience: the mock's auth dialog always "succeeds" - there is
     // no real decline path to simulate without a UI, and the actual
     // decline/no-nagging behavior is exercised against an injectable fake
-    // backend in tests/yandex.test.js instead.
+    // backend in tests/platform-yandex.test.js instead.
     function openAuthDialog() {
       authorized = true;
       return Promise.resolve();
@@ -479,9 +320,20 @@
     }
 
     // No real server to offset against in mock mode - the device clock IS
-    // the "server" clock here, so Garden.yandex.getServerTimeOffsetMs() ends
-    // up ~0 and Platform.now() behaves exactly as it did before this feature.
+    // the "server" clock here, so getServerTimeOffsetMs() ends up ~0 and
+    // Platform.now() behaves exactly as it did before this feature.
     function serverTime() { return Date.now(); }
+
+    // Dev convenience for testing getLanguage(): reads ?lang= from the URL
+    // if given, else null (the mock has no real platform locale to read) -
+    // see GAME_DESIGN.md.
+    function language() {
+      if (typeof location === 'undefined' || typeof URLSearchParams === 'undefined') return null;
+      return safeCall(function () {
+        const lang = new URLSearchParams(location.search).get('lang');
+        return lang || null;
+      }, null);
+    }
 
     function setScore() { return Promise.resolve(); }
 
@@ -515,6 +367,7 @@
       setPlayerData: setPlayerData,
       showRewardedVideo: showRewardedVideo,
       serverTime: serverTime,
+      language: language,
       leaderboards: { setScore: setScore, getEntries: getEntries, getTotalEntries: getTotalEntries },
       _setAdDelayMs: function (ms) { adDelayMs = ms; },
       _setAdSequence: function (name) { forcedAdSequence = name; },
@@ -523,24 +376,32 @@
     };
   }
 
-  // --- 5. orchestration -------------------------------------------------
+  // --- 4. orchestration + the adapter-contract methods ------------------
 
   let backend = null;
-  let initStarted = false;
+  let initPromise = null;
   let readyFlag = false;
   let player = { authorized: false };
   let serverTimeOffsetMs = null;
   let gameplayActive = false;
   let adInProgress = false;
   let adSafetyTimeoutMs = DEFAULT_AD_SAFETY_TIMEOUT_MS;
+  let rewardGraceMs = DEFAULT_REWARD_GRACE_MS;
   let pendingPauseResumeHandlers = null;
-  let cloudReady = false;
-  let cloudSaveTimer = null;
 
   let lbThrottleMs = DEFAULT_LEADERBOARD_THROTTLE_MS;
   let lbTimer = null;
   let lbPendingScore = null;
   let lbLastSentAt = 0;
+
+  // Declared statically for the whole platform (not re-derived from the
+  // real-vs-mock backend split) - Yandex supports all four today, mock
+  // mode included (it simulates each one so the UI exercises the same
+  // paths in dev). See js/platform-adapter.js's own comment for how a
+  // future adapter with narrower support (e.g. no leaderboard) would
+  // report a `false` here instead, letting game code hide that feature
+  // without ever checking a platform id directly.
+  const capabilities = { rewardedAds: true, cloudSave: true, leaderboard: true, serverTime: true };
 
   function isMockForced() {
     if (typeof location === 'undefined' || typeof URLSearchParams === 'undefined') return false;
@@ -564,22 +425,18 @@
     if (readyFlag) registerPauseResume();
   }
 
-  // Idempotent: safe to call once at boot. `onReady(mock)` fires exactly
-  // once, after the backend (real or mock) is as ready as it'll get -
-  // including a graceful fallback to mock if the real SDK is present but
-  // its own init() rejects (offline, SDK-side error, ...), so the menu is
-  // never blocked waiting on a broken SDK (per CLAUDE.md's Yandex Games
-  // constraints and this feature's own spec).
-  function init(onReady) {
-    if (initStarted) {
-      if (readyFlag && onReady) onReady(isMock());
-      return;
-    }
-    initStarted = true;
+  // Idempotent: safe to call more than once, always returns the SAME
+  // promise. Resolves once the backend (real or mock) is as ready as it'll
+  // get - including a graceful fallback to mock if the real SDK is present
+  // but its own init() rejects (offline, SDK-side error, ...), so the menu
+  // is never blocked waiting on a broken SDK (per CLAUDE.md's Yandex Games
+  // constraints). Never rejects itself.
+  function init() {
+    if (initPromise) return initPromise;
     const win = typeof window !== 'undefined' ? window : null;
     backend = selectBackend(win);
 
-    backend
+    initPromise = backend
       .init()
       .catch(function () {
         backend = createMockBackend();
@@ -592,17 +449,15 @@
         refreshServerTimeOffset();
         readyFlag = true;
         registerPauseResume();
-        if (onReady) onReady(isMock());
       });
+    return initPromise;
   }
 
   // Reads the backend's server time once and caches the offset from the
-  // device clock (see Platform.now()'s own comment on why it's cached
-  // rather than re-read on every date check) - a plain device-clock
-  // fallback (offset stays/resets to null) if the backend has no
-  // serverTime() at all, or it throws. Exposed (not just called from
-  // init()) so tests can exercise the fallback directly against an
-  // injected fake backend without needing a real window.YaGames.
+  // device clock - cached rather than re-read on every date check (see
+  // js/platform.js's Platform.now(), the one synchronous consumer of this
+  // internally) - a plain device-clock fallback (offset stays/resets to
+  // null) if the backend has no serverTime() at all, or it throws.
   function refreshServerTimeOffset() {
     try {
       const serverMs = backend.serverTime();
@@ -614,6 +469,26 @@
     } catch (e) {
       serverTimeOffsetMs = null;
     }
+  }
+
+  // Synchronous cached-offset accessor - NOT part of the generic adapter
+  // contract (that's the async getServerTime() below), kept only because
+  // js/platform.js's Platform.now() is called synchronously, pervasively,
+  // by pure date-logic code (js/checkin.js, js/daily-challenge.js) that
+  // can't become async without a much bigger, riskier ripple - see
+  // GAME_DESIGN.md.
+  function getServerTimeOffsetMs() { return serverTimeOffsetMs; }
+
+  // The adapter-contract version: resolves the current server-adjusted
+  // time in ms, or null if no server time is available (device-clock
+  // fallback is the CALLER's job here, same as the sync accessor above -
+  // this just reports what the platform actually knows).
+  function getServerTime() {
+    return Promise.resolve(serverTimeOffsetMs === null ? null : Date.now() + serverTimeOffsetMs);
+  }
+
+  function getLanguage() {
+    return backend && typeof backend.language === 'function' ? backend.language() : null;
   }
 
   function isMock() { return !!(backend && backend.isMock); }
@@ -664,81 +539,93 @@
       .catch(function () { refreshPlayer(function () { if (callback) callback(isAuthorized()); }); });
   }
 
-  function getPlayerData(callback) {
-    if (!backend) { callback(null); return; }
-    backend.getPlayerData().then(function (data) { callback(data || null); }).catch(function () { callback(null); });
+  // --- generic cloud-data primitives (adapter contract) - no merge
+  // policy, no debounce: that's js/cloudsave.js's job, calling these. ---
+
+  function loadData() {
+    if (!backend) return Promise.resolve(null);
+    return backend.getPlayerData().catch(function () { return null; });
   }
 
-  function setPlayerData(data, flush, callback) {
-    if (!backend) { if (callback) callback(false); return; }
-    backend.setPlayerData(data, flush).then(function (ok) { if (callback) callback(!!ok); }).catch(function () { if (callback) callback(false); });
+  function saveData(obj) {
+    if (!backend) return Promise.resolve(false);
+    return backend.setPlayerData(obj, true).catch(function () { return false; });
   }
 
-  // --- rewarded ads ---
+  // --- rewarded ads (adapter contract: Promise<{rewarded: boolean}>) ---
   //
   // Single entry point for every rewarded-ad placement in the game (today,
   // only the helper "+1 charge" tap - see js/input.js). Guards: only one ad
-  // open at a time (a second call while one is already open returns false
-  // and touches nothing - the double-tap guard), the reward itself can only
-  // ever fire once per showRewardedAd() call even if the backend's
-  // onRewarded somehow fired more than once, and - the fix for a real bug
-  // reported from a live Yandex Games draft (see GAME_DESIGN.md) - the
-  // terminal callback (onClose/onError) is GUARANTEED to fire exactly once,
-  // through exactly one path (`settle`), no matter what order the backend
-  // calls things in or whether it calls them at all:
-  //  - onRewarded may legitimately fire before OR after onClose (some real
-  //    SDKs/ad networks signal the reward only once the overlay is already
-  //    gone) - it is always still delivered to the caller whenever it
-  //    actually arrives, never dropped just because `settle` already ran.
+  // open at a time (a second call while one is already open resolves
+  // {rewarded:false} immediately and touches nothing - the double-tap
+  // guard), the reward itself is only ever counted once per call even if
+  // the backend's onRewarded somehow fires more than once, and - the fix
+  // for a real bug reported from a live Yandex Games draft (see
+  // GAME_DESIGN.md) - the Promise is GUARANTEED to settle exactly once, no
+  // matter what order the backend calls things in or whether it calls them
+  // at all:
+  //  - a real ad error REJECTS the promise (so the caller's ad-unavailable
+  //    message only shows for a genuine error, never for a plain decline).
+  //  - a close with no reward known yet waits a short, bounded grace window
+  //    (rewardGraceMs) in case the reward signal is just trailing slightly
+  //    behind the close event (some real ad networks do this) - resolves
+  //    immediately instead, with no artificial delay, on the common path
+  //    where the reward is already known by the time the ad closes.
   //  - if the backend never calls onClose OR onError at all (a dropped/lost
   //    callback - the actual root cause of the live bug report: the helper
   //    button stayed input-blocked and visually stuck forever with no event
-  //    left to ever clear it), a safety timeout force-settles exactly as
-  //    onClose would have, so every caller's own cleanup (js/input.js:
+  //    left to ever clear it), a safety timeout force-resolves exactly as a
+  //    close would have, so the caller's own cleanup (js/input.js:
   //    unblocking input, unmuting, resuming the timer/GameplayAPI, dropping
-  //    stale focus) always eventually runs.
-  function showRewardedAd(handlers) {
-    handlers = handlers || {};
-    if (!backend || adInProgress) return false;
-    adInProgress = true;
-    let rewarded = false;
-    let settled = false;
-    let safetyTimer = null;
-
-    function settle(isError) {
-      if (settled) return;
-      settled = true;
-      if (safetyTimer) {
-        clearTimeout(safetyTimer);
-        safetyTimer = null;
+  //    stale focus) always eventually runs via the Promise's finally.
+  function showRewardedAd() {
+    return new Promise(function (resolve, reject) {
+      if (!backend || adInProgress) {
+        resolve({ rewarded: false });
+        return;
       }
-      adInProgress = false;
-      if (isError) {
-        if (handlers.onError) handlers.onError();
-      } else if (handlers.onClose) {
-        // Passes along whether THIS session has rewarded SO FAR, so the
-        // caller can apply an already-known reward immediately - a reward
-        // that arrives LATER (after this fires) still reaches the caller
-        // separately via onRewarded below, never silently dropped.
-        handlers.onClose(rewarded);
+      adInProgress = true;
+      let rewarded = false;
+      let settled = false;
+      let safetyTimer = null;
+      let graceTimer = null;
+
+      function clearTimers() {
+        if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+        if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
       }
-    }
 
-    safetyTimer = setTimeout(function () {
-      settle(false);
-    }, adSafetyTimeoutMs);
+      function finish() {
+        if (settled) return;
+        settled = true;
+        clearTimers();
+        adInProgress = false;
+        resolve({ rewarded: rewarded });
+      }
 
-    backend.showRewardedVideo({
-      onOpen: function () { if (handlers.onOpen) handlers.onOpen(); },
-      onRewarded: function () {
-        if (rewarded) return;
-        rewarded = true;
-        if (handlers.onRewarded) handlers.onRewarded();
-      },
-      onClose: function () { settle(false); },
-      onError: function () { settle(true); },
+      function fail() {
+        if (settled) return;
+        settled = true;
+        clearTimers();
+        adInProgress = false;
+        reject(new Error('rewarded ad unavailable'));
+      }
+
+      safetyTimer = setTimeout(finish, adSafetyTimeoutMs);
+
+      backend.showRewardedVideo({
+        onOpen: function () {},
+        onRewarded: function () {
+          rewarded = true; // idempotent by construction - setting true twice is harmless
+        },
+        onClose: function () {
+          if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+          if (rewarded) { finish(); return; } // already known - resolve now, no artificial delay
+          if (!graceTimer) graceTimer = setTimeout(finish, rewardGraceMs);
+        },
+        onError: fail,
+      });
     });
-    return true;
   }
 
   function isAdInProgress() { return adInProgress; }
@@ -764,8 +651,6 @@
   function debugSetAdSequence(name) {
     if (backend && backend.isMock && typeof backend._setAdSequence === 'function') backend._setAdSequence(name);
   }
-
-  function getServerTimeOffsetMs() { return serverTimeOffsetMs; }
 
   // --- leaderboard ---
 
@@ -802,7 +687,10 @@
   // Submits the player's total score to the "points" leaderboard - a no-op
   // (no request, no queued value) unless the player is both authorized and
   // the SDK reports leaderboards.setScore as available, exactly per spec.
-  function submitScore(score) {
+  // `name` (adapter-contract's submitScore(name, value)) is accepted but
+  // unused today - the Yandex leaderboard's technical name is pinned to
+  // LEADERBOARD_NAME ("points"), the only one the Games Console draft has.
+  function submitScore(name, score) {
     if (!backend || !isAuthorized()) return;
     checkAvailable('leaderboards.setScore').then(function (available) {
       if (available) queueLeaderboardScore(score);
@@ -827,6 +715,19 @@
     return backend ? backend.leaderboards.getTotalEntries() : null;
   }
 
+  // --- pure logic: leaderboard "beat N%" --------------------------------
+  //
+  // See the module-level comment and GAME_DESIGN.md: the real SDK exposes
+  // no "total number of entries on the board" call that this file could
+  // find documented anywhere, so getLeaderboardTotalEntries() above always
+  // returns null and this line never renders in real mode - exactly the
+  // "don't fake it, show nothing" behavior the spec asked for.
+  function computeBeatPercent(rank, total) {
+    if (typeof rank !== 'number' || typeof total !== 'number' || total <= 0 || rank <= 0) return null;
+    const beaten = Math.max(0, total - rank);
+    return Math.max(0, Math.min(100, Math.round((beaten / total) * 100)));
+  }
+
   // Fetches just enough to compute the win-screen "beat N%" line (own rank
   // + the leaderboard's total entry count) and calls back with a percent or
   // null. In real mode getLeaderboardTotalEntries() is always null today
@@ -841,61 +742,14 @@
     });
   }
 
-  // --- cloud save orchestration ---
-
-  function scheduleCloudSave() {
-    if (!cloudReady) return; // the next explicit flushCloudSaveNow/cloudSaveInit call will pick up any pending local writes
-    if (cloudSaveTimer) return;
-    cloudSaveTimer = setTimeout(function () {
-      cloudSaveTimer = null;
-      flushCloudSaveNow();
-    }, CLOUD_SAVE_DEBOUNCE_MS);
-  }
-
-  function flushCloudSaveNow() {
-    if (cloudSaveTimer) {
-      clearTimeout(cloudSaveTimer);
-      cloudSaveTimer = null;
-    }
-    if (!backend || !cloudReady) return;
-    setPlayerData(buildLocalSnapshot(), true);
-  }
-
-  // Called once at boot. Fetches the cloud snapshot, merges it against a
-  // FRESHLY re-read local snapshot (read right now, not an earlier captured
-  // copy - minimizes, though doesn't eliminate, the race window against any
-  // local write that happens during the fetch's own round trip - see
-  // GAME_DESIGN.md), applies the merge locally if anything actually
-  // changed, then immediately pushes the reconciled result back up so both
-  // sides agree. Never blocks the menu: this always resolves (never throws
-  // synchronously), and a failed fetch just leaves the player on their
-  // local data, retried on the next flush.
-  function cloudSaveInit(onMerged) {
-    if (!backend) {
-      cloudReady = true;
-      if (onMerged) onMerged(false);
-      return;
-    }
-    getPlayerData(function (cloudSnapshot) {
-      const freshLocal = buildLocalSnapshot();
-      const merged = mergeSnapshots(freshLocal, cloudSnapshot);
-      const changed = JSON.stringify(merged) !== JSON.stringify(freshLocal);
-      if (changed) applyMergedSnapshot(merged);
-      cloudReady = true;
-      flushCloudSaveNow();
-      if (onMerged) onMerged(changed);
-    });
-  }
-
   // --- leaderboard popup (DOM glue) ---
   //
-  // index.html has no slot for any of this (CLAUDE.md's hard rule for this
-  // task only allows adding the SDK script tag and this one new file's own
-  // script tag there) - so, same convention js/menu.js/js/render.js/
-  // js/checkin.js already use for their own "no slot" additions, the button
-  // and popup are built once in JS and inserted into the existing menu
-  // screen. Functional hooks only, no styling: .leaderboard-btn,
-  // .leaderboard-popup, .leaderboard-row, .leaderboard-me, .leaderboard-empty.
+  // index.html has no slot for any of this - so, same convention
+  // js/menu.js/js/render.js/js/checkin.js already use for their own "no
+  // slot" additions, the button and popup are built once in JS and
+  // inserted into the existing menu screen. Functional hooks only, no
+  // styling: .leaderboard-btn, .leaderboard-popup, .leaderboard-row,
+  // .leaderboard-me, .leaderboard-empty.
   function createLeaderboardScreen(dom) {
     if (typeof document === 'undefined' || !dom || !dom.menuScreen) {
       return { render: function () {}, open: function () {}, close: function () {} };
@@ -995,62 +849,60 @@
 
   // --- test-only configuration hook ---
   //
-  // Lets tests/yandex.test.js fully control this module's behavior with an
-  // injected fake backend - no window, no document, no real timers for the
-  // ad delay/leaderboard throttle unless the test wants them. Never called
-  // from any real game code path.
+  // Lets tests/platform-yandex.test.js fully control this module's behavior
+  // with an injected fake backend - no window, no document, no real timers
+  // for the ad delay/leaderboard throttle unless the test wants them. Never
+  // called from any real game code path.
   function _configureForTests(fakeBackend, opts) {
     opts = opts || {};
     backend = fakeBackend;
-    initStarted = true;
+    initPromise = Promise.resolve();
     readyFlag = true;
     player = opts.player || { authorized: false };
     serverTimeOffsetMs = null;
     gameplayActive = false;
     adInProgress = false;
     adSafetyTimeoutMs = opts.adSafetyTimeoutMs || DEFAULT_AD_SAFETY_TIMEOUT_MS;
-    cloudReady = !!opts.cloudReady;
-    if (cloudSaveTimer) { clearTimeout(cloudSaveTimer); cloudSaveTimer = null; }
+    rewardGraceMs = opts.rewardGraceMs || DEFAULT_REWARD_GRACE_MS;
     if (lbTimer) { clearTimeout(lbTimer); lbTimer = null; }
     lbPendingScore = null;
     lbLastSentAt = 0;
     lbThrottleMs = opts.leaderboardThrottleMs || DEFAULT_LEADERBOARD_THROTTLE_MS;
   }
 
-  const Yandex = {
+  const PlatformYandex = {
+    // --- generic adapter contract (see js/platform-adapter.js) ---
     init,
-    isMock,
-    isReady,
     ready,
-    onPauseResume,
     gameplayStart,
     gameplayStop,
+    showRewardedAd,
+    loadData,
+    saveData,
+    submitScore,
+    getServerTime,
+    getLanguage,
+    capabilities,
+    // --- Yandex-specific extras, still only ever reached via the facade ---
+    isReady,
+    isMock,
+    onPauseResume,
     isAuthorized,
     openAuthDialog,
-    getPlayerData,
-    setPlayerData,
-    showRewardedAd,
     isAdInProgress,
     debugSimulateAdError,
     debugSetAdSequence,
     getServerTimeOffsetMs,
     refreshServerTimeOffset,
-    submitScore,
     getLeaderboardEntries,
     getLeaderboardTotalEntries,
     computeBeatPercent,
     fetchBeatPercentForWinScreen,
-    cloudSaveInit,
-    scheduleCloudSave,
-    flushCloudSaveNow,
-    buildLocalSnapshot,
-    mergeSnapshots,
-    applyMergedSnapshot,
     createLeaderboardScreen,
     LEADERBOARD_NAME,
     _configureForTests,
   };
 
   root.Garden = root.Garden || {};
-  root.Garden.yandex = Yandex;
+  root.Garden.platformYandex = PlatformYandex;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -54,98 +54,61 @@
 
     // The helper-button-with-0-charges "watch an ad for +1" flow (see
     // js/helpers.js's needsAd, js/render.js's data-ad hook, and
-    // js/yandex.js's showRewardedAd). Pause/stop/mute happen BEFORE the ad
-    // is requested.
-    //
-    // Fixed a real bug reported from a live Yandex Games draft (see
-    // GAME_DESIGN.md): after a real ad closed, the tapped helper button
-    // stayed visually "stuck" (a dashed focus ring that also seemed to
-    // swallow taps) until the player tapped elsewhere. Two independent
-    // causes, both fixed here:
-    //  1. Cleanup (unblock input, unmute, resume the timer/GameplayAPI) used
-    //     to live ONLY inside onClose/onError - if a real SDK fired neither
-    //     (a dropped callback) or fired onRewarded AFTER onClose, cleanup
-    //     could be skipped or the reward silently missed. Now `endAdSession`
-    //     is the single guaranteed cleanup path (idempotent - fires at most
-    //     once, from whichever of onClose/onError/js/yandex.js's own
-    //     safety-timeout actually runs first), and `applyHelperIfRewarded`
-    //     reacts to "ad done" and "reward granted" independently, however
-    //     they end up ordered, so a reward that arrives after the ad has
-    //     already closed is still applied instead of dropped.
-    //  2. The ad overlay can leave the tapped <button> holding native
-    //     browser focus (the dashed outline is the browser's own default
-    //     focus ring - no CSS in this codebase styles a dashed look for a
-    //     helper button) - `endAdSession` now explicitly blurs it rather
-    //     than waiting for an unrelated tap elsewhere to do that instead.
+    // js/platform-adapter.js's showRewardedAd - Promise<{rewarded}>).
+    // Pause/stop/mute happen BEFORE the ad is requested; the one `finally`
+    // block below is the single guaranteed cleanup path (unblock input,
+    // unmute, resume the timer/GameplayAPI, drop stale focus) - it runs
+    // exactly once no matter how the promise settles, because the adapter
+    // itself guarantees the promise always eventually settles (resolve or
+    // reject), even if the real SDK drops a callback - see
+    // js/platform-yandex.js's showRewardedAd for that guarantee and
+    // GAME_DESIGN.md for the real bug report this fixed: after a real ad
+    // closed, the tapped helper button used to stay visually "stuck" (a
+    // dashed focus ring that also seemed to swallow taps) until the player
+    // tapped elsewhere - that dashed outline is the browser's own default
+    // focus ring (no CSS in this codebase styles a dashed look for a
+    // helper button), which is why `finally` explicitly blurs the tapped
+    // button rather than waiting for an unrelated tap to do that instead.
     function startHelperAdFlow(id, buttonEl) {
-      const Yandex = root.Garden.yandex;
+      const Platform = root.Garden.platformAdapter;
       const Helpers = root.Garden.helpers;
-      if (!Yandex || inputBlocked || Yandex.isAdInProgress()) return;
+      if (!Platform || inputBlocked) return;
 
       inputBlocked = true;
       game.pauseTimer('ad');
-      Yandex.gameplayStop();
+      Platform.gameplayStop();
       AudioFx.setExternalMute('ad', true);
 
-      let adDone = false;
-      let rewardGranted = false;
-      let helperApplied = false;
-
-      function applyHelperIfRewarded() {
-        if (!adDone || !rewardGranted || helperApplied) return;
-        helperApplied = true;
-        if (game.useHelper(id)) AudioFx.playEffect('helperUse');
-      }
-
-      // The one guaranteed cleanup path - idempotent, so it's safe to call
-      // from onClose, onError, AND js/yandex.js's own internal safety
-      // timeout (whichever actually ends up firing) without double-undoing
-      // anything.
-      function endAdSession() {
-        if (adDone) return;
-        adDone = true;
-        inputBlocked = false;
-        AudioFx.setExternalMute('ad', false);
-        game.resumeTimer('ad');
-        // Defensive: the ad overlay may have triggered a real
-        // blur/visibilitychange/pagehide on the page without its matching
-        // resume ever firing back (hypothesis checked per the bug report -
-        // not confirmed either way without a live SDK session, see
-        // GAME_DESIGN.md) - resumeTimer is a no-op for a reason that isn't
-        // currently set, so clearing these unconditionally here is always
-        // safe and can only help, never hurt.
-        game.resumeTimer('visibility');
-        game.resumeTimer('blur');
-        game.resumeTimer('pagehide');
-        Yandex.gameplayStart();
-        if (buttonEl && document.activeElement === buttonEl) buttonEl.blur();
-        applyHelperIfRewarded();
-      }
-
-      const started = Yandex.showRewardedAd({
-        onRewarded: function () {
-          Helpers.addCharges(id, 1);
-          rewardGranted = true;
-          applyHelperIfRewarded(); // covers a reward that arrives AFTER the ad has already closed
-        },
-        onClose: function () {
-          endAdSession();
-        },
-        onError: function () {
-          endAdSession();
+      Platform.showRewardedAd()
+        .then(function (result) {
+          return !!(result && result.rewarded);
+        })
+        .catch(function () {
           renderer.showAdUnavailableMessage();
-        },
-      });
+          return false;
+        })
+        .then(function (rewarded) {
+          inputBlocked = false;
+          AudioFx.setExternalMute('ad', false);
+          game.resumeTimer('ad');
+          // Defensive: the ad overlay may have triggered a real
+          // blur/visibilitychange/pagehide on the page without its
+          // matching resume ever firing back (checked per the original bug
+          // report - not confirmed either way without a live SDK session,
+          // see GAME_DESIGN.md) - resumeTimer is a no-op for a reason
+          // that isn't currently set, so clearing these unconditionally
+          // here is always safe and can only help, never hurt.
+          game.resumeTimer('visibility');
+          game.resumeTimer('blur');
+          game.resumeTimer('pagehide');
+          Platform.gameplayStart();
+          if (buttonEl && document.activeElement === buttonEl) buttonEl.blur();
 
-      // Belt-and-suspenders: showRewardedAd's own internal guard also
-      // refuses a second concurrent ad and returns false without touching
-      // anything - undo the pause/mute/stop this call just applied.
-      if (!started) {
-        inputBlocked = false;
-        game.resumeTimer('ad');
-        AudioFx.setExternalMute('ad', false);
-        Yandex.gameplayStart();
-      }
+          if (rewarded) {
+            Helpers.addCharges(id, 1);
+            if (game.useHelper(id)) AudioFx.playEffect('helperUse');
+          }
+        });
     }
 
     function applyDragAction(row, col, el) {
@@ -278,11 +241,11 @@
     // GameplayAPI.start() only makes sense while an actual level/challenge
     // is open and still in progress - never from the menu's own Settings
     // button (game.pauseTimer('settings') there pauses a timer that isn't
-    // even running yet). Idempotent either way (Garden.yandex.gameplayStart
+    // even running yet). Idempotent either way (Platform.gameplayStart
     // itself no-ops if already started), so it's always safe to call.
     function maybeResumeGameplay() {
-      const Yandex = root.Garden.yandex;
-      if (Yandex && !dom.gameScreen.hidden && game.getSnapshot().status === 'playing') Yandex.gameplayStart();
+      const Platform = root.Garden.platformAdapter;
+      if (Platform && !dom.gameScreen.hidden && game.getSnapshot().status === 'playing') Platform.gameplayStart();
     }
 
     // The level timer (see state.js's pauseTimer/resumeTimer) must not keep
@@ -298,7 +261,7 @@
       if (inputBlocked) return;
       tapTick();
       game.pauseTimer('settings');
-      if (root.Garden.yandex) root.Garden.yandex.gameplayStop();
+      if (root.Garden.platformAdapter) root.Garden.platformAdapter.gameplayStop();
       renderer.openSettings();
     });
     dom.settingsCloseButton.addEventListener('click', function () {

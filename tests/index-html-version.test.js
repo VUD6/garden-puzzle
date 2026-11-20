@@ -83,7 +83,7 @@ const expectedFiles = [
   'css/style.css', 'css/winter-ornaments.css', 'css/winter-popups.css', 'css/daily-gift.css', 'css/winter-win.css',
   'js/i18n.js', 'js/platform.js', 'js/audio.js', 'js/themes.js', 'js/rng.js', 'js/grid.js', 'js/rules.js', 'js/solver.js',
   'js/generator.js', 'js/levelstart.js', 'js/helpers.js', 'js/state.js', 'js/menu.js', 'js/checkin.js',
-  'js/daily-challenge.js', 'js/yandex.js',
+  'js/daily-challenge.js', 'js/platform-yandex.js', 'js/platform-adapter.js', 'js/cloudsave.js',
   'js/router.js', 'js/render.js', 'js/input.js', 'js/tutorial.js', 'js/zoomguard.js', 'js/main.js',
 ];
 const foundBaseUrls = tags.map((t) => t.url.split('?')[0]);
