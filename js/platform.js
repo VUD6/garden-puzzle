@@ -33,6 +33,10 @@
   const AUDIO_SCHEMA_VERSION = 1;
   const AUDIO_SCHEMA_VERSION_KEY = 'garden.audioSchemaVersion';
   const THEME_KEY = 'garden.theme';
+  // Localization (RU+EN) - same "savedAt-group, raw value, caller
+  // validates" shape as THEME_KEY above (js/i18n.js's resolveInitialLang
+  // is what resolves a missing/invalid value, not this file).
+  const LANG_KEY = 'garden.lang';
   const HELPER_CHARGES_KEY = 'garden.helperCharges';
   const HIGHEST_LEVEL_KEY = 'garden.highestLevel';
   // Win streak (consecutive levels won in a row, see state.js) - a plain
@@ -183,6 +187,20 @@
   function loadTheme() {
     if (!hasStorage()) return null;
     return localStorage.getItem(THEME_KEY);
+  }
+
+  function saveLang(lang) {
+    if (!hasStorage()) return;
+    localStorage.setItem(LANG_KEY, String(lang));
+    touchSavedAt();
+  }
+
+  // Same "raw value, no validation" stance as loadTheme above -
+  // js/i18n.js's resolveInitialLang() is the one place that knows which
+  // values are valid and what to fall back to.
+  function loadLang() {
+    if (!hasStorage()) return null;
+    return localStorage.getItem(LANG_KEY);
   }
 
   function saveTotalScore(score) {
@@ -744,6 +762,8 @@
     loadPatternsEnabled,
     saveTheme,
     loadTheme,
+    saveLang,
+    loadLang,
     saveTotalScore,
     loadTotalScore,
     saveBoard,

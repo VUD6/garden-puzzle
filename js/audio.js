@@ -470,6 +470,12 @@
       const label = document.createElement('span');
       label.className = 'settings-row-label';
       label.textContent = I18n.t(labelKey);
+      // Declarative hook for a language switch (js/i18n.js's
+      // applyDomTranslations, called from js/main.js) to re-set this -
+      // this row has no render()/refresh of its own to call instead,
+      // unlike most other screens' own static text (see GAME_DESIGN.md's
+      // Localization section).
+      label.setAttribute('data-i18n', labelKey);
 
       const toggle = document.createElement('button');
       toggle.type = 'button';

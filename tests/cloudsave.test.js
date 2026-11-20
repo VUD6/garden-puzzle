@@ -71,6 +71,7 @@ function baseSnapshot(overrides) {
       sfxEnabled: true,
       musicEnabled: true,
       theme: 'winter',
+      lang: 'ru',
       savedAt: 0,
     },
     overrides || {}
@@ -111,6 +112,7 @@ async function main() {
       sfxEnabled: false,
       musicEnabled: false,
       theme: 'garden',
+      lang: 'en',
     });
     const cloud = baseSnapshot({
       savedAt: 1000,
@@ -119,16 +121,19 @@ async function main() {
       sfxEnabled: true,
       musicEnabled: true,
       theme: 'winter',
+      lang: 'ru',
     });
     const mergedLocalNewer = CloudSave.mergeSnapshots(local, cloud);
     assert(mergedLocalNewer.helperCharges.finder === 1, 'helper charges come wholesale from the newer-savedAt side (local here)');
     assert(mergedLocalNewer.winStreak === 4, 'the live win-streak counter comes from the newer-savedAt side (local here)');
     assert(mergedLocalNewer.theme === 'garden', 'settings come from the newer-savedAt side (local here)');
+    assert(mergedLocalNewer.lang === 'en', 'the language choice comes from the newer-savedAt side too (local here) - same group as theme/sfx/music');
 
     const mergedCloudNewer = CloudSave.mergeSnapshots(Object.assign({}, local, { savedAt: 500 }), cloud);
     assert(mergedCloudNewer.helperCharges.finder === 9, 'helper charges come wholesale from the newer-savedAt side (cloud here)');
     assert(mergedCloudNewer.winStreak === 7, 'the live win-streak counter comes from the newer-savedAt side (cloud here)');
     assert(mergedCloudNewer.theme === 'winter', 'settings come from the newer-savedAt side (cloud here)');
+    assert(mergedCloudNewer.lang === 'ru', 'the language choice comes from the newer-savedAt side too (cloud here)');
   }
 
   // --- Merge policy: daily-challenge challengeStars is its OWN max-group
@@ -205,6 +210,7 @@ async function main() {
     assert(Platform.loadBestStars(2) === 1, 'a best-stars level present only locally survives untouched');
     // totalStars must be rebuilt from scratch: best(1)=3 + best(2)=1 + best(3)=3 + challengeStars=4 = 11
     assert(Platform.loadTotalStars() === 11, `totalStars is recomputed as sum(best stars) + challengeStars (got ${Platform.loadTotalStars()})`);
+    assert(Platform.loadLang() === 'ru', 'applyMergedSnapshot writes the merged language choice too (cloud\'s "ru" here, nothing was ever saved locally)');
   }
 
   // --- Orchestration: boot-time merge + debounced/flushed writes against an

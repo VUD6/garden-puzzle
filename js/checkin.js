@@ -312,10 +312,6 @@
     dom.checkinBadge.classList.add('daily-gift-badge');
     dom.checkinOverlay.classList.add('daily-popup');
 
-    dom.dailyCheckinLabel.textContent = I18n.t('dailyCheckinButtonLabel');
-    dom.checkinTitle.textContent = I18n.t('dailyCheckinButtonLabel');
-    dom.checkinCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
-
     function dayCellLabel(day, state, credits) {
       const rewardText = credits
         .map(function (c) {
@@ -432,6 +428,14 @@
     }
 
     function render() {
+      // Static (param-free) labels - re-set on every render() call rather
+      // than once at construction, so a language switch (js/main.js, which
+      // calls checkinScreen.render() immediately after I18n.setLang())
+      // picks these up right away without needing a reload.
+      dom.dailyCheckinLabel.textContent = I18n.t('dailyCheckinButtonLabel');
+      dom.checkinTitle.textContent = I18n.t('dailyCheckinButtonLabel');
+      dom.checkinCloseButton.setAttribute('aria-label', I18n.t('closeButtonLabel'));
+
       updateBadge();
       if (!dom.checkinOverlay.hidden) buildPopup();
     }

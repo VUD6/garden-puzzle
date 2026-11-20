@@ -163,6 +163,26 @@
     // happens to sound similar; see GAME_DESIGN.md's "Platform layer"
     // section for why the two are separate modules.
     const PlatformAdapter = Garden.platformAdapter;
+    const I18n = Garden.i18n;
+
+    // Language: an explicit saved choice always wins (already reconciled
+    // with the cloud's own "lang" field by js/cloudsave.js's merge policy -
+    // see GAME_DESIGN.md's Localization section); absent that, the
+    // platform's own reported language if it already has an answer this
+    // early (a real SDK's handshake is usually still async at this point,
+    // so this mostly matters for a platform that can answer
+    // synchronously); absent that, the browser's own locale; absent even
+    // that, "ru" (this game's original default). Must run before
+    // Garden.render.createRenderer(dom) below, since that constructor
+    // renders every static string once already.
+    const resolvedLang = I18n.resolveInitialLang(
+      platform.loadLang(),
+      PlatformAdapter.getLanguage(),
+      typeof navigator !== 'undefined' ? navigator.language : null
+    );
+    I18n.setLang(resolvedLang);
+    document.documentElement.lang = resolvedLang;
+
     audio.init();
     const renderer = Garden.render.createRenderer(dom);
     const prefersReducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -402,9 +422,35 @@
     // Leaderboard popup (see js/platform-yandex.js's createLeaderboardScreen,
     // reached only via the generic facade) - a menu-only entry point,
     // self-contained (builds its own button/overlay, index.html has no slot
-    // for either), so nothing further needs wiring here beyond creating it
-    // once.
-    PlatformAdapter.createLeaderboardScreen(dom);
+    // for either). The return value is kept (unlike before) so a language
+    // switch below can re-run its own `render()` (re-applies its static
+    // button/title/empty-state text) without needing any markup of its own.
+    const leaderboardScreen = PlatformAdapter.createLeaderboardScreen(dom);
+
+    // RU/EN switch settings row (see js/i18n.js's createSettingsRow) - no
+    // slot in index.html, same "build once in JS" convention every other
+    // settings control on this screen already uses. Applied immediately,
+    // no reload: every other screen's static text is re-applied too
+    // (either via its own render()/refresh, or via the generic
+    // [data-i18n] scan for the few spots with no refresh of their own -
+    // see GAME_DESIGN.md's Localization section), and the live game
+    // screen's dynamic bits (score/level/helpers/lives) get a fresh
+    // render() pass so they never stay stale until the next unrelated
+    // game event.
+    const langRow = I18n.createSettingsRow(dom, function (langId) {
+      if (langId === I18n.getLang()) return;
+      platform.saveLang(langId);
+      I18n.setLang(langId);
+      document.documentElement.lang = langId;
+      I18n.applyDomTranslations();
+      renderer.refreshStaticText();
+      if (langRow) langRow.applyActive(langId);
+      leaderboardScreen.render();
+      menuScreen.render();
+      checkinScreen.render();
+      renderer.render(game.getSnapshot());
+    });
+    if (langRow) langRow.applyActive(resolvedLang);
 
     menuScreen.render();
     checkinScreen.render();

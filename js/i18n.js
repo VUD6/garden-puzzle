@@ -95,6 +95,29 @@
       themeSettingLabel: 'Тема',
       themeOptionWinter: 'Зима',
       themeOptionGarden: 'Сад',
+      // Localization (RU+EN). Language-switcher option labels are
+      // deliberately IDENTICAL in both dictionaries - a language picker
+      // conventionally shows each language's own native name (an
+      // "endonym"), never translated into whichever language happens to
+      // be active right now.
+      langSettingLabel: 'Язык',
+      langOptionRu: 'Русский',
+      langOptionEn: 'English',
+      metaDescription:
+        '«Клумба» — уютная головоломка о цветах и садовых клумбах с зимним пряничным оформлением. Сажайте цветы по правилам, собирайте звёзды и проходите ежедневные испытания.',
+      // The 4th plural form I18n.plural() needs for English's one/other
+      // split (see its own comment) - Russian never actually branches into
+      // "other" (its own one/few/many split already covers every count),
+      // so this is present purely so the ru/en key sets stay identical;
+      // same text as livesAriaLabelMany, which is what a Russian caller's
+      // "other" would have meant anyway if it were ever reached.
+      livesAriaLabelOther: 'Осталось {count} леденцов',
+      // MOCK-ONLY (js/platform-yandex.js's dev/test leaderboard data) -
+      // the player's own placeholder row label, never shown with a real
+      // Yandex account. The other 10 mock entries are arbitrary sample
+      // names, deliberately left untranslated (see that file's own
+      // comment) - a person's name isn't "translated" the way UI copy is.
+      leaderboardMockSelfLabel: 'Вы (мок)',
       // Winter-theme variants of the piece-name-bearing rule/tutorial text
       // above; see I18n.setTheme() - looked up as "<key>_winter" first,
       // falling back to the plain (garden) key when no themed variant exists.
@@ -107,8 +130,12 @@
       tutorialStep4_winter: 'Пряники не касаются друг друга, даже по диагонали',
     },
     en: {
-      appTitle: 'Garden Bed',
-      appFullTitle: 'Garden Bed: a flower puzzle',
+      // Game name for EN - "Flowerbed: Gingerbread Puzzle" (short:
+      // "Flowerbed") per this localization task's explicit spec, replacing
+      // the earlier placeholder "Garden Bed" naming - flagged in the
+      // report for review.
+      appTitle: 'Flowerbed',
+      appFullTitle: 'Flowerbed: Gingerbread Puzzle',
       levelLabel: 'Level {level}',
       challengeLevelLabel: 'Challenge',
       challengeScoreEarnedLabel: 'Challenge score: +{amount}',
@@ -196,6 +223,13 @@
       themeSettingLabel: 'Theme',
       themeOptionWinter: 'Winter',
       themeOptionGarden: 'Garden',
+      langSettingLabel: 'Language',
+      langOptionRu: 'Русский',
+      langOptionEn: 'English',
+      metaDescription:
+        'Flowerbed: a cozy flower-planting puzzle with a festive gingerbread look. Plant every bed by the rules, earn stars, and take on daily challenges.',
+      livesAriaLabelOther: '{count} candy canes left',
+      leaderboardMockSelfLabel: 'You (mock)',
       ruleBedText_winter: '1 gingerbread per color',
       ruleRowColText_winter: '1 gingerbread per row and column',
       ruleTouchText_winter: "Gingerbreads can't touch",
@@ -255,7 +289,187 @@
     return forms[2];
   }
 
-  const I18n = { t, setLang, getLang, setTheme, pluralRu };
+  // The real one/few/many <-> one/other plural helper this localization
+  // task asked for - genuinely branches by the CURRENT language, unlike
+  // pluralRu above (kept only for backward compatibility with its own
+  // direct callers/tests - it always applies the Russian rule, which only
+  // happens to also produce correct English output when the caller passes
+  // the exact same form for both "few" and "many", and ONLY for counts
+  // that never reach a Russian "one" category English wouldn't agree with,
+  // e.g. 21, 31, 101... - a latent mismatch this function avoids entirely
+  // by picking the category per language first).
+  //
+  // `forms` is an object naming which i18n KEY to use for each CLDR-style
+  // category - `{ one, few, many, other }` - not a literal word (same
+  // "caller finishes the lookup via I18n.t(key, {count})" convention
+  // pluralRu's own callers already use). English only ever needs
+  // `one`/`other`; Russian only ever needs `one`/`few`/`many` - callers
+  // should still provide all four for every count-driven string (see
+  // GAME_DESIGN.md's Localization section) so the ru/en dictionaries keep
+  // an identical key set even though each language's logic only visits a
+  // subset of them.
+  function plural(n, forms) {
+    if (currentLang === 'en') {
+      const category = n === 1 ? 'one' : 'other';
+      return forms[category] != null ? forms[category] : forms.other;
+    }
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    let category;
+    if (mod10 === 1 && mod100 !== 11) category = 'one';
+    else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) category = 'few';
+    else category = 'many';
+    return forms[category] != null ? forms[category] : forms.many;
+  }
+
+  // Normalizes any BCP-47-ish locale code to one of this game's two
+  // supported languages - deliberately simple per spec: "ru" if the code
+  // starts with "ru" (covers "ru", "ru-RU", ...), "en" for literally
+  // everything else - no special-casing of Russian-adjacent locales
+  // (be/kk/uk/uz, ...) onto "ru".
+  function normalizeLangCode(code) {
+    return typeof code === 'string' && code.toLowerCase().indexOf('ru') === 0 ? 'ru' : 'en';
+  }
+
+  // The one-time initial-language decision, in priority order: an explicit
+  // saved choice (already reconciled with the cloud's own "lang" field by
+  // js/cloudsave.js's merge policy - see GAME_DESIGN.md) beats everything;
+  // absent that, the platform's own reported language (e.g. Yandex's
+  // ysdk.environment.i18n.lang, via Garden.platformAdapter.getLanguage() -
+  // only actually available this early if the platform could answer
+  // synchronously, which a real SDK's still-async handshake usually can't
+  // - see js/platform-yandex.js); absent that, the browser's own
+  // navigator.language; absent even that, "ru" (this game's original
+  // default). Pure and injectable for tests - js/main.js is the only real
+  // caller, passing the genuine three sources. A corrupted/unrecognized
+  // saved value is treated exactly like "nothing saved" (falls through to
+  // the next source), never trusted as-is.
+  function resolveInitialLang(saved, platformLanguage, navigatorLanguage) {
+    if (saved === 'ru' || saved === 'en') return saved;
+    if (platformLanguage) return normalizeLangCode(platformLanguage);
+    if (navigatorLanguage) return normalizeLangCode(navigatorLanguage);
+    return 'ru';
+  }
+
+  // Generic declarative refresh for elements that have no dedicated
+  // render()/refresh of their own to re-run on a language switch (see
+  // GAME_DESIGN.md's Localization section for exactly which elements use
+  // this vs. their own JS-side refresh) - `[data-i18n]` sets textContent
+  // (or, with a `data-i18n-attr` also present, that named attribute
+  // instead - e.g. "content" for a <meta> tag); `[data-i18n-aria]` sets
+  // aria-label. Safe to call repeatedly, and safe with no DOM at all
+  // (Node tests). `scopeRoot` defaults to the whole document, but a caller
+  // may pass a specific subtree (e.g. a just-created popup) instead.
+  function applyDomTranslations(scopeRoot) {
+    if (typeof document === 'undefined') return;
+    const scope = scopeRoot || document;
+    scope.querySelectorAll('[data-i18n]').forEach(function (el) {
+      const key = el.getAttribute('data-i18n');
+      const attr = el.getAttribute('data-i18n-attr');
+      if (attr) el.setAttribute(attr, t(key));
+      else el.textContent = t(key);
+    });
+    scope.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+      el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+    });
+  }
+
+  // The RU/EN switch settings row - no slot in index.html (a brand-new
+  // piece of UI), so built once in JS and inserted into the existing
+  // settings card, same "no slot" convention js/audio.js's own
+  // createSettingsRows/js/menu.js's/js/checkin.js's additions already use.
+  // Mirrors the existing `.theme-switch`/`.theme-option` markup shape
+  // (two option buttons in a `role="group"` wrapper) so Codex's existing
+  // theme-switch styling likely already mostly applies. Stable hooks for
+  // Codex's later styling pass: `.setting-lang`, `.lang-switch`,
+  // `.lang-option`, `data-lang-id="ru"|"en"` and `.active`/`aria-pressed`
+  // on whichever option is currently selected. `onSelect(langId)` is
+  // called on every tap, even of the already-active option (the caller
+  // decides whether that's a no-op) - this file never touches
+  // localStorage/the cloud itself, matching the layering every other
+  // settings control here already uses.
+  function createSettingsRow(dom, onSelect) {
+    if (typeof document === 'undefined' || !dom || !dom.replayTutorialButton) return null;
+    const card = dom.replayTutorialButton.parentElement;
+    if (!card || card.querySelector('.setting-lang')) return null; // idempotent
+
+    const row = document.createElement('div');
+    row.className = 'settings-row setting-lang';
+
+    const label = document.createElement('span');
+    label.className = 'settings-row-label';
+    label.setAttribute('data-i18n', 'langSettingLabel');
+    label.textContent = t('langSettingLabel');
+
+    const switchEl = document.createElement('div');
+    switchEl.className = 'lang-switch';
+    switchEl.setAttribute('role', 'group');
+
+    function buildOption(langId, labelKey) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'lang-option';
+      button.dataset.langId = langId;
+      button.setAttribute('data-i18n', labelKey);
+      button.textContent = t(labelKey);
+      switchEl.appendChild(button);
+      return button;
+    }
+
+    const ruButton = buildOption('ru', 'langOptionRu');
+    const enButton = buildOption('en', 'langOptionEn');
+
+    row.appendChild(label);
+    row.appendChild(switchEl);
+    card.insertBefore(row, dom.replayTutorialButton);
+
+    function applyActive(langId) {
+      ruButton.classList.toggle('active', langId === 'ru');
+      enButton.classList.toggle('active', langId === 'en');
+      ruButton.setAttribute('aria-pressed', String(langId === 'ru'));
+      enButton.setAttribute('aria-pressed', String(langId === 'en'));
+    }
+
+    [ruButton, enButton].forEach(function (button) {
+      button.addEventListener('click', function () {
+        // Lazy reference, same reasoning as every other cross-module call
+        // in this codebase: js/i18n.js loads first (before js/audio.js),
+        // so this can only ever be resolved at click time, never at
+        // module-load time.
+        if (root.Garden.audio) root.Garden.audio.playEffect('tap');
+        onSelect(button.dataset.langId);
+      });
+    });
+
+    return { row, applyActive };
+  }
+
+  // Test-only access to the raw dictionaries (private to this closure
+  // otherwise) - for key-parity/placeholder-parity checks across ru/en.
+  // Never called from any real game code path; `_` prefix matches this
+  // codebase's existing test-hook convention (_configureForTests, ...).
+  function _allKeys(lang) {
+    return Object.keys(STRINGS[lang] || {});
+  }
+
+  function _rawValue(lang, key) {
+    return STRINGS[lang] ? STRINGS[lang][key] : undefined;
+  }
+
+  const I18n = {
+    t,
+    setLang,
+    getLang,
+    setTheme,
+    pluralRu,
+    plural,
+    normalizeLangCode,
+    resolveInitialLang,
+    applyDomTranslations,
+    createSettingsRow,
+    _allKeys,
+    _rawValue,
+  };
 
   root.Garden = root.Garden || {};
   root.Garden.i18n = I18n;

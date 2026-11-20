@@ -134,6 +134,11 @@
 
     function renderStaticText() {
       document.title = I18n.t('appFullTitle');
+      // No slot for this in the dom cache (not previously a translatable
+      // element at all - see GAME_DESIGN.md's Localization section) -
+      // queried directly here, same as document.title right above.
+      const metaDescriptionEl = document.querySelector('meta[name="description"]');
+      if (metaDescriptionEl) metaDescriptionEl.setAttribute('content', I18n.t('metaDescription'));
       dom.loadingTitle.textContent = I18n.t('appTitle');
       dom.loadingStatusText.textContent = I18n.t('loadingStatusText');
       // Overwritten per-render in render() when a challenge is open (see
@@ -460,7 +465,16 @@
     }
 
     function syncLives(lives, maxLives, losingIndex) {
-      const livesAriaKey = I18n.pluralRu(lives, ['livesAriaLabelOne', 'livesAriaLabelFew', 'livesAriaLabelMany']);
+      // I18n.plural() (not the legacy pluralRu) - genuinely branches by the
+      // current language rather than always applying the Russian rule, so
+      // English gets a correct one/other split for every count, not just
+      // the 0-3 range this game's lives happen to stay within today.
+      const livesAriaKey = I18n.plural(lives, {
+        one: 'livesAriaLabelOne',
+        few: 'livesAriaLabelFew',
+        many: 'livesAriaLabelMany',
+        other: 'livesAriaLabelOther',
+      });
       dom.lives.setAttribute('aria-label', I18n.t(livesAriaKey, { count: lives }));
 
       for (let i = 0; i < maxLives; i++) {
@@ -935,6 +949,11 @@
       closeSettings,
       showAdUnavailableMessage,
       setWinBeatPercent,
+      // Exposes the existing internal renderStaticText so a language
+      // switch (js/main.js) can re-run it on demand, exactly like
+      // setTheme() already does internally - no new mechanism needed for
+      // anything this file already owns.
+      refreshStaticText: renderStaticText,
     };
   }
 

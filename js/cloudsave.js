@@ -110,6 +110,7 @@
       sfxEnabled: savedAtSide.sfxEnabled,
       musicEnabled: savedAtSide.musicEnabled,
       theme: savedAtSide.theme,
+      lang: savedAtSide.lang,
     };
   }
 
@@ -142,6 +143,7 @@
       sfxEnabled: Platform.loadSfxEnabled(),
       musicEnabled: Platform.loadMusicEnabled(),
       theme: Platform.loadTheme(),
+      lang: Platform.loadLang(),
       savedAt: Platform.loadSavedAt(),
     };
   }
@@ -179,6 +181,7 @@
     if (typeof merged.sfxEnabled === 'boolean') Platform.saveSfxEnabled(merged.sfxEnabled);
     if (typeof merged.musicEnabled === 'boolean') Platform.saveMusicEnabled(merged.musicEnabled);
     if (merged.theme) Platform.saveTheme(merged.theme);
+    if (merged.lang) Platform.saveLang(merged.lang);
   }
 
   // --- orchestration: debounced writes, boot-time merge ------------------

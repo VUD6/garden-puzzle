@@ -58,11 +58,6 @@
     const Platform = root.Garden.platform;
     const AudioFx = root.Garden.audio;
 
-    dom.menuTitle.textContent = I18n.t('appTitle');
-    dom.menuSubtitle.textContent = I18n.t('menuSubtitle');
-    dom.howToPlayButton.textContent = I18n.t('howToPlayButton');
-    dom.menuSettingsButton.textContent = I18n.t('settingsButtonLabel');
-
     // No slot for this in index.html (a brand-new piece of UI) - created
     // once and inserted right after the subtitle, before the menu buttons,
     // so existing menu content/order is never disturbed. Stable hook for
@@ -123,6 +118,16 @@
     });
 
     function render() {
+      // Static (param-free) labels - re-set on every render() call rather
+      // than once at construction, so a language switch (js/main.js, which
+      // calls menuScreen.render() immediately after I18n.setLang()) picks
+      // these up right away without needing a reload. Harmless to re-run
+      // every time render() is called for any other reason too.
+      dom.menuTitle.textContent = I18n.t('appTitle');
+      dom.menuSubtitle.textContent = I18n.t('menuSubtitle');
+      dom.howToPlayButton.textContent = I18n.t('howToPlayButton');
+      dom.menuSettingsButton.textContent = I18n.t('settingsButtonLabel');
+
       const level = Platform.loadProgress();
       const saved = Platform.loadBoard(level);
       dom.playButton.textContent = hasProgress(saved)
