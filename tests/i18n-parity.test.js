@@ -6,9 +6,16 @@
 // language-aware plural helper (I18n.plural - ru one/few/many, en
 // one/other, replacing pluralRu's "always-Russian-rule" approximation for
 // any NEW count-driven string); the initial-language resolution priority
-// order (saved > platform > navigator > default) and its "ru"/"else en"
-// normalization; and js/platform.js's saveLang/loadLang persistence
-// (localStorage round-trip, corruption-tolerant default).
+// order (saved > platform > navigator > "en" default) and its "ru"/"else en"
+// normalization, including a platform that failed/couldn't answer (null)
+// falling straight through to navigator.language; and js/platform.js's
+// saveLang/loadLang persistence (localStorage round-trip, corruption-
+// tolerant default). js/main.js's own two-phase boot sequence (a quick
+// guess, corrected once the platform adapter's handshake and the cloud-save
+// merge have both actually settled) is covered where its two moving parts
+// actually live instead: the "platform answers late" timing in
+// tests/platform-adapter.test.js, and "cloud lang overrides local" in
+// tests/cloudsave.test.js.
 function makeMemoryStorage() {
   const map = new Map();
   return {
@@ -128,9 +135,18 @@ function main() {
   assert(I18n.resolveInitialLang('ru', 'en', 'en-US') === 'ru', 'saved "ru" wins too, regardless of platform/navigator');
   assert(I18n.resolveInitialLang(null, 'en-US', 'ru-RU') === 'en', 'absent a saved choice, the platform language wins over navigator.language');
   assert(I18n.resolveInitialLang(undefined, null, 'en-GB') === 'en', 'absent saved AND platform, navigator.language is used');
-  assert(I18n.resolveInitialLang(null, null, null) === 'ru', 'absent all three sources, the default is "ru"');
+  assert(I18n.resolveInitialLang(null, null, null) === 'en', 'absent all three sources, the default is "en" (no signal at all to go on)');
   assert(I18n.resolveInitialLang('fr', null, 'en-US') === 'en', 'a corrupted/unrecognized saved value is treated as "nothing saved"');
   assert(I18n.resolveInitialLang(null, 'ru-RU', null) === 'ru', 'the platform language is normalized the same way navigator.language is');
+
+  // --- resolveInitialLang: "platform failing" - a platform whose adapter
+  // couldn't answer (a rejected/timed-out handshake, or simply no
+  // getLanguage() support) always reports null rather than throwing (see
+  // js/platform-adapter.js's forward()/js/platform-yandex.js's getLanguage())
+  // - resolveInitialLang must fall straight through to navigator.language
+  // exactly as if the platform source were never offered at all. ---
+  assert(I18n.resolveInitialLang(null, null, 'ru-RU') === 'ru', 'a failed/unavailable platform (null) falls through to navigator.language');
+  assert(I18n.resolveInitialLang(null, null, 'en-GB') === 'en', 'same fall-through, resolving to "en" via navigator.language');
 
   // --- js/platform.js: saveLang/loadLang persistence ---
   resetStorage();

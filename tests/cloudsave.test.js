@@ -3,10 +3,13 @@
 // cases plus the cross-device idempotent-daily-claim guard - unchanged
 // logic, just moved out of the Yandex-specific adapter per the "Platform
 // layer" refactor, see GAME_DESIGN.md), buildLocalSnapshot/
-// applyMergedSnapshot's round-trip through real Garden.platform storage,
-// and the debounced-save/boot-time-merge orchestration against an injected
-// fake Garden.platformAdapter (loadData/saveData only - no real SDK, no
-// window, no document).
+// applyMergedSnapshot's round-trip through real Garden.platform storage
+// (including a device's own previously-saved "lang" choice being
+// overwritten once a newer cloud snapshot carrying a different one is
+// merged in and applied - the exact case js/main.js's post-boot language
+// correction relies on), and the debounced-save/boot-time-merge
+// orchestration against an injected fake Garden.platformAdapter
+// (loadData/saveData only - no real SDK, no window, no document).
 function makeMemoryStorage() {
   const map = new Map();
   return {
@@ -211,6 +214,27 @@ async function main() {
     // totalStars must be rebuilt from scratch: best(1)=3 + best(2)=1 + best(3)=3 + challengeStars=4 = 11
     assert(Platform.loadTotalStars() === 11, `totalStars is recomputed as sum(best stars) + challengeStars (got ${Platform.loadTotalStars()})`);
     assert(Platform.loadLang() === 'ru', 'applyMergedSnapshot writes the merged language choice too (cloud\'s "ru" here, nothing was ever saved locally)');
+  }
+
+  // --- Cloud lang overriding local: a device with its OWN already-saved
+  // choice ('en') must still end up with the cloud's choice ('ru') once a
+  // newer-savedAt cloud snapshot is merged in and applied - the exact case
+  // js/main.js's post-boot language correction depends on (see
+  // GAME_DESIGN.md's Localization section: "saved choice" there means
+  // "already reconciled with the cloud", not "whatever was saved locally
+  // on a previous visit, cloud or no"). ---
+  {
+    resetStorage();
+    Platform.saveLang('en');
+    const localSnap = CloudSave.buildLocalSnapshot();
+    assert(localSnap.lang === 'en', 'the local snapshot reflects the previously-saved local choice before any merge');
+
+    const cloudSnap = baseSnapshot({ lang: 'ru', savedAt: localSnap.savedAt + 1 }); // cloud wins the savedAt-group
+    const merged = CloudSave.mergeSnapshots(localSnap, cloudSnap);
+    assert(merged.lang === 'ru', 'the merge itself already picks the cloud\'s lang over the local one here');
+
+    CloudSave.applyMergedSnapshot(merged);
+    assert(Platform.loadLang() === 'ru', 'applyMergedSnapshot overwrites the local "en" choice with the cloud\'s "ru" once applied');
   }
 
   // --- Orchestration: boot-time merge + debounced/flushed writes against an

@@ -335,20 +335,22 @@
   // saved choice (already reconciled with the cloud's own "lang" field by
   // js/cloudsave.js's merge policy - see GAME_DESIGN.md) beats everything;
   // absent that, the platform's own reported language (e.g. Yandex's
-  // ysdk.environment.i18n.lang, via Garden.platformAdapter.getLanguage() -
-  // only actually available this early if the platform could answer
-  // synchronously, which a real SDK's still-async handshake usually can't
-  // - see js/platform-yandex.js); absent that, the browser's own
-  // navigator.language; absent even that, "ru" (this game's original
-  // default). Pure and injectable for tests - js/main.js is the only real
-  // caller, passing the genuine three sources. A corrupted/unrecognized
-  // saved value is treated exactly like "nothing saved" (falls through to
-  // the next source), never trusted as-is.
+  // ysdk.environment.i18n.lang, via Garden.platformAdapter.getLanguage());
+  // absent that, the browser's own navigator.language; absent even that,
+  // "en" (no signal at all to go on). js/main.js calls this TWICE - a quick
+  // boot-time guess before the platform adapter's handshake and the cloud
+  // merge have necessarily resolved yet (so `platformLanguage` is often
+  // still unanswered this early), then again once both have actually
+  // settled, correcting the UI in place if the guess was wrong - see
+  // GAME_DESIGN.md's "Language selection" section. Pure and injectable for
+  // tests either way. A corrupted/unrecognized saved value is treated
+  // exactly like "nothing saved" (falls through to the next source), never
+  // trusted as-is.
   function resolveInitialLang(saved, platformLanguage, navigatorLanguage) {
     if (saved === 'ru' || saved === 'en') return saved;
     if (platformLanguage) return normalizeLangCode(platformLanguage);
     if (navigatorLanguage) return normalizeLangCode(navigatorLanguage);
-    return 'ru';
+    return 'en';
   }
 
   // Generic declarative refresh for elements that have no dedicated

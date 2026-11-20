@@ -6,8 +6,12 @@
 // to whatever's in window.GAME_PLATFORM's resolved adapter (defaulting to
 // 'yandex' when unset, and falling back to 'yandex' for an unknown id
 // too), a method the active adapter doesn't implement degrades to a safe
-// default instead of throwing, and rejected adapter calls never leak out
-// of the facade unexpectedly. A deliberately FAKE adapter (swapped into
+// default instead of throwing, rejected adapter calls never leak out of the
+// facade unexpectedly, and getLanguage() reports null while the active
+// adapter's own handshake is still pending, then the real answer once
+// init() resolves - the exact "platform language resolves late" timing
+// js/main.js's own two-phase language resolution exists to work around (see
+// GAME_DESIGN.md's Localization section). A deliberately FAKE adapter (swapped into
 // Garden.platformYandex before the very first init() call - see the
 // module-level comment on why this ordering matters) is used throughout,
 // so this file never touches a real SDK, window, or document either.
@@ -59,12 +63,22 @@ async function main() {
   );
 
   const savedPayloads = [];
+  // Language resolves LATE - exactly like a real Yandex SDK handshake
+  // (ysdk.environment.i18n.lang is only readable once window.YaGames.init()
+  // itself has resolved, see js/platform-yandex.js's real backend): the
+  // adapter reports no language at all (null, the same "unavailable" shape
+  // a failed/declined handshake would produce) until its own init() has
+  // actually finished, then answers for real - js/main.js's own two-phase
+  // language resolution exists specifically because this facade's
+  // getLanguage() behaves exactly like this on a real platform.
+  let platformHandshakeDone = false;
   const fakeAdapter = makeFakeAdapter({
     capabilities: { rewardedAds: true, cloudSave: true, leaderboard: false, serverTime: true },
+    init: () => new Promise((resolve) => setTimeout(() => { platformHandshakeDone = true; resolve(); }, 20)),
     loadData: () => Promise.resolve({ fromCloud: true }),
     saveData: (obj) => { savedPayloads.push(obj); return Promise.resolve(true); },
     getServerTime: () => Promise.resolve(123456),
-    getLanguage: () => 'ru',
+    getLanguage: () => (platformHandshakeDone ? 'ru' : null),
     submitScore: (name, value) => { fakeAdapter._lastSubmit = { name, value }; },
   });
   // Swapped in BEFORE the only init() call of this process - js/platform-
@@ -84,7 +98,10 @@ async function main() {
   globalThis.window = globalThis.window || {};
   globalThis.window.GAME_PLATFORM = 'some-unknown-platform-id';
 
-  await Platform.init();
+  const initPromise = Platform.init();
+  assert(Platform.getLanguage() === null, 'getLanguage() reports null while the active adapter\'s own handshake is still pending');
+  await initPromise;
+  assert(Platform.getLanguage() === 'ru', 'getLanguage() reports the real answer once init() has actually resolved');
   assert(
     Platform.capabilities.rewardedAds === true && Platform.capabilities.leaderboard === false && Platform.capabilities.serverTime === true,
     'capabilities reflect the active adapter\'s own object once init() resolves'

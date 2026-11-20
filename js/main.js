@@ -165,16 +165,19 @@
     const PlatformAdapter = Garden.platformAdapter;
     const I18n = Garden.i18n;
 
-    // Language: an explicit saved choice always wins (already reconciled
-    // with the cloud's own "lang" field by js/cloudsave.js's merge policy -
-    // see GAME_DESIGN.md's Localization section); absent that, the
-    // platform's own reported language if it already has an answer this
-    // early (a real SDK's handshake is usually still async at this point,
-    // so this mostly matters for a platform that can answer
-    // synchronously); absent that, the browser's own locale; absent even
-    // that, "ru" (this game's original default). Must run before
-    // Garden.render.createRenderer(dom) below, since that constructor
-    // renders every static string once already.
+    // Language, take one: a quick boot-time GUESS, since this must run
+    // before Garden.render.createRenderer(dom) below (that constructor
+    // renders every static string once already) - well before the
+    // platform adapter's own handshake or the cloud-save merge have
+    // necessarily resolved (PlatformAdapter.getLanguage() is only actually
+    // answered this early by a platform that can answer synchronously -
+    // the mock backend's ?lang= read does, a real SDK's still-async
+    // handshake usually doesn't - and `platform.loadLang()` here is
+    // whatever was saved locally on a PREVIOUS visit, not yet reconciled
+    // against the cloud's own "lang" field). Corrected for real, if it
+    // guessed wrong, by the second resolution below once both of those
+    // sources are actually trustworthy - see GAME_DESIGN.md's "Language
+    // selection" section for the full two-phase rationale.
     const resolvedLang = I18n.resolveInitialLang(
       platform.loadLang(),
       PlatformAdapter.getLanguage(),
@@ -427,19 +430,15 @@
     // button/title/empty-state text) without needing any markup of its own.
     const leaderboardScreen = PlatformAdapter.createLeaderboardScreen(dom);
 
-    // RU/EN switch settings row (see js/i18n.js's createSettingsRow) - no
-    // slot in index.html, same "build once in JS" convention every other
-    // settings control on this screen already uses. Applied immediately,
-    // no reload: every other screen's static text is re-applied too
-    // (either via its own render()/refresh, or via the generic
-    // [data-i18n] scan for the few spots with no refresh of their own -
-    // see GAME_DESIGN.md's Localization section), and the live game
-    // screen's dynamic bits (score/level/helpers/lives) get a fresh
-    // render() pass so they never stay stale until the next unrelated
-    // game event.
-    const langRow = I18n.createSettingsRow(dom, function (langId) {
-      if (langId === I18n.getLang()) return;
-      platform.saveLang(langId);
+    // Re-applies a language everywhere: every screen's static text (either
+    // via its own render()/refresh, or via the generic [data-i18n] scan for
+    // the few spots with no refresh of their own - see GAME_DESIGN.md's
+    // Localization section), and the live game screen's dynamic bits
+    // (score/level/helpers/lives) get a fresh render() pass so they never
+    // stay stale until the next unrelated game event. Shared by the manual
+    // Settings switch below and the one-time post-boot correction further
+    // down (once the platform/cloud "lang" sources are actually known).
+    function applyLang(langId) {
       I18n.setLang(langId);
       document.documentElement.lang = langId;
       I18n.applyDomTranslations();
@@ -449,6 +448,16 @@
       menuScreen.render();
       checkinScreen.render();
       renderer.render(game.getSnapshot());
+    }
+
+    // RU/EN switch settings row (see js/i18n.js's createSettingsRow) - no
+    // slot in index.html, same "build once in JS" convention every other
+    // settings control on this screen already uses. Applied immediately,
+    // no reload, via applyLang() above.
+    const langRow = I18n.createSettingsRow(dom, function (langId) {
+      if (langId === I18n.getLang()) return;
+      platform.saveLang(langId);
+      applyLang(langId);
     });
     if (langRow) langRow.applyActive(resolvedLang);
 
@@ -464,12 +473,37 @@
     // is already interactive - never blocks it. If the merge actually
     // changed anything visible (progress, helper charges, daily-gift/
     // challenge state, ...), re-render the menu/daily-gift badge so it's
-    // never showing stale pre-merge data.
-    Garden.cloudsave.init(function (changed) {
-      if (changed) {
-        menuScreen.render();
-        checkinScreen.render();
-      }
+    // never showing stale pre-merge data. Also resolved as a promise (below)
+    // purely so the language re-resolution can wait on "the cloud-save load
+    // has finished" without adding any new polling/timeout of its own.
+    const cloudSaveLoaded = new Promise(function (resolve) {
+      Garden.cloudsave.init(function (changed) {
+        if (changed) {
+          menuScreen.render();
+          checkinScreen.render();
+        }
+        resolve();
+      });
+    });
+
+    // Language, take two: now that the platform adapter's own handshake
+    // (kicked off at the very top of this file) AND the cloud-save load
+    // just above have both actually settled - whichever already-in-flight
+    // promise/fallback gets there first, no extra waiting added here, and
+    // neither promise ever rejects (see js/platform-adapter.js's init() and
+    // cloudsave.js's init(), both internally fail-safe) - re-run the exact
+    // same priority chain with now-trustworthy answers (a real platform
+    // language, and a `garden.lang` that's already reconciled against the
+    // cloud's own "lang" field by the merge above) and correct the UI in
+    // place if the boot-time guess got it wrong. A no-op on the very common
+    // case where the guess already matched.
+    Promise.all([PlatformAdapter.init(), cloudSaveLoaded]).then(function () {
+      const finalLang = I18n.resolveInitialLang(
+        platform.loadLang(),
+        PlatformAdapter.getLanguage(),
+        typeof navigator !== 'undefined' ? navigator.language : null
+      );
+      if (finalLang !== I18n.getLang()) applyLang(finalLang);
     });
 
     // Debug-only: simulates the passage of days for the daily gift, without
