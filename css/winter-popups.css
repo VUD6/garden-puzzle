@@ -401,3 +401,148 @@ html[data-theme="garden"] .game-screen:has(> .ad-message:not([hidden])) .board {
   width: min(100cqw, 100cqh) !important;
   height: min(100cqw, 100cqh) !important;
 }
+
+/* RU/EN layout: settings controls and wrapping use intrinsic text widths. */
+:root {
+  --locale-control-gap: 6px;
+  --locale-control-padding: 10px;
+  --locale-label-size: .875rem;
+  --locale-row-gap: 8px;
+}
+.settings-card .setting-lang {
+  min-height: var(--winter-touch);
+}
+.lang-switch {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--locale-control-gap);
+}
+.overlay-card .lang-switch button.lang-option {
+  min-width: var(--winter-touch);
+  min-height: var(--winter-touch);
+  padding: var(--winter-ui-gap) var(--locale-control-padding);
+  border: var(--winter-plaque-rule) solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--locale-label-size);
+}
+.overlay-card .lang-switch button.lang-option.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+html[data-theme="winter"] .winter-plaque .lang-option.active {
+  background: var(--pine);
+  color: var(--snow);
+  border-color: var(--winter-primary-edge);
+}
+.lang-option:focus-visible {
+  outline: var(--winter-focus-width) solid var(--ink);
+  outline-offset: var(--winter-focus-width);
+}
+.settings-card .settings-row {
+  gap: var(--locale-row-gap);
+  min-width: 0;
+}
+.settings-card .settings-row-label {
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.settings-card :is(.theme-switch, .lang-switch) {
+  max-width: 100%;
+}
+.theme-option, .lang-option {
+  white-space: normal;
+}
+.menu-card :is(button, .menu-title, .menu-subtitle, .menu-total-stars),
+.overlay-card :is(button, h2, p),
+.rules-bar .rule-text {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.menu-card button {
+  height: auto;
+  min-height: var(--winter-touch);
+}
+.topbar-center, .topbar-right, .pill {
+  min-width: 0;
+}
+.level-pill, .score-pill { text-align: center; overflow-wrap: anywhere; }
+.settings-card .theme-option { min-height: var(--winter-touch); }
+html[data-theme="garden"] .settings-card {
+  width: min(100%, var(--winter-plaque-width));
+  max-width: var(--winter-plaque-width);
+  max-height: 100%;
+  overflow: auto;
+  padding: var(--winter-plaque-padding);
+}
+html[data-theme="garden"] .settings-card .toggle-switch {
+  min-height: var(--winter-touch);
+}
+html[data-theme="garden"] .settings-card .overlay-close-button {
+  min-height: var(--winter-touch);
+  min-width: var(--winter-touch);
+}
+html[data-theme="garden"] .settings-card h2 {
+  padding-inline: var(--winter-touch);
+}
+.rules-bar.popup-mode .rule-text { display: block; }
+
+
+:root { --locale-rules-width: 380px; --locale-rules-diagram: 44px; }
+.rules-bar.popup-mode {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  align-content: normal;
+  overflow: auto;
+  gap: var(--locale-row-gap);
+  padding: calc(var(--winter-touch) + var(--winter-plaque-margin)) var(--winter-plaque-margin) var(--winter-plaque-margin);
+}
+.rules-bar.popup-mode .rules-popup-title {
+  display: block;
+  flex-basis: auto;
+  width: 100%;
+}
+.rules-bar.popup-mode .rules-popup-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--winter-touch);
+  height: var(--winter-touch);
+}
+.rules-bar.popup-mode .rule-card {
+  flex: none;
+  width: 100%;
+  max-width: var(--locale-rules-width);
+  min-height: var(--winter-touch);
+}
+.rules-bar.popup-mode .rule-diagram {
+  width: var(--locale-rules-diagram);
+  height: var(--locale-rules-diagram);
+}
+
+:root { --locale-landscape-title: clamp(1.75rem, 4vw, 2.25rem); }
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-theme="winter"] .menu-title {
+    font-size: var(--locale-landscape-title);
+  }
+}
+
+:root { --locale-rule-text: .6875rem; }
+.rules-bar:not(.popup-mode) .rule-card {
+  flex-direction: column;
+  text-align: center;
+  gap: var(--winter-compact-gap);
+  padding: var(--winter-rule-padding);
+}
+.rules-bar:not(.popup-mode) .rule-text {
+  display: block;
+  width: 100%;
+  font-size: var(--locale-rule-text);
+}
