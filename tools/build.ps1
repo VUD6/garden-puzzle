@@ -18,24 +18,28 @@
   denylist - they're simply never among the four items copied, same as
   CLAUDE.md's existing "what's shippable" rule.
 
-  Adding a platform later (e.g. Playgama): add its id to -Platform's
-  ValidateSet below AND one entry to $platformConfigById - two small,
-  self-contained edits in this one file, plus its own js/platform-<id>.js
-  adapter file and <script> tag in index.html (see GAME_DESIGN.md). Nothing
-  about the copy/zip logic itself needs to change.
+  Adding a platform later: add its id to -Platform's ValidateSet below AND
+  one entry to $platformConfigById - two small, self-contained edits in
+  this one file, plus its own js/platform-<id>.js adapter file and
+  <script> tag in index.html (see GAME_DESIGN.md). The copy/zip logic
+  itself stays the same for every platform EXCEPT how the staged
+  index.html's own <head>/SDK-tag area is rewritten - see the 'playgama'
+  branch below for the one platform so far that needs anything beyond the
+  shared "insert one config <script> tag" step every platform gets.
 
 .PARAMETER Platform
-  Which platform to build for. Defaults to 'yandex' (the only platform
-  shipped today).
+  Which platform to build for. Defaults to 'yandex'.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools\build.ps1
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools\build.ps1 -Platform yandex
+.EXAMPLE
+  powershell -ExecutionPolicy Bypass -File tools\build.ps1 -Platform playgama
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('yandex')]
+    [ValidateSet('yandex', 'playgama')]
     [string]$Platform = 'yandex'
 )
 
@@ -43,10 +47,19 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).ProviderPath
 
+# The Bridge SDK CDN script - v2 ("Current" per Playgama's own docs index at
+# the time this was written; the sibling v1 doc tree is explicitly marked
+# "Legacy" there). Must be the FIRST thing in <head>, loaded synchronously
+# (no async/defer - see https://wiki.playgama.com/playgama/bridge-sdk/setup),
+# so window.bridge already exists by the time every other script (all at
+# the end of body) runs.
+$playgamaBridgeScriptTag = '<script src="https://bridge.playgama.com/v2/stable/playgama-bridge.js"></script>'
+
 # The ONLY per-platform data this script needs - everything else about the
 # build (which files to copy, how to zip) is identical across platforms.
 $platformConfigById = @{
-    'yandex' = "window.GAME_PLATFORM = 'yandex';`n"
+    'yandex'   = "window.GAME_PLATFORM = 'yandex';`n"
+    'playgama' = "window.GAME_PLATFORM = 'playgama';`n"
 }
 if (-not $platformConfigById.ContainsKey($Platform)) {
     throw "No platform-config template registered for '$Platform' - add one to `$platformConfigById in this script."
@@ -81,17 +94,48 @@ try {
     $configStagedPath = Join-Path $stagingDir $configRelativePath
     [System.IO.File]::WriteAllText($configStagedPath, $platformConfigById[$Platform], (New-Object System.Text.UTF8Encoding($false)))
 
-    # Inserted right after the SDK tag (before every Garden.* script) in the
-    # STAGED index.html only - the repo's own index.html is never opened
-    # for writing here.
+    # Rewrites the STAGED index.html only - the repo's own index.html is
+    # never opened for writing here. Read via [System.IO.File]::ReadAllText
+    # with an explicit UTF8 encoding, NOT Get-Content -Raw (which, in
+    # Windows PowerShell 5.1, decodes a BOM-less file using the system's
+    # ANSI codepage rather than UTF-8) - index.html's own Cyrillic <title>/
+    # meta-description text has no BOM, and Get-Content -Raw was silently
+    # mangling it into mojibake in the STAGED/zipped output only (the repo's
+    # own index.html was never touched, so this never showed up outside a
+    # built zip - caught while verifying the first real dist\garden-
+    # playgama.zip output). ReadAllText(path, Encoding.UTF8) still handles a
+    # BOM correctly if one is ever added later, same as the already-correct
+    # read/write helpers in tools/stamp-version.ps1.
     $stagedIndexPath = Join-Path $stagingDir 'index.html'
-    $indexText = Get-Content -LiteralPath $stagedIndexPath -Raw
+    $indexText = [System.IO.File]::ReadAllText($stagedIndexPath, [System.Text.Encoding]::UTF8)
     $sdkTag = '<script src="/sdk.js"></script>'
-    if ($indexText -notmatch [regex]::Escape($sdkTag)) {
-        throw "Could not find '$sdkTag' in the staged index.html to insert js/platform-config.js's own <script> tag after."
-    }
     $configTag = '<script src="js/platform-config.js"></script>'
-    $indexText = $indexText.Replace($sdkTag, $sdkTag + "`n" + $configTag)
+    if ($indexText -notmatch [regex]::Escape($sdkTag)) {
+        throw "Could not find '$sdkTag' in the staged index.html."
+    }
+
+    if ($Platform -eq 'playgama') {
+        # Playgama's own game requirements (1.1.1/1.1.2) and setup docs are
+        # explicit: the Bridge script must be the FIRST thing in <head>,
+        # loaded synchronously - and the Yandex SDK tag has no business in a
+        # non-Yandex build at all, so it's removed rather than left dead.
+        # js/platform-config.js (window.GAME_PLATFORM = 'playgama') is
+        # inserted where the SDK tag used to be, keeping it right before
+        # every Garden.* script exactly like the 'yandex' branch below does.
+        if ($indexText -notmatch '<head>') {
+            throw "Could not find '<head>' in the staged index.html to insert the Bridge script tag after."
+        }
+        $indexText = $indexText.Replace('<head>', '<head>' + "`n" + $playgamaBridgeScriptTag)
+        $indexText = $indexText.Replace($sdkTag, $configTag)
+    } else {
+        # 'yandex' (and any future platform that still wants the Yandex SDK
+        # tag as its own anchor point) - inserted right after the SDK tag,
+        # before every Garden.* script, exactly as before this platform
+        # branch existed. The Yandex build's index.html is otherwise
+        # byte-for-byte what it always was.
+        $indexText = $indexText.Replace($sdkTag, $sdkTag + "`n" + $configTag)
+    }
+
     [System.IO.File]::WriteAllText($stagedIndexPath, $indexText, (New-Object System.Text.UTF8Encoding($false)))
 
     $zipPath = Join-Path $distDir ("garden-$Platform.zip")

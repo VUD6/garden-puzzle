@@ -312,6 +312,17 @@
       },
     });
 
+    // The platform's own audio-mute toggle (Playgama's Bridge
+    // AUDIO_STATE_CHANGED event, via js/platform-playgama.js - no Yandex
+    // equivalent, so this is a silent no-op there, same as onPauseResume
+    // above is for a platform with no app-switch event). Routed through
+    // the same generic multi-reason mute system every other pause/mute
+    // source already uses (see GAME_DESIGN.md's Localization-adjacent
+    // "Platform layer" section) rather than a platform-id check.
+    PlatformAdapter.onAudioStateChange(function (enabled) {
+      audio.setExternalMute('platformAudio', !enabled);
+    });
+
     function enterGame() {
       router.showScreen('game');
       audio.setMusicTrack('game');

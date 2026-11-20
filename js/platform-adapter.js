@@ -30,15 +30,15 @@
   // init(), by which point every script has already loaded.
   const ADAPTERS = {
     yandex: function () { return root.Garden.platformYandex; },
+    playgama: function () { return root.Garden.platformPlaygama; },
   };
   const DEFAULT_PLATFORM_ID = 'yandex';
 
-  // Conservative defaults until init() resolves and replaces this with the
-  // active adapter's own (static) capabilities object - "unsupported until
-  // proven otherwise" is the safe default for "so the UI can hide
-  // unsupported features" to actually mean something even in the brief
-  // window before init() has picked an adapter.
-  let capabilities = { rewardedAds: false, cloudSave: false, leaderboard: false, serverTime: false };
+  // Conservative defaults until an adapter is picked at all (before the
+  // very first init() call) - "unsupported until proven otherwise" is the
+  // safe default for "so the UI can hide unsupported features" to actually
+  // mean something even in that brief window.
+  const DEFAULT_CAPABILITIES = { rewardedAds: false, cloudSave: false, leaderboard: false, serverTime: false };
 
   let activeAdapter = null;
   let initPromise = null;
@@ -67,13 +67,11 @@
   }
 
   // Idempotent: safe to call more than once, always returns the SAME
-  // promise. Picks the active adapter synchronously (capabilities are
-  // available immediately, before the promise even settles - they're a
-  // static property of the adapter module, not something that needs an
-  // SDK round trip), then delegates the actual handshake to it. Never
-  // rejects - a platform adapter that can't reach its real SDK is
-  // responsible for falling back to its own mock/degraded mode internally
-  // (see js/platform-yandex.js), so the menu is never blocked here either.
+  // promise. Picks the active adapter synchronously, then delegates the
+  // actual handshake to it. Never rejects - a platform adapter that can't
+  // reach its real SDK is responsible for falling back to its own mock/
+  // degraded mode internally (see js/platform-yandex.js), so the menu is
+  // never blocked here either.
   function init() {
     if (initPromise) return initPromise;
     activeAdapter = resolveAdapter();
@@ -81,7 +79,6 @@
       initPromise = Promise.resolve();
       return initPromise;
     }
-    capabilities = activeAdapter.capabilities || capabilities;
     initPromise = Promise.resolve(activeAdapter.init()).catch(function () {});
     return initPromise;
   }
@@ -121,6 +118,19 @@
   // anything to forward to, and these become safe no-ops/null results. ---
 
   function onPauseResume(handlers) { forward('onPauseResume', [handlers]); }
+  // Not part of the minimum contract - only Playgama's Bridge adapter
+  // implements this today (its platform-level audio-mute toggle has no
+  // Yandex equivalent, see js/platform-playgama.js's own comment); a
+  // missing implementation (Yandex) is a silent no-op, same as every other
+  // extra below, so this changes nothing about Yandex's own behavior.
+  function onAudioStateChange(handler) { forward('onAudioStateChange', [handler]); }
+  // Fails safe toward "hide" (false) rather than "show" if the active
+  // adapter has no answer - matches capabilities' own "unsupported until
+  // proven otherwise" philosophy. Not consumed by any game code today (this
+  // game has zero external-link UI at all, by design - see CLAUDE.md);
+  // exported now so a future external-facing element has somewhere correct
+  // to check first, without ever needing a platform-id check of its own.
+  function isExternalLinksAllowed() { return forward('isExternalLinksAllowed', [], false); }
   function isAuthorized() { return forward('isAuthorized', [], false); }
   function openAuthDialog(callback) { forward('openAuthDialog', [callback]); }
   function createLeaderboardScreen(dom) {
@@ -151,8 +161,17 @@
     submitScore,
     getServerTime,
     getLanguage,
-    get capabilities() { return capabilities; },
+    // Reads the active adapter's OWN capabilities property live, on every
+    // access, rather than caching a one-time snapshot at init() time - that
+    // distinction is invisible for Yandex (a static object, always the same
+    // value) but matters for an adapter whose real capabilities are only
+    // known once its own async handshake resolves (see
+    // js/platform-playgama.js), well after this facade's own init() call
+    // already returned.
+    get capabilities() { return (activeAdapter && activeAdapter.capabilities) || DEFAULT_CAPABILITIES; },
     onPauseResume,
+    onAudioStateChange,
+    isExternalLinksAllowed,
     isAuthorized,
     openAuthDialog,
     createLeaderboardScreen,

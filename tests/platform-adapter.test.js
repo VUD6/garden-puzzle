@@ -73,13 +73,29 @@ async function main() {
   // getLanguage() behaves exactly like this on a real platform.
   let platformHandshakeDone = false;
   const fakeAdapter = makeFakeAdapter({
-    capabilities: { rewardedAds: true, cloudSave: true, leaderboard: false, serverTime: true },
     init: () => new Promise((resolve) => setTimeout(() => { platformHandshakeDone = true; resolve(); }, 20)),
     loadData: () => Promise.resolve({ fromCloud: true }),
     saveData: (obj) => { savedPayloads.push(obj); return Promise.resolve(true); },
     getServerTime: () => Promise.resolve(123456),
     getLanguage: () => (platformHandshakeDone ? 'ru' : null),
     submitScore: (name, value) => { fakeAdapter._lastSubmit = { name, value }; },
+  });
+  // A GETTER, defined directly (Object.assign inside makeFakeAdapter would
+  // flatten a getter passed via `overrides` into a one-time snapshot, which
+  // is exactly the bug being tested for here) - exercises the facade's own
+  // capabilities getter reading the active adapter's capabilities live on
+  // every access (see js/platform-adapter.js's own comment on why this
+  // isn't a one-time snapshot taken at init() time), which matters for an
+  // adapter like js/platform-playgama.js whose real capabilities are only
+  // known once ITS OWN async handshake resolves, same timing as
+  // getLanguage() above.
+  Object.defineProperty(fakeAdapter, 'capabilities', {
+    enumerable: true,
+    get: function () {
+      return platformHandshakeDone
+        ? { rewardedAds: true, cloudSave: true, leaderboard: false, serverTime: true }
+        : { rewardedAds: false, cloudSave: false, leaderboard: false, serverTime: false };
+    },
   });
   // Swapped in BEFORE the only init() call of this process - js/platform-
   // adapter.js picks its active adapter once and caches that choice for
@@ -100,6 +116,10 @@ async function main() {
 
   const initPromise = Platform.init();
   assert(Platform.getLanguage() === null, 'getLanguage() reports null while the active adapter\'s own handshake is still pending');
+  assert(
+    Platform.capabilities.rewardedAds === false && Platform.capabilities.serverTime === false,
+    'capabilities read false while the active adapter\'s own handshake is still pending, not a stale snapshot taken when init() was first called'
+  );
   await initPromise;
   assert(Platform.getLanguage() === 'ru', 'getLanguage() reports the real answer once init() has actually resolved');
   assert(
